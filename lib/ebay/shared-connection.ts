@@ -123,6 +123,17 @@ async function sharedAccessToken(): Promise<string> {
       "Der Verschlüsselungsschlüssel muss aus 64 Hex-Zeichen bestehen.",
     );
   }
+  // Reject copied labels, masked values, quotes and line breaks before fetch.
+  // Header construction can otherwise throw TypeError without making a request.
+  if (
+    !/^sb_secret_[A-Za-z0-9_-]+$/.test(secret) &&
+    !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(secret)
+  ) {
+    throw new SharedEbayError(
+      "DATABASE_KEY_INVALID",
+      "SUPABASE_EU_SECRET_KEY hat kein gültiges Schlüssel-Format. In Supabase den vollständigen Secret Key kopieren und im Vercel-Projekt snaplist ersetzen; keine verdeckte Beispielanzeige, Anführungszeichen oder Zeilenumbrüche übernehmen.",
+    );
+  }
   const endpoint = await checkedStep(
     "CONFIGURATION_INVALID",
     "Die Supabase-Adresse ist ungültig. SUPABASE_EU_URL im Vercel-Projekt SNAPLIST prüfen.",

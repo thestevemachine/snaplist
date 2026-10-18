@@ -135,6 +135,22 @@ function request(secret?: string) {
     headers: secret ? { "x-app-secret": secret } : {},
   });
 }
+it.each([
+  "sb_secret_…",
+  "sb_secret_abc\ndef",
+  '"sb_secret_private"',
+  "sb_publishable_private",
+])(
+  "rejects an invalid database key before making requests: %s",
+  async (value) => {
+    vi.stubEnv("SUPABASE_EU_SECRET_KEY", value);
+    const response = await POST(request("access-code"));
+    const result = await response.json();
+    expect(result.code).toBe("DATABASE_KEY_INVALID");
+    expect(JSON.stringify(result)).not.toContain(value);
+    expect(fetchMock).not.toHaveBeenCalled();
+  },
+);
 it("requires authentication before accessing Supabase or eBay", async () => {
   const response = await POST(request());
   expect(response.status).toBe(401);
@@ -180,13 +196,11 @@ it("identifies a malformed Supabase URL without exposing it", async () => {
   expect(fetchMock).not.toHaveBeenCalled();
 });
 it("reports the database step and a safe DNS category without exposing the host", async () => {
-  fetchMock
-    .mockReset()
-    .mockRejectedValue(
-      new TypeError("private-host", {
-        cause: { code: "ENOTFOUND", hostname: "private-host" },
-      }),
-    );
+  fetchMock.mockReset().mockRejectedValue(
+    new TypeError("private-host", {
+      cause: { code: "ENOTFOUND", hostname: "private-host" },
+    }),
+  );
   const response = await POST(request("access-code"));
   const body = await response.text();
   expect(JSON.parse(body).code).toBe("DATABASE_REQUEST_FAILED");
