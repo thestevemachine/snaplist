@@ -22,6 +22,7 @@ interface ListingsViewProps {
   onRenameSku: (groupId: string, sku: string) => void;
   onRetry: (groupId: string) => void;
   onPost: (groupId: string, mode?: "verify" | "publish") => void;
+  onSaveDraft: () => Promise<void>;
   onPostAll: (ids?: string[]) => void;
   onWriteAll: () => void;
   onResume: () => void;
@@ -154,6 +155,7 @@ export function ListingsView(props: ListingsViewProps) {
       onRenameSku={onRenameSku}
       onRetry={onRetry}
       onPost={onPost}
+      onSaveDraft={props.onSaveDraft}
     />
   );
   return (

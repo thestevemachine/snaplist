@@ -466,3 +466,41 @@ test("start new batch warns about unposted drafts, then clears saved work across
   await expect(page.locator(".thumb")).toHaveCount(0);
   await expect(page.locator(".title-input")).toHaveCount(0);
 });
+
+test("SNAPLIST saves an incomplete draft locally without an eBay connection", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.route("**/api/ebay/status", (r) =>
+    r.fulfill({ json: { connected: false } }),
+  );
+  let ebayWrites = 0;
+  await page.route(/\/api\/ebay\/(?:verify|publish|upload-photos)$/, (r) => {
+    ebayWrites++;
+    return r.abort();
+  });
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "SNAPLIST", exact: true }),
+  ).toBeVisible();
+  await expect(page).toHaveTitle(/SNAPLIST/);
+  await draft(page);
+  await page
+    .locator(".title-input")
+    .fill("Mein unvollständiger Brillenentwurf");
+  await page.getByLabel("Price", { exact: true }).fill("");
+  await page
+    .getByRole("button", { name: "Entwurf speichern", exact: true })
+    .click();
+  await expect(
+    page.getByText(
+      "Entwurf auf diesem Gerät gespeichert. Nicht an eBay übertragen.",
+    ),
+  ).toBeVisible();
+  expect(ebayWrites).toBe(0);
+  await page.reload();
+  await expect(page.locator(".title-input")).toHaveValue(
+    "Mein unvollständiger Brillenentwurf",
+  );
+  await expect(page.getByLabel("Price", { exact: true })).toHaveValue("");
+});

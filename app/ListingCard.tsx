@@ -63,6 +63,7 @@ interface ListingCardProps {
   onEdit: (groupId: string, patch: Partial<ListingResult>) => void;
   onRenameSku: (groupId: string, sku: string) => void;
   onRetry: (groupId: string) => void;
+  onSaveDraft: () => Promise<void>;
   onPost: (groupId: string, mode?: "verify" | "publish") => void;
 }
 
@@ -75,8 +76,31 @@ export function ListingCard({
   onRenameSku,
   onRetry,
   onPost,
+  onSaveDraft,
 }: ListingCardProps) {
   const [open, setOpen] = useState(true);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [draftNotice, setDraftNotice] = useState("");
+  useEffect(
+    () => setDraftNotice(""),
+    [group.listing, group.shipping, group.sku, group.photoIds],
+  );
+  const save = async () => {
+    setSavingDraft(true);
+    setDraftNotice("");
+    try {
+      await onSaveDraft();
+      setDraftNotice(
+        "Entwurf auf diesem Gerät gespeichert. Nicht an eBay übertragen.",
+      );
+    } catch {
+      setDraftNotice(
+        "Speichern fehlgeschlagen. Bitte diesen Tab offen lassen und erneut versuchen.",
+      );
+    } finally {
+      setSavingDraft(false);
+    }
+  };
   const listing = group.listing;
   const cover = photoById(group.photoIds[0]);
 
@@ -163,7 +187,9 @@ export function ListingCard({
         <fieldset
           className="listing-card-body"
           disabled={
-            group.postStatus === "posted" || group.postStatus === "posting"
+            savingDraft ||
+            group.postStatus === "posted" ||
+            group.postStatus === "posting"
           }
         >
           <div className="result-field">
@@ -337,6 +363,23 @@ export function ListingCard({
             photoById={photoById}
             onGroupEdit={onGroupEdit}
           />
+          {group.postStatus !== "posted" && (
+            <div className="draft-save-row">
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={save}
+                disabled={savingDraft || group.postStatus === "posting"}
+              >
+                {savingDraft ? "Wird gespeichert…" : "Entwurf speichern"}
+              </button>
+              <p className="post-hint">
+                In SNAPLIST auf diesem Gerät. Änderungen werden auch automatisch
+                gespeichert.
+              </p>
+              {draftNotice && <p role="status">{draftNotice}</p>}
+            </div>
+          )}
           {/* eBay posting */}
           {group.postStatus === "posted" ? (
             <>

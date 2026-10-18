@@ -5,7 +5,10 @@
 `POST /api/ebay/verify` prüft das konkrete Angebot mit `VerifyAddFixedPriceItem`.
 Dabei entsteht weder ein aktives Angebot noch ein Seller-Hub-Entwurf. Die Fotos
 werden vorher über eBay Picture Services hochgeladen. Entwürfe bleiben lokal
-im Browser gespeichert.
+im Browser gespeichert. „Entwurf speichern“ sichert den aktuellen Arbeitsstand
+auf diesem Gerät, auch wenn noch Pflichtfelder fehlen oder eBay nicht verbunden
+ist. Zusätzlich bleibt die automatische Speicherung aktiv. Der Knopf erstellt
+keinen Entwurf im eBay Seller Hub.
 
 `POST /api/ebay/publish` benötigt `confirmed: true`, prüft erneut mit
 `VerifyAddFixedPriceItem` und erstellt genau ein Festpreisangebot mit

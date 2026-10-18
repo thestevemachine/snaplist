@@ -913,6 +913,23 @@ export default function Home() {
     [photoMap, orphanIds, binPrefix, skuStart],
   );
 
+  const saveCurrentDraft = async () => {
+    if (readOnly || !restored)
+      throw new Error(
+        "Dieser Arbeitsbereich ist noch nicht zum Speichern bereit.",
+      );
+    await saveDraft({
+      version: 1,
+      photos,
+      groups: groupsRef.current,
+      orphanIds,
+      binPrefix,
+      skuStart,
+      step,
+      updatedAt: Date.now(),
+    });
+  };
+
   const postAll = async (_selected?: string[]) => {
     setError(
       "Für den ersten Test bitte genau eine Brille in der Detailansicht prüfen und einzeln veröffentlichen.",
@@ -989,10 +1006,9 @@ export default function Home() {
           🪄
         </span>
         <div>
-          <h1>Listing Writer</h1>
+          <h1>SNAPLIST</h1>
           <p>
-            Upload a pile of photos · auto-sort into items · write every
-            listing.
+            Fotos hochladen · Artikel sortieren · eBay-Angebote vorbereiten.
           </p>
         </div>
       </header>
@@ -1215,6 +1231,7 @@ export default function Home() {
           onRenameSku={renameSku}
           onRetry={writeGroup}
           onPost={postGroup}
+          onSaveDraft={saveCurrentDraft}
           onPostAll={postAll}
           onWriteAll={writeAll}
           onResume={() =>

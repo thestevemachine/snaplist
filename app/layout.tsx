@@ -4,9 +4,9 @@ import "./globals.css";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Listing Writer — turn photos into eBay listings",
+  title: "SNAPLIST — Fotos zu eBay-Angeboten",
   description:
-    "Upload your item photos and get a ready-to-post eBay listing in seconds.",
+    "Fotos hochladen, Artikel sortieren und eBay-Angebote kontrolliert vorbereiten.",
 };
 
 export const viewport: Viewport = {
