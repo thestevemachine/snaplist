@@ -85,7 +85,7 @@ async function draft(page: Page) {
 }
 async function shipping(page: Page) {
   await expect(
-    page.getByRole("button", { name: "Post this to eBay" }),
+    page.getByRole("button", { name: "Auf eBay.de veröffentlichen…" }),
   ).toBeDisabled();
   await page
     .getByLabel("eBay condition", { exact: true })
@@ -136,7 +136,7 @@ test("restores edited drafts and blocks publication with missing facts", async (
   await page.locator(".title-input").fill("Seller reviewed camera");
   await page.getByLabel("Brand", { exact: true }).fill("");
   await expect(
-    page.getByRole("button", { name: "Post this to eBay" }),
+    page.getByRole("button", { name: "Auf eBay.de veröffentlichen…" }),
   ).toBeDisabled();
   await expect(page.getByRole("status")).toContainText("Saved on this device");
   await page.reload();
@@ -151,6 +151,7 @@ test("partial image upload stops publication; retry preserves reviewed fields", 
 }) => {
   let calls = 0;
   let fail = true;
+  page.on("dialog", (d) => d.accept());
   await setup(page);
   await page.route("**/api/ebay/upload-photos", (r) =>
     r.fulfill({
@@ -172,17 +173,89 @@ test("partial image upload stops publication; retry preserves reviewed fields", 
   });
   await draft(page);
   await shipping(page);
-  await page.getByRole("button", { name: "Post this to eBay" }).click();
+  await page
+    .getByRole("button", { name: "Auf eBay.de veröffentlichen…" })
+    .click();
   await expect(
     page.getByText(/Some selected photos failed to upload/),
   ).toBeVisible();
   expect(calls).toBe(0);
   fail = false;
-  await page.getByRole("button", { name: "Post this to eBay" }).click();
+  await page
+    .getByRole("button", { name: "Auf eBay.de veröffentlichen…" })
+    .click();
   await expect(
     page.getByText("Posted to eBay", { exact: false }),
   ).toBeVisible();
   expect(calls).toBe(1);
+});
+test("verification never publishes; a single publication requires confirmation with exact EUR price", async ({
+  page,
+}) => {
+  await setup(page);
+  let verified = 0,
+    published = 0;
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.route("**/api/ebay/upload-photos", (r) =>
+    r.fulfill({
+      json: {
+        ok: true,
+        urls: ["https://i.ebayimg.com/1.jpg", "https://i.ebayimg.com/2.jpg"],
+      },
+    }),
+  );
+  await page.route("**/api/ebay/verify", (r) => {
+    verified++;
+    expect(r.request().postDataJSON().confirmed).toBe(false);
+    return r.fulfill({
+      json: {
+        success: true,
+        verified: true,
+        fees: [{ name: "InsertionFee", amount: "0.35", currency: "EUR" }],
+      },
+    });
+  });
+  await page.route("**/api/ebay/publish", (r) => {
+    published++;
+    expect(r.request().postDataJSON().confirmed).toBe(true);
+    expect(r.request().postDataJSON().listing.suggested_price).toBe(9999);
+    return r.fulfill({ json: { success: true, listingId: "123456789012" } });
+  });
+  await draft(page);
+  await shipping(page);
+  await page.getByLabel("Price", { exact: true }).fill("9999");
+  await page
+    .getByRole("button", { name: "Bei eBay prüfen · nicht veröffentlichen" })
+    .click();
+  await expect(
+    page.getByText(/eBay-Prüfung erfolgreich. Nicht veröffentlicht/),
+  ).toBeVisible();
+  expect(verified).toBe(1);
+  expect(published).toBe(0);
+  await expect(
+    page.getByText(/Geschätzte Gebühren: InsertionFee: 0.35 EUR/),
+  ).toBeVisible();
+  page.once("dialog", (d) => {
+    expect(d.message()).toContain("9999.00 EUR");
+    void d.dismiss();
+  });
+  await page
+    .getByRole("button", { name: "Auf eBay.de veröffentlichen…" })
+    .click();
+  expect(published).toBe(0);
+  page.once("dialog", (d) => {
+    expect(d.message()).toContain("kein Entwurf");
+    void d.accept();
+  });
+  await page
+    .getByRole("button", { name: "Auf eBay.de veröffentlichen…" })
+    .click();
+  await expect(
+    page.getByRole("link", { name: "Angebot bei eBay öffnen" }),
+  ).toHaveAttribute("href", "https://www.ebay.de/itm/123456789012");
+  expect(published).toBe(1);
+  expect(errors).toEqual([]);
 });
 test("second tab cannot overwrite the active workspace", async ({
   page,
@@ -355,7 +428,7 @@ test("defaults the seller policies and allows review without package measurement
     .getByLabel("eBay condition", { exact: true })
     .selectOption("USED_EXCELLENT");
   await expect(
-    page.getByRole("button", { name: "Post this to eBay" }),
+    page.getByRole("button", { name: "Auf eBay.de veröffentlichen…" }),
   ).toBeEnabled();
   await page
     .getByLabel("Shipping policy", { exact: true })

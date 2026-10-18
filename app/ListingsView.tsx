@@ -21,7 +21,7 @@ interface ListingsViewProps {
   onEdit: (groupId: string, patch: Partial<ListingResult>) => void;
   onRenameSku: (groupId: string, sku: string) => void;
   onRetry: (groupId: string) => void;
-  onPost: (groupId: string) => void;
+  onPost: (groupId: string, mode?: "verify" | "publish") => void;
   onPostAll: (ids?: string[]) => void;
   onWriteAll: () => void;
   onResume: () => void;
@@ -334,27 +334,10 @@ export function ListingsView(props: ListingsViewProps) {
       )}
       {bulkNotice && <p aria-live="polite">{bulkNotice}</p>}
       {ebayConnected && ready.length > 0 && (
-        <div className="post-all-bar">
-          <span>Review your drafts, then publish the ready items.</span>
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={active}
-            onClick={() => onPostAll()}
-          >
-            🚀 Post all {ready.length} to eBay
-          </button>
-          {chosen.length > 0 && (
-            <button
-              type="button"
-              disabled={active || !ready.some((g) => selected.has(g.id))}
-              onClick={() => onPostAll([...selected])}
-            >
-              Post selected ready (
-              {ready.filter((g) => selected.has(g.id)).length})
-            </button>
-          )}
-        </div>
+        <p>
+          Für den ersten Test eine Brille in „Detailed cards“ öffnen, bei eBay
+          prüfen und einzeln veröffentlichen.
+        </p>
       )}
       {table ? (
         <div className="batch-table-scroll">

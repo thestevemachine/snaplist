@@ -107,21 +107,17 @@ async function seed(page: Page, count: number, unfinished = false) {
   return () => optionsCalls;
 }
 for (const count of [10, 25, 100])
-  test(`${count} items: one policy load, edits persist, bounded publication with no duplicates`, async ({
+  test(`${count} items: edits persist while bulk publication stays unavailable for the single-item test`, async ({
     page,
-  }, testInfo) => {
-    const started = Date.now();
+  }) => {
     const optionsCalls = await seed(page, count);
-    await expect(
-      page.getByRole("button", {
-        name: `🚀 Post all ${count} to eBay`,
-        exact: true,
-      }),
-    ).toBeEnabled();
-    expect(optionsCalls()).toBe(1);
     await expect(page.locator(".batch-table tbody > tr")).toHaveCount(
       Math.min(count, 25),
     );
+    expect(optionsCalls()).toBe(1);
+    await expect(
+      page.getByRole("button", { name: /Post all|Post selected/ }),
+    ).toHaveCount(0);
     await page
       .getByLabel("Title BATCH-0", { exact: true })
       .fill("Reviewed first item");
@@ -145,99 +141,10 @@ for (const count of [10, 25, 100])
     await expect(
       page.getByLabel("Shipping BATCH-0", { exact: true }),
     ).toHaveValue("heavy");
-    const skus: string[] = [];
-    let active = 0,
-      maximum = 0;
-    await page.route("**/api/ebay/upload-photos", async (r) => {
-      const { images } = r.request().postDataJSON();
-      return r.fulfill({
-        json: {
-          ok: true,
-          urls: images.map(
-            (_: unknown, i: number) => `https://i.ebayimg.com/${i}.jpg`,
-          ),
-        },
-      });
-    });
-    await page.route("**/api/ebay/publish", async (r) => {
-      const body = r.request().postDataJSON();
-      active++;
-      maximum = Math.max(maximum, active);
-      skus.push(body.sku);
-      if (body.sku === "BATCH-0") {
-        expect(body.listing.title).toBe("Reviewed first item");
-        expect(body.shipping.fulfillmentPolicyId).toBe("heavy");
-      }
-      expect(body.expectedPhotoCount).toBe(5);
-      await new Promise((resolve) => setTimeout(resolve, 20));
-      active--;
-      return r.fulfill({
-        json: { success: true, listingId: `listing-${body.sku}` },
-      });
-    });
-    await page
-      .getByRole("button", {
-        name: `🚀 Post all ${count} to eBay`,
-        exact: true,
-      })
-      .click();
-    await expect(page.locator(".result-head .badge")).toContainText(
-      `${count} posted`,
-      { timeout: 30000 },
-    );
-    expect(skus).toHaveLength(count);
-    expect(new Set(skus).size).toBe(count);
-    expect(maximum).toBe(2);
-    await testInfo.attach("simulated-batch-metrics", {
-      body: JSON.stringify({
-        items: count,
-        photos: count * 5,
-        policyRequestsPerLoad: optionsCalls() / 2,
-        maxConcurrentPublish: maximum,
-        published: skus.length,
-        totalTestMs: Date.now() - started,
-        externalAPIs: "mocked; not real AI/eBay throughput",
-      }),
-      contentType: "application/json",
-    });
+    await expect(
+      page.getByRole("button", { name: /Post all|Post selected/ }),
+    ).toHaveCount(0);
   });
-test("paused publication resumes only the selected items", async ({ page }) => {
-  await seed(page, 10);
-  let release!: () => void;
-  const hold = new Promise<void>((r) => (release = r));
-  const skus: string[] = [];
-  await page.route("**/api/ebay/upload-photos", async (r) => {
-    await hold;
-    return r.fulfill({
-      json: {
-        ok: true,
-        urls: Array.from(
-          { length: r.request().postDataJSON().images.length },
-          (_, i) => `https://i.ebayimg.com/${i}.jpg`,
-        ),
-      },
-    });
-  });
-  await page.route("**/api/ebay/publish", (r) => {
-    const sku = r.request().postDataJSON().sku;
-    skus.push(sku);
-    return r.fulfill({ json: { success: true, listingId: sku } });
-  });
-  for (const i of [0, 1, 2])
-    await page.getByLabel(`Select BATCH-${i}`, { exact: true }).check();
-  await page
-    .getByRole("button", { name: "Post selected ready (3)", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Pause batch", exact: true }).click();
-  release();
-  await expect(
-    page.getByRole("button", { name: "Resume batch", exact: true }),
-  ).toBeVisible();
-  expect(skus).toHaveLength(2);
-  await page.getByRole("button", { name: "Resume batch", exact: true }).click();
-  await expect(page.locator(".result-head .badge")).toContainText("3 posted");
-  expect(skus.sort()).toEqual(["BATCH-0", "BATCH-1", "BATCH-2"]);
-});
 test("batch table fits a phone and exposes missing fields through attention filter", async ({
   page,
 }) => {

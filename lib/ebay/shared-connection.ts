@@ -6,6 +6,7 @@ import {
   EBAY_ACC_BASE,
   EBAY_MARKETPLACE_ID,
   EBAY_TOKEN_URL,
+  EBAY_TRADING,
   getEbayAppCreds,
   basicAuthHeader,
 } from "./config";
@@ -101,7 +102,7 @@ export function decryptSharedRefreshToken(
 
 // Intentionally private: testing this connection must not enable publishing or
 // copy the shared refresh token into the existing browser-cookie OAuth flow.
-async function sharedAccessToken(): Promise<string> {
+export async function sharedAccessToken(): Promise<string> {
   const url = process.env.SUPABASE_EU_URL?.trim();
   const secret = process.env.SUPABASE_EU_SECRET_KEY?.trim();
   const key = process.env.EBAY_TOKEN_ENCRYPTION_KEY?.trim();
@@ -260,4 +261,97 @@ export async function testSharedEbayConnection(): Promise<void> {
     );
   // A successful account read proves more than merely finding a stored token.
   // No account data or tokens are returned to the browser or persisted here.
+}
+
+// Read-only preflight for the German workflow. Does not enable the existing
+// Inventory publishing flow, set cookies, or write to the shared database.
+export async function testGermanEbayReadiness() {
+  if (
+    process.env.EBAY_MARKETPLACE_ID?.trim() !== "EBAY_DE" ||
+    process.env.EBAY_CURRENCY?.trim() !== "EUR" ||
+    process.env.EBAY_CATEGORY_TREE_ID?.trim() !== "77"
+  ) {
+    throw new SharedEbayError(
+      "GERMAN_CONFIGURATION_REQUIRED",
+      "Für diesen Test müssen EBAY_MARKETPLACE_ID=EBAY_DE, EBAY_CURRENCY=EUR und EBAY_CATEGORY_TREE_ID=77 im Vercel-Projekt snaplist eingestellt sein.",
+    );
+  }
+  const token = await sharedAccessToken();
+  const counts: Record<string, number> = {};
+  for (const [kind, field, label] of [
+    ["fulfillment", "fulfillmentPolicies", "Versandrichtlinien"],
+    ["payment", "paymentPolicies", "Zahlungsrichtlinien"],
+    ["return", "returnPolicies", "Rücknahmerichtlinien"],
+  ]) {
+    counts[kind] = await checkedStep(
+      `${kind.toUpperCase()}_READ_FAILED`,
+      `${label} für eBay.de konnten nicht gelesen werden.`,
+      async () => {
+        const response = await boundedFetch(
+          `${EBAY_ACC_BASE}/${kind}_policy?marketplace_id=EBAY_DE`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            cache: "no-store",
+            redirect: "error",
+          },
+        );
+        if (!response.ok)
+          throw new SharedEbayError(
+            `${kind.toUpperCase()}_READ_FAILED`,
+            `${label} für eBay.de konnten nicht gelesen werden (HTTP ${response.status}). Kontofreigabe prüfen.`,
+          );
+        const body = await response.json();
+        if (!body || !Array.isArray(body[field]))
+          throw new SharedEbayError(
+            "POLICY_RESPONSE_INVALID",
+            `${label}: Die Antwort von eBay ist unvollständig.`,
+          );
+        return body[field].length;
+      },
+    );
+  }
+  await checkedStep(
+    "TRADING_READ_FAILED",
+    "Der lesende Trading-API-Test ist fehlgeschlagen.",
+    async () => {
+      const response = await boundedFetch(EBAY_TRADING, {
+        method: "POST",
+        headers: {
+          "Content-Type": "text/xml; charset=utf-8",
+          "X-EBAY-API-CALL-NAME": "GetUser",
+          "X-EBAY-API-SITEID": "77",
+          "X-EBAY-API-COMPATIBILITY-LEVEL": "1477",
+          "X-EBAY-API-IAF-TOKEN": token,
+        },
+        body: '<?xml version="1.0" encoding="utf-8"?><GetUserRequest xmlns="urn:ebay:apis:eBLBaseComponents"/>',
+        cache: "no-store",
+        redirect: "error",
+      });
+      // Trading may report Failure inside an HTTP 200 response. Read only
+      // its acknowledgement; never return/log the seller's personal data.
+      const xml = await response.text();
+      const ack = xml.match(
+        /<Ack>\s*(Success|Warning|Failure|PartialFailure)\s*<\/Ack>/,
+      )?.[1];
+      if (
+        !response.ok ||
+        !/<GetUserResponse\b/.test(xml) ||
+        !/<\/GetUserResponse>\s*$/.test(xml) ||
+        (ack !== "Success" && ack !== "Warning")
+      ) {
+        throw new SharedEbayError(
+          "TRADING_READ_FAILED",
+          "eBay hat den lesenden Trading-API-Aufruf GetUser nicht bestätigt. Die ursprüngliche OAuth-Freigabe und die Trading-API-Antwort müssen geprüft werden; es wurde nichts veröffentlicht.",
+        );
+      }
+    },
+  );
+  return {
+    marketplace: "EBAY_DE",
+    currency: "EUR",
+    tokenRefresh: true,
+    tradingRead: true,
+    policyCounts: counts,
+    policiesAvailable: Object.values(counts).every((count) => count > 0),
+  };
 }

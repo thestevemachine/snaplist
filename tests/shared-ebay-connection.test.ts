@@ -214,3 +214,20 @@ it("distinguishes a non-JSON database response from token errors", async () => {
   expect(JSON.parse(body).code).toBe("DATABASE_RESPONSE_INVALID");
   expect(body).not.toContain("private html");
 });
+
+describe("shared seller connection used by the Trading workflow", () => {
+  it("uses the stored shop token even without a browser connection", async () => {
+    const { sellerAccessToken } = await import("@/lib/ebay/session");
+    await expect(sellerAccessToken(undefined)).resolves.toBe(
+      "private-access-token",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[0][0])).toContain("ebay_oauth_tokens");
+  });
+  it("fails closed when shared configuration is incomplete instead of changing seller", async () => {
+    vi.stubEnv("EBAY_TOKEN_ENCRYPTION_KEY", undefined);
+    const { sellerAccessToken } = await import("@/lib/ebay/session");
+    await expect(sellerAccessToken("another-account-cookie")).rejects.toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});

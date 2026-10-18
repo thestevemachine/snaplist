@@ -102,7 +102,7 @@ export function EbayConnect() {
     setBusy(true);
     setNotice(null);
     try {
-      const response = await apiPost("/api/ebay/test-connection", {});
+      const response = await apiPost("/api/ebay/readiness", {});
       const result = (await response.json()) as {
         ok?: boolean;
         message?: string;
@@ -123,13 +123,12 @@ export function EbayConnect() {
     }
   };
 
-  // This first integration step deliberately leaves the seller-cookie state
-  // disconnected: a successful read-only test must not activate Publish.
+  // Stored credentials are used server-side for preparation and Trading calls.
   if (status?.sharedConfigured)
     return (
       <div className="ebay-bar">
         <span className="ebay-label">
-          Gespeicherter eBay-Zugang · Verbindungstest
+          Gespeicherter eBay-Zugang · eBay.de · EUR
         </span>
         <button
           type="button"
@@ -137,7 +136,7 @@ export function EbayConnect() {
           disabled={busy}
           onClick={testStoredConnection}
         >
-          {busy ? "Verbindung wird geprüft…" : "eBay-Verbindung testen"}
+          {busy ? "Verbindung wird geprüft…" : "eBay.de-Zugang prüfen"}
         </button>
         {notice && (
           <span

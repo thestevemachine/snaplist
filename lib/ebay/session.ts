@@ -25,12 +25,12 @@ async function aesKey(): Promise<CryptoKey> {
     // A short human-chosen passphrase would make the cookie encryption
     // brute-forceable. Require real entropy.
     throw new Error(
-      'SESSION_SECRET must be at least 32 characters. Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
+      "SESSION_SECRET must be at least 32 characters. Generate one with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"",
     );
   }
   const hash = await crypto.subtle.digest(
     "SHA-256",
-    new TextEncoder().encode(secret)
+    new TextEncoder().encode(secret),
   );
   return crypto.subtle.importKey("raw", hash, "AES-GCM", false, [
     "encrypt",
@@ -43,7 +43,7 @@ export async function sealConnection(conn: Connection): Promise<string> {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const data = new TextEncoder().encode(JSON.stringify(conn));
   const ct = new Uint8Array(
-    await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, data)
+    await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, data),
   );
   const out = new Uint8Array(iv.length + ct.length);
   out.set(iv);
@@ -52,7 +52,7 @@ export async function sealConnection(conn: Connection): Promise<string> {
 }
 
 export async function openConnection(
-  sealed: string | undefined
+  sealed: string | undefined,
 ): Promise<Connection | null> {
   if (!sealed) return null;
   try {
@@ -63,7 +63,8 @@ export async function openConnection(
     const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ct);
     const conn = JSON.parse(new TextDecoder().decode(pt)) as Connection;
     if (!conn.refreshToken) return null;
-    if (conn.refreshExpiresAt && conn.refreshExpiresAt < Date.now()) return null;
+    if (conn.refreshExpiresAt && conn.refreshExpiresAt < Date.now())
+      return null;
     return conn;
   } catch {
     return null;
@@ -71,7 +72,10 @@ export async function openConnection(
 }
 
 // Build a Connection from a fresh token-exchange response.
-export function connectionFromToken(refreshToken: string, refreshExpiresIn?: number): Connection {
+export function connectionFromToken(
+  refreshToken: string,
+  refreshExpiresIn?: number,
+): Connection {
   const ttl = (refreshExpiresIn ?? 47304000) * 1000; // default ~18 months
   return { refreshToken, refreshExpiresAt: Date.now() + ttl };
 }
@@ -83,7 +87,7 @@ const tokenCache = new Map<string, { token: string; expiresAt: number }>();
 
 // Mint a short-lived access token from the stored connection cookie value.
 export async function accessTokenFromCookie(
-  sealed: string | undefined
+  sealed: string | undefined,
 ): Promise<string | null> {
   const conn = await openConnection(sealed);
   if (!conn) return null;
@@ -94,7 +98,24 @@ export async function accessTokenFromCookie(
   tokenCache.set(conn.refreshToken, {
     token: token.access_token,
     // Refresh 5 minutes before eBay's stated expiry.
-    expiresAt: Date.now() + Math.max(60, (token.expires_in ?? 7200) - 300) * 1000,
+    expiresAt:
+      Date.now() + Math.max(60, (token.expires_in ?? 7200) - 300) * 1000,
   });
   return token.access_token;
+}
+
+// Shared shop connection takes precedence. Never silently fall back to a
+// different seller cookie if the shared connection fails.
+export async function sellerAccessToken(
+  sealed: string | undefined,
+): Promise<string | null> {
+  const { sharedAccessToken } = await import("./shared-connection");
+  const hasSharedSettings = Boolean(
+    process.env.SUPABASE_EU_URL ||
+    process.env.SUPABASE_EU_SECRET_KEY ||
+    process.env.EBAY_TOKEN_ENCRYPTION_KEY,
+  );
+  return hasSharedSettings
+    ? sharedAccessToken()
+    : accessTokenFromCookie(sealed);
 }

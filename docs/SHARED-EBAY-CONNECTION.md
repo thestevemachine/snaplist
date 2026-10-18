@@ -1,8 +1,8 @@
 # Gespeicherten eBay-Zugang prüfen
 
-Diese erste Integrationsstufe prüft den bestehenden Zugang aus `ebay-ki-tools`.
-Sie aktiviert weder die Angebotsveröffentlichung noch die bisherige
-Cookie-Verbindung von SNAPLIST.
+SNAPLIST nutzt den bestehenden Zugang aus `ebay-ki-tools` ausschließlich auf dem Server.
+Die Verbindungstests bleiben lesend. Die Angebotsübertragung erfolgt separat über
+die Trading API; siehe `TRADING-TEST.md`.
 
 ## Server-Einstellungen in SNAPLIST
 
@@ -22,8 +22,23 @@ Preview-Veröffentlichung kann deshalb keinen echten Verbindungstest ausführen.
 
 ## Test
 
-SNAPLIST öffnen und **eBay-Verbindung testen** wählen. Falls gefragt, den
+SNAPLIST öffnen und **eBay.de-Zugang prüfen** wählen. Falls gefragt, den
 bestehenden SNAPLIST-Zugangscode direkt in der Anwendung eingeben.
+
+Die Oberfläche verwendet jetzt den geschützten `POST /api/ebay/readiness`.
+Dieser prüft zunächst ausdrücklich `EBAY_MARKETPLACE_ID=EBAY_DE`,
+`EBAY_CURRENCY=EUR` und `EBAY_CATEGORY_TREE_ID=77`, bevor er den gespeicherten
+Zugang verwendet. Anschließend liest er Versand-, Zahlungs- und
+Rücknahmerichtlinien für eBay.de sowie `GetUser` über die Trading API
+(Site-ID 77, OAuth-Header `X-EBAY-API-IAF-TOKEN`).
+
+An den Browser gehen nur Prüfergebnisse und die Anzahl der Richtlinien,
+keine Kontodaten, Richtliniennamen oder Zugangsschlüssel. Leere Listen werden
+als fehlende Richtlinien gemeldet. Ein erfolgreicher lesender Trading-Aufruf
+beweist keine erfolgreiche Angebotsprüfung oder Veröffentlichung. Die bisherige
+Inventory-Veröffentlichung ist nicht mehr an die Veröffentlichungsroute angebunden.
+
+Der bisherige einfache Test bleibt separat verfügbar:
 
 Der geschützte `POST /api/ebay/test-connection` führt ausschließlich Folgendes aus:
 
@@ -43,6 +58,7 @@ Bei einem Fehler nennt die Anwendung den betroffenen Schritt. App-Zugangsdaten
 müssen zum ursprünglichen Token gehören. Wird nur das Lesen abgelehnt, die
 ursprünglichen eBay-Freigaben sowie den konfigurierten Marktplatz prüfen.
 
-Nach erfolgreichem echten Test kann in einem eigenen nächsten Schritt die
-Verwendung dieses Zugangs für die weiteren SNAPLIST-Funktionen erfolgen.
+Vorbereitung, Foto-Upload, Rahmenbedingungen und Trading-Übertragung nutzen
+denselben gespeicherten Zugang. Ein fehlerhafter gespeicherter Zugang führt
+nicht zu einem Rückfall auf ein anderes angemeldetes Verkäuferkonto.
 `ebay-ki-tools` und seine Datenbankzeile bleiben dabei unverändert.

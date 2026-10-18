@@ -21,8 +21,8 @@ const CONDITIONS: { value: string; label: string }[] = [
 
 function formatPrice(value: ListingResult["suggested_price"]): string {
   const n = typeof value === "string" ? parseFloat(value) : value;
-  if (n === undefined || Number.isNaN(n)) return "$0.00";
-  return `$${n.toFixed(2)}`;
+  if (n === undefined || Number.isNaN(n)) return "0,00 €";
+  return `${n.toFixed(2)} €`;
 }
 
 function priceToInput(value: ListingResult["suggested_price"]): string {
@@ -63,7 +63,7 @@ interface ListingCardProps {
   onEdit: (groupId: string, patch: Partial<ListingResult>) => void;
   onRenameSku: (groupId: string, sku: string) => void;
   onRetry: (groupId: string) => void;
-  onPost: (groupId: string) => void;
+  onPost: (groupId: string, mode?: "verify" | "publish") => void;
 }
 
 export function ListingCard({
@@ -207,7 +207,7 @@ export function ListingCard({
                 Price
               </label>
               <div className="price-input">
-                <span aria-hidden="true">$</span>
+                <span aria-hidden="true">€</span>
                 <input
                   id={`price-${group.id}`}
                   type="number"
@@ -225,8 +225,8 @@ export function ListingCard({
               </div>
               {group.comps?.ok && group.comps.median !== undefined && (
                 <span className="comps-line" title={group.comps.basis}>
-                  Market: {group.comps.count} similar active listings, $
-                  {group.comps.low?.toFixed(0)}–${group.comps.high?.toFixed(0)}
+                  Market: {group.comps.count} similar active listings, €
+                  {group.comps.low?.toFixed(0)}–€{group.comps.high?.toFixed(0)}
                   {" · "}
                   <button
                     type="button"
@@ -240,8 +240,8 @@ export function ListingCard({
                   >
                     {/* listPrice = median + the deployment's storewide markup */}
                     {group.comps.listPrice !== undefined
-                      ? `use $${group.comps.listPrice.toFixed(2)} (median + markup)`
-                      : `use median $${group.comps.median.toFixed(2)}`}
+                      ? `use €${group.comps.listPrice.toFixed(2)} (median + markup)`
+                      : `use median €${group.comps.median.toFixed(2)}`}
                   </button>
                 </span>
               )}
@@ -347,11 +347,11 @@ export function ListingCard({
                     {" "}
                     ·{" "}
                     <a
-                      href={`https://www.ebay.com/itm/${group.listingId}`}
+                      href={`https://www.ebay.de/itm/${group.listingId}`}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      View listing ↗
+                      Angebot bei eBay öffnen ↗
                     </a>
                   </>
                 ) : null}
@@ -366,6 +366,20 @@ export function ListingCard({
             <div className="post-row">
               <button
                 type="button"
+                className="btn-ghost"
+                onClick={() => onPost(group.id, "verify")}
+                disabled={
+                  group.postStatus === "posting" ||
+                  draftIssues(group).length > 0
+                }
+              >
+                Bei eBay prüfen · nicht veröffentlichen
+              </button>
+              {group.verificationMessage && (
+                <p role="status">{group.verificationMessage}</p>
+              )}
+              <button
+                type="button"
                 className="btn btn-primary"
                 onClick={() => onPost(group.id)}
                 disabled={
@@ -375,11 +389,11 @@ export function ListingCard({
               >
                 {group.postStatus === "posting" ? (
                   <>
-                    <span className="spinner" aria-hidden="true" /> Posting to
-                    eBay…
+                    <span className="spinner" aria-hidden="true" /> eBay-Anfrage
+                    läuft…
                   </>
                 ) : (
-                  "🚀 Post this to eBay"
+                  "Auf eBay.de veröffentlichen…"
                 )}
               </button>
               {group.postStatus === "error" && group.postError && (

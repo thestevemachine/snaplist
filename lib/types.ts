@@ -123,6 +123,7 @@ export interface ItemGroup {
   postError?: string;
   // Non-fatal quality warnings from the last publish (e.g. schema unavailable)
   postWarnings?: string[];
+  verificationMessage?: string;
 }
 
 export interface PreparedCategory {

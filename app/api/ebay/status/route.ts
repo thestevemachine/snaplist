@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(
     {
       configured,
-      connected: Boolean(conn),
+      connected: isSharedEbayConfigured() || Boolean(conn),
       sharedConfigured: isSharedEbayConfigured(),
     },
     { headers: { "Cache-Control": "no-store" } },

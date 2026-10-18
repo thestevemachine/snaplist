@@ -1,6 +1,6 @@
 import { withDeadline } from "@/lib/network";
 import { NextRequest, NextResponse } from "next/server";
-import { EBAY_COOKIE, accessTokenFromCookie } from "@/lib/ebay/session";
+import { EBAY_COOKIE, sellerAccessToken } from "@/lib/ebay/session";
 import { guardApiRequest } from "@/lib/api-guard";
 import { uploadPhotos } from "@/lib/ebay/publish";
 
@@ -69,7 +69,7 @@ async function handle(req: NextRequest) {
 
   let accessToken: string | null;
   try {
-    accessToken = await accessTokenFromCookie(
+    accessToken = await sellerAccessToken(
       req.cookies.get(EBAY_COOKIE)?.value,
     );
   } catch (e) {

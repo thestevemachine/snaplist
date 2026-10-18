@@ -671,7 +671,9 @@ export default function Home() {
 
   const editGroup = (id: string, patch: Partial<ItemGroup>) =>
     setGroups((prev) =>
-      prev.map((g) => (g.id === id ? { ...g, ...patch } : g)),
+      prev.map((g) =>
+        g.id === id ? { ...g, verificationMessage: undefined, ...patch } : g,
+      ),
     );
   const editListing = (groupId: string, patch: Partial<ListingResult>) =>
     setGroups((prev) =>
@@ -683,6 +685,7 @@ export default function Home() {
         g.postStatus !== "posting"
           ? {
               ...g,
+              verificationMessage: undefined,
               listing: {
                 ...g.listing,
                 ...patch,
@@ -704,7 +707,7 @@ export default function Home() {
     );
 
   const postGroup = useCallback(
-    async (groupId: string) => {
+    async (groupId: string, mode: "verify" | "publish" = "publish") => {
       const group = groupsRef.current.find((g) => g.id === groupId);
       if (
         !group ||
@@ -725,11 +728,23 @@ export default function Home() {
         });
         return;
       }
+      if (
+        mode === "publish" &&
+        !window.confirm(
+          `Dieses Angebot jetzt auf eBay.de VERÖFFENTLICHEN?\n\n${group.listing.title}\nSKU: ${group.sku}\nPreis: ${Number(group.listing.suggested_price).toFixed(2)} EUR\nMenge: 1\n\nEs ist danach öffentlich und kann gekauft werden, auch bei hohem Preis. Es ist kein Entwurf.`,
+        )
+      )
+        return;
       inFlight.current.add(groupId);
       setGroups((prev) =>
         prev.map((g) =>
           g.id === groupId
-            ? { ...g, postStatus: "posting", postError: undefined }
+            ? {
+                ...g,
+                postStatus: "posting",
+                postError: undefined,
+                verificationMessage: undefined,
+              }
             : g,
         ),
       );
@@ -793,7 +808,8 @@ export default function Home() {
           imageUrls,
           uploadedPhotoIds: [...group.photoIds],
           postStatus: "posting" as const,
-          publicationAttemptSku: group.sku,
+          publicationAttemptSku:
+            mode === "publish" ? group.sku : group.publicationAttemptSku,
         };
         editGroup(groupId, uploaded);
         await saveDraft({
@@ -815,20 +831,29 @@ export default function Home() {
           error?: string;
           alreadyListed?: boolean;
           warnings?: string[];
+          fees?: { name: string; amount: string; currency: string }[];
         } | null = null;
         let hadTransientRetry = false;
         for (let attempt = 0; ; attempt++) {
-          const res = await apiPost("/api/ebay/publish", {
-            sku: group.sku,
-            listing: group.listing,
-            imageUrls,
-            shipping: group.shipping,
-            review: group.preparation,
-            expectedPhotoCount: group.photoIds.length,
-          });
+          const res = await apiPost(
+            mode === "verify" ? "/api/ebay/verify" : "/api/ebay/publish",
+            {
+              confirmed: mode === "publish",
+              sku: group.sku,
+              listing: group.listing,
+              imageUrls,
+              shipping: group.shipping,
+              review: group.preparation,
+              expectedPhotoCount: group.photoIds.length,
+            },
+          );
           // Wait out rate limits / transient platform errors instead of dying
           // mid-batch with "try again later".
-          if (attempt < 2 && TRANSIENT_STATUSES.has(res.status)) {
+          if (
+            mode === "verify" &&
+            attempt < 2 &&
+            TRANSIENT_STATUSES.has(res.status)
+          ) {
             hadTransientRetry = true;
             await sleep(res.status === 429 ? 65_000 : 8_000);
             continue;
@@ -849,6 +874,17 @@ export default function Home() {
         }
         if (!data?.success)
           throw new Error(data?.error || "eBay rejected the listing.");
+        if (mode === "verify") {
+          const fees = (data.fees ?? [])
+            .filter((f) => Number(f.amount) > 0)
+            .map((f) => `${f.name}: ${f.amount} ${f.currency}`)
+            .join("; ");
+          editGroup(groupId, {
+            postStatus: undefined,
+            verificationMessage: `eBay-Prüfung erfolgreich. Nicht veröffentlicht.${fees ? ` Geschätzte Gebühren: ${fees}.` : ""}${data.warnings?.length ? ` Hinweise: ${data.warnings.join("; ")}` : ""}`,
+          });
+          return;
+        }
         const allWarnings = [...uploadWarnings, ...(data.warnings ?? [])];
         setGroups((prev) =>
           prev.map((g) =>
@@ -877,17 +913,10 @@ export default function Home() {
     [photoMap, orphanIds, binPrefix, skuStart],
   );
 
-  const postAll = async (selected?: string[]) => {
-    const ready = groupsRef.current
-      .filter(
-        (g) =>
-          (!selected || selected.includes(g.id)) &&
-          g.status === "done" &&
-          g.postStatus !== "posted" &&
-          !draftIssues(g).length,
-      )
-      .map((g) => g.id);
-    await startQueue(ready, "post", postGroup);
+  const postAll = async (_selected?: string[]) => {
+    setError(
+      "Für den ersten Test bitte genau eine Brille in der Detailansicht prüfen und einzeln veröffentlichen.",
+    );
   };
 
   const hasWork = photos.length > 0 || groups.length > 0;

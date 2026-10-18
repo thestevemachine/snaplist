@@ -24,7 +24,7 @@ import {
 } from "@/lib/ebay/aspects";
 import { fillRecommendedAspects } from "@/lib/ebay/aspectFill";
 import { validateAspects } from "@/lib/ebay/draft";
-import { EBAY_COOKIE, accessTokenFromCookie } from "@/lib/ebay/session";
+import { EBAY_COOKIE, sellerAccessToken } from "@/lib/ebay/session";
 import { signReview } from "@/lib/review";
 import { withDeadline } from "@/lib/network";
 import { collectUsage, currentUsage } from "@/lib/ai-usage";
@@ -51,7 +51,7 @@ export async function prepareListing(body: any, sealedConnection?: string) {
             throw new Error(
               "Could not resolve a category matching this department. Review the department/category and enter the correct leaf category ID.",
             );
-          const token = await accessTokenFromCookie(sealedConnection);
+          const token = await sellerAccessToken(sealedConnection);
           const [meta, ids] = await Promise.all([
             categoryAspects(id),
             acceptedConditionIds(id, token ?? undefined),
