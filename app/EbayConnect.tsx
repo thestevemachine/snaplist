@@ -7,6 +7,7 @@ import { apiPost } from "@/lib/api-client";
 interface Status {
   configured: boolean;
   connected: boolean;
+  sharedConfigured?: boolean;
 }
 
 export function EbayConnect() {
@@ -96,6 +97,58 @@ export function EbayConnect() {
       setBusy(false);
     }
   };
+
+  const testStoredConnection = async () => {
+    setBusy(true);
+    setNotice(null);
+    try {
+      const response = await apiPost("/api/ebay/test-connection", {});
+      const result = (await response.json()) as {
+        ok?: boolean;
+        message?: string;
+        error?: string;
+      };
+      if (!response.ok || !result.ok)
+        throw new Error(
+          result.error || "Der Verbindungstest ist fehlgeschlagen.",
+        );
+      setNotice({
+        ok: true,
+        msg: result.message || "eBay-Verbindung bestätigt.",
+      });
+    } catch (error) {
+      setNotice({ ok: false, msg: (error as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // This first integration step deliberately leaves the seller-cookie state
+  // disconnected: a successful read-only test must not activate Publish.
+  if (status?.sharedConfigured)
+    return (
+      <div className="ebay-bar">
+        <span className="ebay-label">
+          Gespeicherter eBay-Zugang · Verbindungstest
+        </span>
+        <button
+          type="button"
+          className="btn-ghost"
+          disabled={busy}
+          onClick={testStoredConnection}
+        >
+          {busy ? "Verbindung wird geprüft…" : "eBay-Verbindung testen"}
+        </button>
+        {notice && (
+          <span
+            role="status"
+            className={`ebay-notice${notice.ok ? "" : " err"}`}
+          >
+            {notice.msg}
+          </span>
+        )}
+      </div>
+    );
 
   // If eBay isn't configured on the server, show nothing (the writing flow
   // still works fine without it).
