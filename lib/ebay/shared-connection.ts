@@ -19,6 +19,42 @@ export class SharedEbayError extends Error {
   }
 }
 
+async function checkedStep<T>(
+  code: string,
+  message: string,
+  work: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await work();
+  } catch (error) {
+    if (error instanceof SharedEbayError) throw error;
+    // Report only allowlisted exception categories, never an exception's
+    // message, stack, URL, headers, response body or arbitrary cause object.
+    const cause =
+      error instanceof Error
+        ? (error as Error & { cause?: { code?: unknown } }).cause?.code
+        : undefined;
+    const category = [
+      "ENOTFOUND",
+      "EAI_AGAIN",
+      "ECONNREFUSED",
+      "ETIMEDOUT",
+      "ERR_INVALID_URL",
+      "UND_ERR_INVALID_ARG",
+      "ERR_INVALID_CHAR",
+    ].includes(String(cause))
+      ? String(cause)
+      : error instanceof SyntaxError
+        ? "INVALID_JSON"
+        : error instanceof Error &&
+            ["TimeoutError", "AbortError", "TypeError"].includes(error.name)
+          ? error.name
+          : "UNEXPECTED_ERROR";
+    console.error("[ebay/test-connection]", code, category);
+    throw new SharedEbayError(code, `${message} (${category})`);
+  }
+}
+
 export function isSharedEbayConfigured(): boolean {
   return Boolean(
     process.env.SUPABASE_EU_URL &&
@@ -66,9 +102,9 @@ export function decryptSharedRefreshToken(
 // Intentionally private: testing this connection must not enable publishing or
 // copy the shared refresh token into the existing browser-cookie OAuth flow.
 async function sharedAccessToken(): Promise<string> {
-  const url = process.env.SUPABASE_EU_URL;
-  const secret = process.env.SUPABASE_EU_SECRET_KEY;
-  const key = process.env.EBAY_TOKEN_ENCRYPTION_KEY;
+  const url = process.env.SUPABASE_EU_URL?.trim();
+  const secret = process.env.SUPABASE_EU_SECRET_KEY?.trim();
+  const key = process.env.EBAY_TOKEN_ENCRYPTION_KEY?.trim();
   if (
     !url ||
     !secret ||
@@ -87,7 +123,11 @@ async function sharedAccessToken(): Promise<string> {
       "Der Verschlüsselungsschlüssel muss aus 64 Hex-Zeichen bestehen.",
     );
   }
-  const endpoint = new URL("/rest/v1/ebay_oauth_tokens", url);
+  const endpoint = await checkedStep(
+    "CONFIGURATION_INVALID",
+    "Die Supabase-Adresse ist ungültig. SUPABASE_EU_URL im Vercel-Projekt SNAPLIST prüfen.",
+    async () => new URL("/rest/v1/ebay_oauth_tokens", url),
+  );
   if (
     endpoint.protocol !== "https:" ||
     endpoint.username ||
@@ -108,17 +148,26 @@ async function sharedAccessToken(): Promise<string> {
   const headers: Record<string, string> = { apikey: secret };
   if (!secret.startsWith("sb_secret_"))
     headers.Authorization = `Bearer ${secret}`;
-  const stored = await boundedFetch(endpoint, {
-    headers,
-    cache: "no-store",
-    redirect: "error",
-  });
+  const stored = await checkedStep(
+    "DATABASE_REQUEST_FAILED",
+    "Die Verbindung zur EU-Supabase-Datenbank ist fehlgeschlagen. Projektadresse und Erreichbarkeit prüfen.",
+    () =>
+      boundedFetch(endpoint, {
+        headers,
+        cache: "no-store",
+        redirect: "error",
+      }),
+  );
   if (!stored.ok)
     throw new SharedEbayError(
       "DATABASE_FAILED",
       "Der gespeicherte eBay-Zugang konnte nicht aus Supabase gelesen werden.",
     );
-  const rows = await stored.json();
+  const rows = await checkedStep(
+    "DATABASE_RESPONSE_INVALID",
+    "Supabase hat keine gültigen Daten geliefert. SUPABASE_EU_URL muss die Supabase-Projektadresse sein.",
+    () => stored.json(),
+  );
   if (!Array.isArray(rows) || rows.length !== 1) {
     throw new SharedEbayError(
       "TOKEN_MISSING",
@@ -129,20 +178,25 @@ async function sharedAccessToken(): Promise<string> {
     rows[0]?.refresh_token_encrypted,
     key,
   );
-  const response = await boundedFetch(EBAY_TOKEN_URL, {
-    method: "POST",
-    cache: "no-store",
-    redirect: "error",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: basicAuthHeader(getEbayAppCreds()),
-    },
-    // Omit scope, as in ebay-ki-tools: retain the original consent's scopes.
-    body: new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
-    }).toString(),
-  });
+  const response = await checkedStep(
+    "EBAY_REQUEST_FAILED",
+    "Die Verbindung zum eBay-Anmeldeserver ist fehlgeschlagen.",
+    () =>
+      boundedFetch(EBAY_TOKEN_URL, {
+        method: "POST",
+        cache: "no-store",
+        redirect: "error",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Authorization: basicAuthHeader(getEbayAppCreds()),
+        },
+        // Omit scope, as in ebay-ki-tools: retain the original consent's scopes.
+        body: new URLSearchParams({
+          grant_type: "refresh_token",
+          refresh_token: refreshToken,
+        }).toString(),
+      }),
+  );
   if (!response.ok) {
     // Do not echo or log upstream response bodies, which may contain secrets.
     if (response.status === 401)
@@ -155,7 +209,11 @@ async function sharedAccessToken(): Promise<string> {
       "eBay konnte den Zugang nicht erneuern. App-Schlüsselpaar und Gültigkeit der ursprünglichen Freigabe prüfen.",
     );
   }
-  const result = await response.json();
+  const result = await checkedStep(
+    "TOKEN_RESPONSE_INVALID",
+    "eBay hat eine ungültige Antwort auf die Zugangserneuerung geliefert.",
+    () => response.json(),
+  );
   if (
     typeof result.access_token !== "string" ||
     !result.access_token ||
@@ -174,11 +232,16 @@ export async function testSharedEbayConnection(): Promise<void> {
   const token = await sharedAccessToken();
   const endpoint = new URL(`${EBAY_ACC_BASE}/fulfillment_policy`);
   endpoint.searchParams.set("marketplace_id", EBAY_MARKETPLACE_ID);
-  const response = await boundedFetch(endpoint, {
-    headers: { Authorization: `Bearer ${token}` },
-    cache: "no-store",
-    redirect: "error",
-  });
+  const response = await checkedStep(
+    "ACCOUNT_REQUEST_FAILED",
+    "Der Zugang wurde erneuert, aber der eBay-Kontoserver ist nicht erreichbar.",
+    () =>
+      boundedFetch(endpoint, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+        redirect: "error",
+      }),
+  );
   if (!response.ok)
     throw new SharedEbayError(
       "ACCOUNT_READ_FAILED",

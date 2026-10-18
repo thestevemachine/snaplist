@@ -170,3 +170,33 @@ it("redacts arbitrary exceptions and upstream error bodies", async () => {
   expect(response.status).toBe(502);
   expect(await response.text()).not.toContain("private");
 });
+
+it("identifies a malformed Supabase URL without exposing it", async () => {
+  vi.stubEnv("SUPABASE_EU_URL", "private-invalid-url");
+  const response = await POST(request("access-code"));
+  const body = await response.text();
+  expect(JSON.parse(body).code).toBe("CONFIGURATION_INVALID");
+  expect(body).not.toContain("private-invalid-url");
+  expect(fetchMock).not.toHaveBeenCalled();
+});
+it("reports the database step and a safe DNS category without exposing the host", async () => {
+  fetchMock
+    .mockReset()
+    .mockRejectedValue(
+      new TypeError("private-host", {
+        cause: { code: "ENOTFOUND", hostname: "private-host" },
+      }),
+    );
+  const response = await POST(request("access-code"));
+  const body = await response.text();
+  expect(JSON.parse(body).code).toBe("DATABASE_REQUEST_FAILED");
+  expect(body).toContain("ENOTFOUND");
+  expect(body).not.toContain("private-host");
+});
+it("distinguishes a non-JSON database response from token errors", async () => {
+  fetchMock.mockReset().mockResolvedValue(new Response("private html content"));
+  const response = await POST(request("access-code"));
+  const body = await response.text();
+  expect(JSON.parse(body).code).toBe("DATABASE_RESPONSE_INVALID");
+  expect(body).not.toContain("private html");
+});
