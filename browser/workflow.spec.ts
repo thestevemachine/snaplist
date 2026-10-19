@@ -878,6 +878,7 @@ test("only category fields appear and material supports multiple reviewed choice
   await page
     .getByLabel("Fassungsmaterial: Auswahl bearbeiten", { exact: true })
     .click();
+  await expect(page.locator(".aspect-options:visible input").first()).toBeChecked();
   await page.getByRole("checkbox", { name: "Kunststoff", exact: true }).check();
   await expect(
     page.getByRole("checkbox", { name: "Metall", exact: true }),

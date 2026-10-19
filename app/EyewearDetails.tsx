@@ -20,7 +20,7 @@ export function EyewearDetails({
   if (!listing.eyewear) return null;
   const warnings = eyewearWarnings(listing);
   return (
-    <details className="result-field" open>
+    <details className="result-field">
       <summary>Erkannte Bügelaufdrucke und Maße</summary>
       <p>
         Maße in mm. Leere Werte sind unbekannt. Hier stehen auch Lesedaten, für
@@ -47,6 +47,12 @@ export function EyewearDetails({
         return (
           <label key={key} style={{ display: "block", marginBottom: "0.5rem" }}>
             {label}
+            {[
+              "lensWidth",
+              "bridgeWidth",
+              "templeLength",
+              "totalWidth",
+            ].includes(key) && " (mm)"}
             <input
               value={field?.value ?? ""}
               maxLength={500}

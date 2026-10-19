@@ -1394,3 +1394,18 @@ textarea {
 .aspect-choices[open] > summary {
   margin-bottom: 0.5rem;
 }
+
+.aspect-evidence {
+  font-size: 0.85rem;
+  color: var(--muted, #666);
+  margin: 0.2rem 0 0.5rem;
+}
+.measurement-input {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.measurement-input input {
+  min-width: 0;
+  flex: 1;
+}

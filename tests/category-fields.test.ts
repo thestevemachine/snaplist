@@ -167,3 +167,10 @@ it("defaults unknown department and vintage, and sets sunglasses product type", 
     Produktart: ["Sonnenbrille"],
   });
 });
+
+it("adds mm to free-text dimensions while preserving exact eBay choices and identifiers", () => {
+ const free = (name: string): AspectMeta => ({ ...material, name, mode: "FREE_TEXT", values: [] });
+ const meta = [free("Rahmenbreite"), free("Glashöhe"), free("Bügellänge"), free("Modellnummer"), { ...free("Glasbreite"), mode: "SELECTION_ONLY" as const, values: ["52"] }];
+ expect(categorySpecifics({Rahmenbreite:"140", Glashöhe:"38 mm", Bügellänge:"145", Modellnummer:"1234", Glasbreite:"52"}, meta)).toEqual({Rahmenbreite:"140 mm", Glashöhe:"38 mm", Bügellänge:"145 mm", Modellnummer:"1234", Glasbreite:"52"});
+ expect(categorySpecifics({Rahmenbreite:["140"]}, meta)).toEqual({Rahmenbreite:["140 mm"]});
+});

@@ -13,6 +13,10 @@ import { loadAccountOptions } from "@/lib/account-options-client";
 import { apiPost } from "@/lib/api-client";
 import { draftIssues } from "@/lib/client-review";
 import { isStandardSizeAspect } from "@/lib/ebay/aspects";
+import {
+  isMeasurementAspect as isMeasurement,
+  formatMeasurement,
+} from "@/lib/ebay/category-fields";
 interface Props {
   group: ItemGroup;
   photoById: (id: string) => Photo | undefined;
@@ -322,22 +326,29 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
             <fieldset key={name} className="specific-edit">
               <legend>
                 {name}
-                {l.evidence?.[name]?.length
-                  ? ` (KI verweist auf Foto ${l.evidence[name]
-                      .map((n) => {
-                        const id = g.evidencePhotoIds?.[n - 1];
-                        return id ? g.photoIds.indexOf(id) + 1 : n;
-                      })
-                      .join(", ")}; bitte prüfen)`
-                  : ""}
-                {l.estimates?.[name] ? (
-                  <span className="estimate-tag">
-                    {" "}
-                    KI-Schätzung · {l.estimates[name]}% sicher
-                  </span>
-                ) : null}
                 {meta?.required ? " *" : ""}
               </legend>
+              {l.evidence?.[name]?.length || l.estimates?.[name] ? (
+                <details className="aspect-evidence">
+                  <summary>Analysehinweise</summary>
+                  <div>
+                    {l.evidence?.[name]?.length
+                      ? ` (KI verweist auf Foto ${l.evidence[name]
+                          .map((n) => {
+                            const id = g.evidencePhotoIds?.[n - 1];
+                            return id ? g.photoIds.indexOf(id) + 1 : n;
+                          })
+                          .join(", ")}; bitte prüfen)`
+                      : ""}
+                    {l.estimates?.[name] ? (
+                      <span className="estimate-tag">
+                        {" "}
+                        KI-Schätzung · {l.estimates[name]}% sicher
+                      </span>
+                    ) : null}
+                  </div>
+                </details>
+              ) : null}
               {isSunglasses(l) &&
                 /^(gläsermaterial|glasmaterial|linsenmaterial)$/i.test(
                   name,
@@ -367,33 +378,43 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
                     role="group"
                     aria-label={name}
                   >
-                    {meta.values.map((value) => {
-                      const selected = (specifics[name] ?? "")
-                        .split(" | ")
-                        .filter(Boolean);
-                      const checked = selected.includes(value);
-                      return (
-                        <label key={value}>
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            disabled={!checked && selected.length >= 5}
-                            onChange={(event) =>
-                              edit({
-                                item_specifics: {
-                                  ...specifics,
-                                  [name]: (event.target.checked
-                                    ? [...selected, value]
-                                    : selected.filter((v) => v !== value)
-                                  ).join(" | "),
-                                },
-                              })
-                            }
-                          />
-                          {value}
-                        </label>
-                      );
-                    })}
+                    {[...meta.values]
+                      .sort(
+                        (a, b) =>
+                          Number(
+                            (specifics[name] ?? "").split(" | ").includes(b),
+                          ) -
+                          Number(
+                            (specifics[name] ?? "").split(" | ").includes(a),
+                          ),
+                      )
+                      .map((value) => {
+                        const selected = (specifics[name] ?? "")
+                          .split(" | ")
+                          .filter(Boolean);
+                        const checked = selected.includes(value);
+                        return (
+                          <label key={value}>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={!checked && selected.length >= 5}
+                              onChange={(event) =>
+                                edit({
+                                  item_specifics: {
+                                    ...specifics,
+                                    [name]: (event.target.checked
+                                      ? [...selected, value]
+                                      : selected.filter((v) => v !== value)
+                                    ).join(" | "),
+                                  },
+                                })
+                              }
+                            />
+                            {value}
+                          </label>
+                        );
+                      })}
                     <small>
                       Mehrere Werte können ausgewählt werden (höchstens 5).
                     </small>
@@ -420,24 +441,33 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
                 >
                   <option value="">Unbekannt – leer lassen</option>
                   {meta.values.map((v) => (
-                    <option key={v}>{v}</option>
+                    <option key={v} value={v}>
+                      {formatMeasurement(name, v)}
+                    </option>
                   ))}
                 </select>
               ) : (
-                <input
-                  aria-label={name}
-                  value={specifics[name] ?? ""}
-                  placeholder={
-                    meta?.cardinality === "MULTI"
-                      ? "Mehrere Werte mit | trennen"
-                      : "Unbekannt – leer lassen"
-                  }
-                  onChange={(e) =>
-                    edit({
-                      item_specifics: { ...specifics, [name]: e.target.value },
-                    })
-                  }
-                />
+                <div className="measurement-input">
+                  <input
+                    aria-label={name}
+                    value={specifics[name] ?? ""}
+                    placeholder={
+                      meta?.cardinality === "MULTI"
+                        ? "Mehrere Werte mit | trennen"
+                        : "Unbekannt – leer lassen"
+                    }
+                    onChange={(e) =>
+                      edit({
+                        item_specifics: {
+                          ...specifics,
+                          [name]: e.target.value,
+                        },
+                      })
+                    }
+                  />
+                  {isMeasurement(name) &&
+                    !/mm\s*$/i.test(specifics[name] ?? "") && <span>mm</span>}
+                </div>
               )}
             </fieldset>
           );
@@ -545,59 +575,62 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
           </p>
         )}
       </details>
-      <button type="button" onClick={research}>
-        Vergleichspreise aktualisieren
-      </button>
-      {g.compsStatus && g.compsStatus !== "ready" && (
-        <p>
-          Preisvergleich:{" "}
-          {g.compsStatus === "loading"
-            ? "wird geladen"
-            : g.compsStatus === "stale"
-              ? "veraltet"
-              : "nicht verfügbar"}
-          . Der KI-Preis ist eine ungeprüfte Schätzung.
-        </p>
-      )}
-      {g.comps?.sources && (
-        <details>
-          <summary>Vergleichsangebote ansehen · {g.comps.matchBasis}</summary>
+      <details>
+        <summary>Preisrecherche und KI-Analyse</summary>
+        <button type="button" onClick={research}>
+          Vergleichspreise aktualisieren
+        </button>
+        {g.compsStatus && g.compsStatus !== "ready" && (
           <p>
-            Geprüft am {g.comps.checkedAt}. Dies sind Angebotspreise, keine
-            Verkaufspreise. Bitte Artikel, Zustand und Zubehör vergleichen.
+            Preisvergleich:{" "}
+            {g.compsStatus === "loading"
+              ? "wird geladen"
+              : g.compsStatus === "stale"
+                ? "veraltet"
+                : "nicht verfügbar"}
+            . Der KI-Preis ist eine ungeprüfte Schätzung.
           </p>
-          {g.comps.sources.map((s) => (
-            <p key={s.id}>
-              <a href={s.url} target="_blank" rel="noreferrer">
-                {s.title}
-              </a>{" "}
-              — {s.price.toFixed(2)} € +{" "}
-              {s.shipping === undefined
-                ? "Versand unbekannt"
-                : `${s.shipping.toFixed(2)} € Versand`}
+        )}
+        {g.comps?.sources && (
+          <details>
+            <summary>Vergleichsangebote ansehen · {g.comps.matchBasis}</summary>
+            <p>
+              Geprüft am {g.comps.checkedAt}. Dies sind Angebotspreise, keine
+              Verkaufspreise. Bitte Artikel, Zustand und Zubehör vergleichen.
             </p>
-          ))}
-        </details>
-      )}
-      {g.usage?.some((u) => u.stage === "analysis") && (
-        <p className="note">
-          Verwendetes Analysemodell:{" "}
-          {g.usage.filter((u) => u.stage === "analysis").at(-1)?.model}
-        </p>
-      )}
-      {!!g.usage?.length && (
-        <p>
-          Bisherige KI-Nutzung:{" "}
-          {g.usage
-            .reduce((n, u) => n + u.input + u.cacheRead + u.cacheWrite, 0)
-            .toLocaleString()}{" "}
-          Eingabe-Token ·{" "}
-          {g.usage.reduce((n, u) => n + u.output, 0).toLocaleString()} Ausgabe ·
-          geschätzt $
-          {g.usage.reduce((n, u) => n + (u.estimatedUsd ?? 0), 0).toFixed(4)}{" "}
-          (erfasste Aufrufe; Sortierung separat).
-        </p>
-      )}
+            {g.comps.sources.map((s) => (
+              <p key={s.id}>
+                <a href={s.url} target="_blank" rel="noreferrer">
+                  {s.title}
+                </a>{" "}
+                — {s.price.toFixed(2)} € +{" "}
+                {s.shipping === undefined
+                  ? "Versand unbekannt"
+                  : `${s.shipping.toFixed(2)} € Versand`}
+              </p>
+            ))}
+          </details>
+        )}
+        {g.usage?.some((u) => u.stage === "analysis") && (
+          <p className="note">
+            Verwendetes Analysemodell:{" "}
+            {g.usage.filter((u) => u.stage === "analysis").at(-1)?.model}
+          </p>
+        )}
+        {!!g.usage?.length && (
+          <p>
+            Bisherige KI-Nutzung:{" "}
+            {g.usage
+              .reduce((n, u) => n + u.input + u.cacheRead + u.cacheWrite, 0)
+              .toLocaleString()}{" "}
+            Eingabe-Token ·{" "}
+            {g.usage.reduce((n, u) => n + u.output, 0).toLocaleString()} Ausgabe
+            · geschätzt $
+            {g.usage.reduce((n, u) => n + (u.estimatedUsd ?? 0), 0).toFixed(4)}{" "}
+            (erfasste Aufrufe; Sortierung separat).
+          </p>
+        )}
+      </details>
       {draftIssues(g).length > 0 && (
         <ul aria-label="Noch zu prüfen">
           {draftIssues(g).map((i) => (

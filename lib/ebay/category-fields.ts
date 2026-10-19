@@ -1,5 +1,14 @@
 import type { AspectMeta } from "./taxonomy";
 
+export const isMeasurementAspect = (name: string) =>
+  /^(?:Rahmenbreite|Fassungsbreite|Gesamtbreite|Glasbreite|Gläserbreite|Glasdurchmesser|Glashöhe|Scheibenhöhe|Stegbreite|Brückenbreite|Bügellänge|Frame Width|Lens Width|Lens Height|Bridge Width|Temple Length)(?:\s*\(mm\))?$/i.test(
+    name,
+  );
+export const formatMeasurement = (name: string, value: string) =>
+  isMeasurementAspect(name) && /^\d+(?:[.,]\d+)?$/.test(value.trim())
+    ? `${value.trim()} mm`
+    : value;
+
 export const CATEGORY_FIELDS_VERSION = 4;
 // EAN is also a Trading ProductListingDetails field, even if not listed by Taxonomy.
 export function categorySpecifics<T>(
@@ -8,8 +17,25 @@ export function categorySpecifics<T>(
 ): Record<string, T> {
   const allowed = new Set([...meta.map((a) => a.name), "EAN"]);
   return Object.fromEntries(
-    Object.entries(specifics).filter(([name]) => allowed.has(name)),
-  );
+    Object.entries(specifics)
+      .filter(([name]) => allowed.has(name))
+      .map(([name, value]) => {
+        const field = meta.find((m) => m.name === name);
+        // Preserve eBay's exact dropdown values. Only free-text dimensions gain units.
+        if (field?.mode !== "FREE_TEXT" || !isMeasurementAspect(name))
+          return [name, value];
+        const format = (v: string) =>
+          field.values.includes(v) ? v : formatMeasurement(name, v);
+        return [
+          name,
+          typeof value === "string"
+            ? format(value)
+            : Array.isArray(value)
+              ? value.map((v) => (typeof v === "string" ? format(v) : v))
+              : value,
+        ];
+      }),
+  ) as Record<string, T>;
 }
 export function applySunglassesLensDefault(
   aspects: Record<string, string[]>,
