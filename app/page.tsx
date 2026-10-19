@@ -8,6 +8,8 @@ import {
   useRef,
   useState,
 } from "react";
+import { isGlasses, GLASSES_RULES_VERSION } from "@/lib/glasses-rules";
+import { isSunglasses } from "@/lib/category-selection";
 import { runBatch, type QueueProgress } from "@/lib/batch-queue";
 import {
   loadDraft,
@@ -26,7 +28,12 @@ import { buildSku } from "@/lib/sku";
 import { chunkImagesForUpload } from "@/lib/uploadBatches";
 import { ShopSettings } from "./ShopSettings";
 import { loadAccountOptions } from "@/lib/account-options-client";
-import { applyShopListing, applyShopGroup, readShopPreferences, validPolicyDefaults } from "@/lib/shop-preferences";
+import {
+  applyShopListing,
+  applyShopGroup,
+  readShopPreferences,
+  validPolicyDefaults,
+} from "@/lib/shop-preferences";
 import { EbayConnect } from "./EbayConnect";
 import { ModelSelector } from "./ModelSelector";
 import { ReviewBoard } from "./ReviewBoard";
@@ -89,7 +96,8 @@ async function readJson(
 }
 
 export default function Home() {
-  const [publicationConfirmation, setPublicationConfirmation] = useState<ItemGroup | null>(null);
+  const [publicationConfirmation, setPublicationConfirmation] =
+    useState<ItemGroup | null>(null);
   const publicationDialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     if (publicationConfirmation) publicationDialog.current?.showModal();
@@ -209,7 +217,7 @@ export default function Home() {
   useLayoutEffect(() => {
     if (!restored || readOnly) return;
     let current = true;
-    setSaveStatus("Saving…");
+    setSaveStatus("Wird gespeichert…");
     const timer = setTimeout(() => {
       void saveDraft({
         version: 1,
@@ -222,7 +230,7 @@ export default function Home() {
         updatedAt: Date.now(),
       })
         .then(() => {
-          if (current) setSaveStatus("Saved on this device");
+          if (current) setSaveStatus("Auf diesem Gerät gespeichert");
         })
         .catch(() => {
           if (current)
@@ -251,6 +259,81 @@ export default function Home() {
   useEffect(() => {
     groupsRef.current = groups;
   }, [groups]);
+
+  const automaticAttempts = useRef(new Set<string>());
+  const automaticBusy = useRef(false);
+  const [automaticPreparing, setAutomaticPreparing] = useState("");
+  useEffect(() => {
+    if (!restored || readOnly || !ebayConnected || automaticBusy.current)
+      return;
+    const g = groups.find(
+      (g) =>
+        g.listing &&
+        isGlasses(g.listing) &&
+        g.status === "done" &&
+        g.postStatus !== "posted" &&
+        g.postStatus !== "posting" &&
+        !inFlight.current.has(g.id) &&
+        !automaticAttempts.current.has(g.id) &&
+        (!g.preparation ||
+          (isSunglasses(g.listing) && !g.preparation.secondaryCategoryId) ||
+          g.listing.glasses_rules_version !== GLASSES_RULES_VERSION),
+    );
+    if (!g?.listing) return;
+    automaticAttempts.current.add(g.id);
+    automaticBusy.current = true;
+    setAutomaticPreparing(g.sku);
+    const snapshot = g.listing;
+    void (async () => {
+      try {
+        const response = await apiPost("/api/ebay/prepare", {
+          listing: snapshot,
+          enrich: false,
+        });
+        const result = await readJson(response);
+        if (!result.ok)
+          throw new Error(
+            result.error || "Kategorie konnte nicht vorbereitet werden.",
+          );
+        setGroups((previous) =>
+          previous.map((current) =>
+            current.id !== g.id ||
+            current.status !== "done" ||
+            current.postStatus === "posted" ||
+            current.postStatus === "posting"
+              ? current
+              : current.listing !== snapshot
+                ? {
+                    ...current,
+                    preparationError:
+                      "Deine Änderungen bleiben erhalten. Bitte die Kategorie in der Detailkarte erneut vorbereiten.",
+                  }
+                : {
+                    ...current,
+                    listing: result.listing,
+                    preparation: result.preparation,
+                    preparationError: undefined,
+                    verificationMessage: undefined,
+                  },
+          ),
+        );
+      } catch (error) {
+        setGroups((previous) =>
+          previous.map((current) =>
+            current.id === g.id &&
+            current.listing === snapshot &&
+            current.postStatus !== "posted" &&
+            current.postStatus !== "posting"
+              ? { ...current, preparationError: (error as Error).message }
+              : current,
+          ),
+        );
+      } finally {
+        automaticBusy.current = false;
+        setAutomaticPreparing("");
+      }
+    })();
+  }, [groups, restored, readOnly, ebayConnected, automaticPreparing]);
 
   // Keep eBay connection status in sync (also after the connect bar updates).
   useEffect(() => {
@@ -562,7 +645,12 @@ export default function Home() {
                   ...g,
                   status: "writing",
                   shopBaseDescription: baseDescription,
-                  shipping: { ...(shopOptions ? validPolicyDefaults(shop, shopOptions) : {}), ...g.shipping },
+                  shipping: {
+                    ...(shopOptions
+                      ? validPolicyDefaults(shop, shopOptions)
+                      : {}),
+                    ...g.shipping,
+                  },
                   listing: data.listing,
                   evidencePhotoIds: [
                     ...(group.analysisPhotoIds ?? group.photoIds),
@@ -722,7 +810,11 @@ export default function Home() {
     );
 
   const postGroup = useCallback(
-    async (groupId: string, mode: "verify" | "publish" = "publish", confirmedSnapshot?: string) => {
+    async (
+      groupId: string,
+      mode: "verify" | "publish" = "publish",
+      confirmedSnapshot?: string,
+    ) => {
       const group = groupsRef.current.find((g) => g.id === groupId);
       if (
         !group ||
@@ -990,7 +1082,8 @@ export default function Home() {
     [groups],
   );
 
-  if (!restored) return <main className="wrap">Restoring saved work…</main>;
+  if (!restored)
+    return <main className="wrap">Gespeicherte Arbeit wird geladen…</main>;
   if (readOnly)
     return (
       <main className="wrap">
@@ -1008,9 +1101,11 @@ export default function Home() {
             className="btn btn-ghost danger"
             onClick={startNewBatch}
             disabled={busy}
-            title={busy ? "Wait for writing or posting to finish" : undefined}
+            title={
+              busy ? "Bitte die laufende Verarbeitung abwarten" : undefined
+            }
           >
-            Start new batch
+            Neuen Stapel beginnen
           </button>
         )}
       </div>
@@ -1027,36 +1122,51 @@ export default function Home() {
       </header>
 
       <EbayConnect />
-      <ShopSettings groups={groups} disabled={readOnly || !restored || queueBusy.current || inFlight.current.size > 0}
+      {automaticPreparing && (
+        <p role="status">
+          Deutsche Merkmale und Kategorien werden vorbereitet:{" "}
+          {automaticPreparing}…
+        </p>
+      )}
+      <ShopSettings
+        groups={groups}
+        disabled={
+          readOnly ||
+          !restored ||
+          queueBusy.current ||
+          inFlight.current.size > 0
+        }
         onApply={(settings, options) => {
-          if (readOnly || queueBusy.current || inFlight.current.size) throw new Error("Bitte laufende Verarbeitung abwarten.");
+          if (readOnly || queueBusy.current || inFlight.current.size)
+            throw new Error("Bitte laufende Verarbeitung abwarten.");
           const current = groupsRef.current;
-          const next = current.map(g => applyShopGroup(g, settings, options));
+          const next = current.map((g) => applyShopGroup(g, settings, options));
           setGroups(next);
           return next.filter((g, i) => g !== current[i]).length;
-        }} />
+        }}
+      />
 
       {step === "upload" && (
         <>
           <section className="hero">
             <h2>
-              Dump every photo. <em>We&rsquo;ll sort it out.</em>
+              Alle Fotos hochladen. <em>Wir sortieren sie.</em>
             </h2>
             <p>
-              Add all your photos for the whole batch at once. The app groups
-              them into separate items, then writes a polished eBay listing for
-              each one.
+              Lade die Fotos des gesamten Stapels hoch. Die App ordnet sie
+              einzelnen Artikeln zu und erstellt für jeden einen prüfbaren
+              eBay-Entwurf.
             </p>
           </section>
 
           <section className="panel" aria-labelledby="upload-heading">
             <h2 id="upload-heading" className="section-label">
-              1 · Add all your photos
+              1 · Fotos hinzufügen
             </h2>
 
             <div className="field bin-field">
               <label htmlFor="bin">
-                Bin / SKU code{" "}
+                Lagerbox / SKU-Kürzel{" "}
                 <span
                   style={{
                     fontWeight: 400,
@@ -1064,25 +1174,25 @@ export default function Home() {
                     letterSpacing: 0,
                   }}
                 >
-                  (where these items are stored)
+                  (Lagerort dieser Artikel)
                 </span>
               </label>
               <input
                 id="bin"
                 type="text"
-                placeholder="e.g. K75"
+                placeholder="z. B. K75"
                 value={binPrefix}
                 onChange={(e) => setBinPrefix(e.target.value)}
                 autoCapitalize="characters"
               />
               <span className="field-hint">
-                Each item gets{" "}
+                Jeder Artikel erhält{" "}
                 {binPrefix
                   ? `${binPrefix.trim()}-A, ${binPrefix.trim()}-B`
                   : "A, B, C"}
-                … with a unique suffix to prevent collisions across devices. If
-                this bin already has listings on eBay, lettering continues where
-                it left off. You can edit any SKU after sorting.
+                … mit einer eindeutigen Ergänzung. Bereits verwendete Kürzel
+                werden berücksichtigt. Nach dem Sortieren kannst du jede SKU
+                bearbeiten.
               </span>
             </div>
 
@@ -1105,9 +1215,9 @@ export default function Home() {
               <span className="icon" aria-hidden="true">
                 📸
               </span>
-              <strong>Tap to choose photos, or drag them all here</strong>
+              <strong>Fotos auswählen oder hierher ziehen</strong>
               <span>
-                Every item in the batch · up to {MAX_PHOTOS} photos · JPG, PNG,
+                Alle Artikel im Stapel · bis zu {MAX_PHOTOS} Fotos · JPG, PNG,
                 WebP
               </span>
               <input
@@ -1122,14 +1232,14 @@ export default function Home() {
 
             {importProgress && <p aria-live="polite">{importProgress}</p>}
             {photos.length > 0 && (
-              <div className="thumbs" aria-label="Selected photos">
+              <div className="thumbs" aria-label="Ausgewählte Fotos">
                 {photos.map((p) => (
                   <div className="thumb" key={p.id}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={p.previewUrl} alt="" />
                     <button
                       type="button"
-                      aria-label="Remove photo"
+                      aria-label="Foto entfernen"
                       onClick={() => removePhoto(p.id)}
                     >
                       ✕
@@ -1159,7 +1269,7 @@ export default function Home() {
                     {
                       id,
                       sku: `${buildSku(binPrefix, 0).slice(0, 37)}-${id.replace(/-/g, "").slice(0, 12)}`,
-                      name: "Single item",
+                      name: "Einzelner Artikel",
                       photoIds: photos.map((p) => p.id),
                       status: "idle",
                     },
@@ -1168,7 +1278,7 @@ export default function Home() {
                   setStep("review");
                 }}
               >
-                These photos are one item
+                Diese Fotos gehören zu einem Artikel
               </button>
               <button
                 type="button"
@@ -1215,14 +1325,38 @@ export default function Home() {
           groups={usableGroups}
           photos={photos}
           onResult={(id, patch) => {
-            if (!patch.listing) { editGroup(id, patch); return; }
+            if (!patch.listing) {
+              editGroup(id, patch);
+              return;
+            }
             void (async () => {
               try {
                 const options = await loadAccountOptions();
-                const current = groupsRef.current.find(g => g.id === id);
-                if (!current || current.postStatus === "posted" || current.postStatus === "posting") return;
-                editGroup(id, applyShopGroup({ ...current, ...patch, shopBaseDescription: patch.listing!.description }, readShopPreferences(options.sellerKey), options));
-              } catch (e) { editGroup(id, { ...patch, preparationError: `Vorgaben nicht übernommen: ${(e as Error).message}` }); }
+                const current = groupsRef.current.find((g) => g.id === id);
+                if (
+                  !current ||
+                  current.postStatus === "posted" ||
+                  current.postStatus === "posting"
+                )
+                  return;
+                editGroup(
+                  id,
+                  applyShopGroup(
+                    {
+                      ...current,
+                      ...patch,
+                      shopBaseDescription: patch.listing!.description,
+                    },
+                    readShopPreferences(options.sellerKey),
+                    options,
+                  ),
+                );
+              } catch (e) {
+                editGroup(id, {
+                  ...patch,
+                  preparationError: `Vorgaben nicht übernommen: ${(e as Error).message}`,
+                });
+              }
             })();
           }}
           onOpen={() => setStep("listings")}
@@ -1279,20 +1413,66 @@ export default function Home() {
         />
       )}
 
-      <dialog ref={publicationDialog} aria-labelledby="publication-heading"
+      <dialog
+        ref={publicationDialog}
+        aria-labelledby="publication-heading"
         onCancel={() => setPublicationConfirmation(null)}
-        style={{ maxWidth: "36rem", padding: "2rem", borderRadius: "1rem" }}>
-        {publicationConfirmation && <>
-          <h2 id="publication-heading">Veröffentlichung bestätigen</h2>
-          <p>{publicationConfirmation.listing?.title}</p>
-          <p>SKU: {publicationConfirmation.sku}</p>
-          <p>Hauptkategorie: {publicationConfirmation.preparation?.categoryName || publicationConfirmation.listing?.category_id}</p>
-          {publicationConfirmation.listing?.secondary_category_id && <p>Zweitkategorie: {publicationConfirmation.preparation?.secondaryCategoryName || publicationConfirmation.listing.secondary_category_id}. eBay kann dafür zusätzliche Gebühren berechnen.</p>}
-          <p><strong>Preis: {Number(publicationConfirmation.listing?.suggested_price).toFixed(2)} EUR</strong> · Menge: 1</p>
-          <p>Das Angebot ist danach öffentlich und kann gekauft werden, auch bei hohem Preis. Es ist kein Entwurf.</p>
-          <button type="button" autoFocus onClick={() => setPublicationConfirmation(null)}>Abbrechen</button>{" "}
-          <button type="button" className="btn-primary" onClick={() => void postGroup(publicationConfirmation.id, "publish", JSON.stringify(publicationConfirmation))}>Jetzt verbindlich auf eBay veröffentlichen</button>
-        </>}
+        style={{ maxWidth: "36rem", padding: "2rem", borderRadius: "1rem" }}
+      >
+        {publicationConfirmation && (
+          <>
+            <h2 id="publication-heading">Veröffentlichung bestätigen</h2>
+            <p>{publicationConfirmation.listing?.title}</p>
+            <p>SKU: {publicationConfirmation.sku}</p>
+            <p>
+              Hauptkategorie:{" "}
+              {publicationConfirmation.preparation?.categoryName ||
+                publicationConfirmation.listing?.category_id}
+            </p>
+            {publicationConfirmation.listing?.secondary_category_id && (
+              <p>
+                Zweitkategorie:{" "}
+                {publicationConfirmation.preparation?.secondaryCategoryName ||
+                  publicationConfirmation.listing.secondary_category_id}
+                . eBay kann dafür zusätzliche Gebühren berechnen.
+              </p>
+            )}
+            <p>
+              <strong>
+                Preis:{" "}
+                {Number(
+                  publicationConfirmation.listing?.suggested_price,
+                ).toFixed(2)}{" "}
+                EUR
+              </strong>{" "}
+              · Menge: 1
+            </p>
+            <p>
+              Das Angebot ist danach öffentlich und kann gekauft werden, auch
+              bei hohem Preis. Es ist kein Entwurf.
+            </p>
+            <button
+              type="button"
+              autoFocus
+              onClick={() => setPublicationConfirmation(null)}
+            >
+              Abbrechen
+            </button>{" "}
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() =>
+                void postGroup(
+                  publicationConfirmation.id,
+                  "publish",
+                  JSON.stringify(publicationConfirmation),
+                )
+              }
+            >
+              Jetzt verbindlich auf eBay veröffentlichen
+            </button>
+          </>
+        )}
       </dialog>
 
       <p className="footnote">

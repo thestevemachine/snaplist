@@ -1,7 +1,21 @@
-import { mergeCategoryAspects, sunglassesPair } from "@/lib/ebay/secondary-category";
+import {
+  isGlasses,
+  germanAspects,
+  germanGlassesTitle,
+  GLASSES_RULES_VERSION,
+} from "@/lib/glasses-rules";
+import {
+  mergeCategoryAspects,
+  sunglassesPair,
+} from "@/lib/ebay/secondary-category";
 import { EBAY_MARKETPLACE_ID } from "@/lib/ebay/config";
 import { applyListingDefaults } from "@/lib/listing-defaults";
-import { categoryMatches, expectedDepartment, categorySearchQuery, isSunglasses } from "@/lib/category-selection";
+import {
+  categoryMatches,
+  expectedDepartment,
+  categorySearchQuery,
+  isSunglasses,
+} from "@/lib/category-selection";
 import { NextRequest, NextResponse } from "next/server";
 import { guardApiRequest } from "@/lib/api-guard";
 import {
@@ -39,14 +53,28 @@ export async function prepareListing(body: any, sealedConnection?: string) {
           const listing = parseListing(body.listing);
           const images =
             body.enrich === true ? imagesSchema.parse(body.images) : [];
-          const dual = EBAY_MARKETPLACE_ID === "EBAY_DE" && isSunglasses(listing);
-          const pair = dual ? sunglassesPair(...await Promise.all([suggestLeafCategories("Sonnenbrille Herren", 10), suggestLeafCategories("Sonnenbrille Damen", 10)]), listing) : undefined;
-          const suggestions = pair ? [...pair] : listing.category_id
-            ? []
-            : await suggestLeafCategories(
-                categorySearchQuery(listing, EBAY_MARKETPLACE_ID === "EBAY_DE"),
-                10,
-              );
+          const dual =
+            EBAY_MARKETPLACE_ID === "EBAY_DE" && isSunglasses(listing);
+          const pair = dual
+            ? sunglassesPair(
+                ...(await Promise.all([
+                  suggestLeafCategories("Sonnenbrille Herren", 10),
+                  suggestLeafCategories("Sonnenbrille Damen", 10),
+                ])),
+                listing,
+              )
+            : undefined;
+          const suggestions = pair
+            ? [...pair]
+            : listing.category_id
+              ? []
+              : await suggestLeafCategories(
+                  categorySearchQuery(
+                    listing,
+                    EBAY_MARKETPLACE_ID === "EBAY_DE",
+                  ),
+                  10,
+                );
           const compatible = suggestions.filter((c) =>
             categoryMatches(c, listing),
           );
@@ -55,7 +83,7 @@ export async function prepareListing(body: any, sealedConnection?: string) {
           listing.secondary_category_id = secondaryId;
           if (!id)
             throw new Error(
-              "Could not resolve a category matching this department. Review the department/category and enter the correct leaf category ID.",
+              "Keine passende Kategorie gefunden. Bitte die Kategorie prüfen oder eine passende Kategorie-ID eingeben.",
             );
           const token = await sellerAccessToken(sealedConnection);
           let [meta, ids] = await Promise.all([
@@ -64,19 +92,29 @@ export async function prepareListing(body: any, sealedConnection?: string) {
           ]);
           if (!meta.length || !ids.size)
             throw new Error(
-              "Category specifics or conditions could not be loaded. Connect eBay and retry.",
+              "Merkmale oder Zustände konnten nicht geladen werden. Bitte die eBay-Verbindung prüfen und erneut versuchen.",
             );
           if (secondaryId) {
-            const [secondMeta, secondIds] = await Promise.all([categoryAspects(secondaryId), acceptedConditionIds(secondaryId, token ?? undefined)]);
-            if (!secondMeta.length || !secondIds.size) throw new Error("Die zweite Kategorie konnte nicht geprüft werden.");
+            const [secondMeta, secondIds] = await Promise.all([
+              categoryAspects(secondaryId),
+              acceptedConditionIds(secondaryId, token ?? undefined),
+            ]);
+            if (!secondMeta.length || !secondIds.size)
+              throw new Error(
+                "Die zweite Kategorie konnte nicht geprüft werden.",
+              );
             meta = mergeCategoryAspects(meta, secondMeta);
-            ids = new Set([...ids].filter(id => secondIds.has(id)));
-            if (!ids.size) throw new Error("Die Kategorien unterstützen keinen gemeinsamen Zustand.");
+            ids = new Set([...ids].filter((id) => secondIds.has(id)));
+            if (!ids.size)
+              throw new Error(
+                "Die Kategorien unterstützen keinen gemeinsamen Zustand.",
+              );
           }
           const departmentMeta = meta.find((a) => a.name === "Department");
           const expected = expectedDepartment(listing);
           if (
-            !dual && expected &&
+            !dual &&
+            expected &&
             departmentMeta?.mode === "SELECTION_ONLY" &&
             !departmentMeta.values.includes(expected)
           )
@@ -85,6 +123,9 @@ export async function prepareListing(body: any, sealedConnection?: string) {
             );
           applyListingDefaults(listing, meta, ids);
           const aspects = buildAspects(listing, listing.category || "");
+          const glasses =
+            EBAY_MARKETPLACE_ID === "EBAY_DE" && isGlasses(listing);
+          if (glasses) germanAspects(listing, aspects, meta);
           reconcileAspects(aspects, meta, listing, listing.category || "");
           if (body.enrich === true)
             await fillRecommendedAspects(
@@ -94,6 +135,7 @@ export async function prepareListing(body: any, sealedConnection?: string) {
               "draft",
               images,
             );
+          if (glasses) germanAspects(listing, aspects, meta);
           enforceCardinality(aspects, meta);
           sanitizeNumericAspects(aspects, meta);
           snapStandardSizes(aspects, meta);
@@ -102,22 +144,42 @@ export async function prepareListing(body: any, sealedConnection?: string) {
             .map((id) => ({
               value: CONDITION_ID_ENUM[id],
               label:
-                id === 1500
-                  ? "Neu ohne Etikett / neu: Sonstige (1500)"
-                  : id === 2990
-                  ? "Pre-owned Excellent (2990)"
-                  : `${CONDITION_ID_ENUM[id].replace(/_/g, " ")} (${id})`,
+                (
+                  {
+                    1000: "Neu",
+                    1500: "Neu ohne Etikett / neu: Sonstige",
+                    1750: "Neu mit Fehlern",
+                    2750: "Wie neu",
+                    2990: "Gebraucht – ausgezeichnet",
+                    3000: "Gebraucht",
+                    3010: "Gebraucht – akzeptabel",
+                    4000: "Gebraucht – sehr gut",
+                    5000: "Gebraucht – gut",
+                    6000: "Gebraucht – akzeptabel",
+                    7000: "Defekt / Ersatzteile",
+                  } as Record<number, string>
+                )[id] + ` (${id})`,
             }));
           if (ids.has(2990) || ids.has(3010)) {
             const c = conditions.find(
               (c) => c.value === CONDITION_ID_ENUM[3000],
             );
-            if (c) c.label = "Pre-owned Good (3000)";
+            if (c) c.label = "Gebraucht – gut (3000)";
           }
           listing.category_id = id;
           listing.item_specifics = Object.fromEntries(
             Object.entries(aspects).map(([k, v]) => [k, v.join(" | ")]),
           );
+          if (glasses && !listing.item_type)
+            listing.item_type = dual ? "Sonnenbrille" : "Brille";
+          if (
+            glasses &&
+            (listing.glasses_rules_version !== GLASSES_RULES_VERSION ||
+              body.applyGermanRules === true)
+          ) {
+            listing.title = germanGlassesTitle(listing, meta);
+            listing.glasses_rules_version = GLASSES_RULES_VERSION;
+          }
           // Preserve supported seller choices/defaults; never substitute another grade.
           if (!conditions.some((c) => c.value === listing.ebay_condition))
             listing.ebay_condition = "";

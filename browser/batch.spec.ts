@@ -34,8 +34,12 @@ async function seed(page: Page, count: number, unfinished = false) {
     });
   });
   await page.goto("/");
-  await expect(page.getByText("Restoring saved work…")).toBeHidden();
-  await expect(page.getByRole("status")).toContainText("Saved on this device");
+  await expect(
+    page.getByText("Gespeicherte Arbeit wird geladen…"),
+  ).toBeHidden();
+  await expect(page.getByRole("status")).toContainText(
+    "Auf diesem Gerät gespeichert",
+  );
   await page.evaluate(
     async ({ count, photo, unfinished }) => {
       const photos = Array.from({ length: count * 5 }, (_, i) => ({
@@ -51,7 +55,12 @@ async function seed(page: Page, count: number, unfinished = false) {
         name: `Item ${i}`,
         photoIds: photos.slice(i * 5, i * 5 + 5).map((p) => p.id),
         status: unfinished ? "idle" : "done",
-        shipping: { fulfillmentPolicyId: "usual", paymentPolicyId: "pay", returnPolicyId: "ret", locationKey: "home" },
+        shipping: {
+          fulfillmentPolicyId: "usual",
+          paymentPolicyId: "pay",
+          returnPolicyId: "ret",
+          locationKey: "home",
+        },
         listing: {
           title: `Item ${i}`,
           description: "Seller description",
@@ -103,7 +112,7 @@ async function seed(page: Page, count: number, unfinished = false) {
   );
   await page.reload();
   await expect(
-    page.getByRole("heading", { name: "Your listings" }),
+    page.getByRole("heading", { name: "Deine Angebote" }),
   ).toBeVisible();
   return () => optionsCalls;
 }
@@ -120,27 +129,27 @@ for (const count of [10, 25, 100])
       page.getByRole("button", { name: /Post all|Post selected/ }),
     ).toHaveCount(0);
     await page
-      .getByLabel("Title BATCH-0", { exact: true })
+      .getByLabel("Titel BATCH-0", { exact: true })
       .fill("Reviewed first item");
-    await page.getByLabel("Select BATCH-0", { exact: true }).check();
+    await page.getByLabel("Auswahl BATCH-0", { exact: true }).check();
     await page
-      .getByLabel("Shipping for selected", { exact: true })
+      .getByLabel("Versand für Auswahl", { exact: true })
       .selectOption("heavy");
     await page
-      .getByRole("button", { name: "Apply shipping", exact: true })
+      .getByRole("button", { name: "Versand übernehmen", exact: true })
       .click();
     await expect(
-      page.getByLabel("Shipping BATCH-0", { exact: true }),
+      page.getByLabel("Versand BATCH-0", { exact: true }),
     ).toHaveValue("heavy");
     await expect(page.getByRole("status")).toContainText(
-      "Saved on this device",
+      "Auf diesem Gerät gespeichert",
     );
     await page.reload();
-    await expect(page.getByLabel("Title BATCH-0", { exact: true })).toHaveValue(
+    await expect(page.getByLabel("Titel BATCH-0", { exact: true })).toHaveValue(
       "Reviewed first item",
     );
     await expect(
-      page.getByLabel("Shipping BATCH-0", { exact: true }),
+      page.getByLabel("Versand BATCH-0", { exact: true }),
     ).toHaveValue("heavy");
     await expect(
       page.getByRole("button", { name: /Post all|Post selected/ }),
@@ -151,11 +160,13 @@ test("batch table fits a phone and exposes missing fields through attention filt
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await seed(page, 100);
-  await page.getByLabel("Price BATCH-0", { exact: true }).fill("");
-  await page.getByLabel("Show", { exact: true }).selectOption("attention");
+  await page.getByLabel("Preis BATCH-0", { exact: true }).fill("");
+  await page.getByLabel("Anzeigen", { exact: true }).selectOption("attention");
   await expect(page.locator(".batch-table tbody > tr")).toHaveCount(1);
   await expect(
-    page.getByText("Enter a positive price.", { exact: true }),
+    page.getByText("Bitte einen Preis größer als null eingeben.", {
+      exact: true,
+    }),
   ).toBeVisible();
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth),
@@ -228,25 +239,31 @@ test("100 draft writes use three workers; failed items retry without rewriting s
     r.fulfill({ json: { ok: false } }),
   );
   await page
-    .getByRole("button", { name: "Write / retry 100 remaining", exact: true })
+    .getByRole("button", {
+      name: "100 verbleibende Entwürfe erstellen / erneut versuchen",
+      exact: true,
+    })
     .click();
   await expect(page.locator(".result-head .badge")).toContainText(
-    "99/100 drafts written",
+    "99/100 Entwürfe erstellt",
     { timeout: 30000 },
   );
   await expect(
     page.getByRole("button", {
-      name: "Write / retry 1 remaining",
+      name: "1 verbleibende Entwürfe erstellen / erneut versuchen",
       exact: true,
     }),
   ).toBeEnabled();
   expect(analyzeCalls).toBe(100);
   expect(maximum).toBe(3);
   await page
-    .getByRole("button", { name: "Write / retry 1 remaining", exact: true })
+    .getByRole("button", {
+      name: "1 verbleibende Entwürfe erstellen / erneut versuchen",
+      exact: true,
+    })
     .click();
   await expect(page.locator(".result-head .badge")).toContainText(
-    "100/100 drafts written",
+    "100/100 Entwürfe erstellt",
   );
   expect(analyzeCalls).toBe(101);
 });

@@ -94,7 +94,7 @@ export function ListingsView(props: ListingsViewProps) {
   const issues = (g: ItemGroup) => {
     const result = draftIssues(g);
     if (groups.some((other) => other.id !== g.id && other.sku === g.sku))
-      result.push("Another item has this SKU.");
+      result.push("Diese SKU ist bereits bei einem anderen Artikel vergeben.");
     return result;
   };
   const ready = groups.filter((g) => editable(g) && !issues(g).length);
@@ -151,35 +151,35 @@ export function ListingsView(props: ListingsViewProps) {
   return (
     <section className="panel" aria-labelledby="listings-heading">
       <div className="result-head">
-        <h3 id="listings-heading">Your listings</h3>
+        <h3 id="listings-heading">Deine Angebote</h3>
         <span className="badge">
-          {done}/{groups.length} drafts written · {ready.length} ready ·{" "}
-          {posted} posted
+          {done}/{groups.length} Entwürfe erstellt · {ready.length} bereit ·{" "}
+          {posted} veröffentlicht
         </span>
       </div>
       <div className="batch-toolbar">
         <button type="button" onClick={() => setTable(!table)}>
-          {table ? "Detailed cards" : "Batch table"}
+          {table ? "Detailkarten" : "Stapeltabelle"}
         </button>
         <label>
-          Show{" "}
+          Anzeigen{" "}
           <select
-            aria-label="Show"
+            aria-label="Anzeigen"
             value={filter}
             onChange={(e) => {
               setFilter(e.target.value);
               setPage(0);
             }}
           >
-            <option value="all">All items</option>
-            <option value="attention">Needs attention</option>
-            <option value="ready">Ready to post</option>
-            <option value="posted">Posted</option>
+            <option value="all">Alle Artikel</option>
+            <option value="attention">Bitte prüfen</option>
+            <option value="ready">Bereit zur Veröffentlichung</option>
+            <option value="posted">Veröffentlicht</option>
           </select>
         </label>
         {remaining > 0 && (
           <button type="button" disabled={active} onClick={props.onWriteAll}>
-            Write / retry {remaining} remaining
+            {remaining} verbleibende Entwürfe erstellen / erneut versuchen
           </button>
         )}
       </div>
@@ -187,7 +187,7 @@ export function ListingsView(props: ListingsViewProps) {
         <div className="batch-progress" aria-live="polite">
           <span>
             {queue.kind === "write" ? "Writing" : "Publishing"}:{" "}
-            {queue.completed}/{queue.total} attempts finished ·{" "}
+            {queue.completed}/{queue.total} Versuche abgeschlossen ·{" "}
             {(queue.elapsedMs / 60000).toFixed(1)} min
             {queue.paused
               ? queue.running
@@ -200,7 +200,7 @@ export function ListingsView(props: ListingsViewProps) {
           <progress
             value={queue.completed}
             max={queue.total}
-            aria-label="Batch progress"
+            aria-label="Stapel-Fortschritt"
           />
           {queue.running ? (
             <button
@@ -208,12 +208,12 @@ export function ListingsView(props: ListingsViewProps) {
               disabled={queue.paused}
               onClick={props.onPause}
             >
-              Pause batch
+              Stapel pausieren
             </button>
           ) : (
             queue.paused && (
               <button type="button" onClick={props.onResume}>
-                Resume batch
+                Stapel fortsetzen
               </button>
             )
           )}
@@ -237,7 +237,7 @@ export function ListingsView(props: ListingsViewProps) {
                 .catch((e) => setOptionsError(e.message))
             }
           >
-            Retry policies
+            Rahmenbedingungen erneut laden
           </button>
         </p>
       )}
@@ -249,20 +249,20 @@ export function ListingsView(props: ListingsViewProps) {
               setSelected(new Set(visible.filter(editable).map((g) => g.id)))
             }
           >
-            Select all {visible.filter(editable).length} shown by filter
+            Alle {visible.filter(editable).length} angezeigten Artikel auswählen
           </button>
           <button type="button" onClick={() => setSelected(new Set())}>
-            Clear selection
+            Auswahl aufheben
           </button>
-          <span>{chosen.length} selected</span>
+          <span>{chosen.length} ausgewählt</span>
           <label>
-            Shipping for selected{" "}
+            Versand für Auswahl{" "}
             <select
-              aria-label="Shipping for selected"
+              aria-label="Versand für Auswahl"
               value={bulkShipping}
               onChange={(e) => setBulkShipping(e.target.value)}
             >
-              <option value="">Choose policy</option>
+              <option value="">Versandregel auswählen</option>
               {options?.fulfillment.map((o) => (
                 <option key={o.id} value={o.id}>
                   {o.name}
@@ -284,16 +284,16 @@ export function ListingsView(props: ListingsViewProps) {
               setBulkNotice(`Shipping updated for ${chosen.length} items.`);
             }}
           >
-            Apply shipping
+            Versand übernehmen
           </button>
           <label>
-            Condition for selected{" "}
+            Zustand für Auswahl{" "}
             <select
-              aria-label="Condition for selected"
+              aria-label="Zustand für Auswahl"
               value={bulkCondition}
               onChange={(e) => setBulkCondition(e.target.value)}
             >
-              <option value="">Choose condition</option>
+              <option value="">Zustand auswählen</option>
               {conditions.map((c) => (
                 <option key={c.value} value={c.value}>
                   {c.label}
@@ -320,14 +320,14 @@ export function ListingsView(props: ListingsViewProps) {
               );
             }}
           >
-            Apply condition
+            Zustand übernehmen
           </button>
         </div>
       )}
       {bulkNotice && <p aria-live="polite">{bulkNotice}</p>}
       {ebayConnected && ready.length > 0 && (
         <p>
-          Für den ersten Test eine Brille in „Detailed cards“ öffnen, bei eBay
+          Für den ersten Test eine Brille in „Detailkarten“ öffnen, bei eBay
           prüfen und einzeln veröffentlichen.
         </p>
       )}
@@ -336,13 +336,13 @@ export function ListingsView(props: ListingsViewProps) {
           <table className="batch-table">
             <thead>
               <tr>
-                <th>Select / photo</th>
-                <th>Title / SKU</th>
-                <th>Size</th>
-                <th>Condition</th>
-                <th>Price</th>
-                <th>Shipping</th>
-                <th>Status / details</th>
+                <th>Auswahl / Foto</th>
+                <th>Titel / SKU</th>
+                <th>Größe</th>
+                <th>Zustand</th>
+                <th>Preis</th>
+                <th>Versand</th>
+                <th>Status / Details</th>
               </tr>
             </thead>
             <tbody>
@@ -357,7 +357,7 @@ export function ListingsView(props: ListingsViewProps) {
                       <td>
                         <input
                           type="checkbox"
-                          aria-label={`Select ${g.sku}`}
+                          aria-label={`Auswahl ${g.sku}`}
                           checked={selected.has(g.id)}
                           disabled={locked}
                           onChange={() => toggle(g.id)}
@@ -375,7 +375,7 @@ export function ListingsView(props: ListingsViewProps) {
                       <td>
                         {l ? (
                           <textarea
-                            aria-label={`Title ${g.sku}`}
+                            aria-label={`Titel ${g.sku}`}
                             value={l.title}
                             disabled={locked}
                             onChange={(e) =>
@@ -392,7 +392,7 @@ export function ListingsView(props: ListingsViewProps) {
                       </td>
                       <td>
                         <input
-                          aria-label={`Size ${g.sku}`}
+                          aria-label={`Größe ${g.sku}`}
                           value={l?.size ?? ""}
                           disabled={locked}
                           onChange={(e) =>
@@ -403,14 +403,14 @@ export function ListingsView(props: ListingsViewProps) {
                       </td>
                       <td>
                         <select
-                          aria-label={`Condition ${g.sku}`}
+                          aria-label={`Zustand ${g.sku}`}
                           value={l?.ebay_condition ?? ""}
                           disabled={locked}
                           onChange={(e) =>
                             onEdit(g.id, { ebay_condition: e.target.value })
                           }
                         >
-                          <option value="">Choose</option>
+                          <option value="">Auswählen</option>
                           {g.preparation?.conditions.map((c) => (
                             <option key={c.value} value={c.value}>
                               {c.label}
@@ -420,7 +420,7 @@ export function ListingsView(props: ListingsViewProps) {
                       </td>
                       <td>
                         <input
-                          aria-label={`Price ${g.sku}`}
+                          aria-label={`Preis ${g.sku}`}
                           inputMode="decimal"
                           value={l?.suggested_price ?? ""}
                           disabled={locked}
@@ -431,12 +431,12 @@ export function ListingsView(props: ListingsViewProps) {
                         <small>
                           {g.comps?.count
                             ? `${g.comps.count} asking-price matches`
-                            : "Unverified estimate"}
+                            : "Ungeprüfte Schätzung"}
                         </small>
                       </td>
                       <td>
                         <select
-                          aria-label={`Shipping ${g.sku}`}
+                          aria-label={`Versand ${g.sku}`}
                           value={g.shipping?.fulfillmentPolicyId ?? ""}
                           disabled={locked || !options}
                           onChange={(e) =>
@@ -448,7 +448,7 @@ export function ListingsView(props: ListingsViewProps) {
                             })
                           }
                         >
-                          <option value="">Choose</option>
+                          <option value="">Auswählen</option>
                           {options?.fulfillment.map((o) => (
                             <option key={o.id} value={o.id}>
                               {o.name}
@@ -459,16 +459,16 @@ export function ListingsView(props: ListingsViewProps) {
                       <td>
                         <strong>
                           {g.postStatus === "posted"
-                            ? "Posted to eBay"
+                            ? "Bei eBay veröffentlicht"
                             : g.postStatus === "posting"
-                              ? "Posting…"
+                              ? "Wird veröffentlicht…"
                               : g.status === "writing"
-                                ? "Writing…"
+                                ? "Wird erstellt…"
                                 : g.status === "idle"
                                   ? "Waiting"
                                   : g.status === "error" ||
                                       g.postStatus === "error"
-                                    ? "Failed — retry"
+                                    ? "Fehlgeschlagen – erneut versuchen"
                                     : problems.length
                                       ? `${problems.length} to fix`
                                       : "Ready"}
@@ -486,8 +486,8 @@ export function ListingsView(props: ListingsViewProps) {
                           }
                         >
                           {expanded === g.id
-                            ? "Close details"
-                            : "Review details"}
+                            ? "Details schließen"
+                            : "Details prüfen"}
                         </button>
                       </td>
                     </tr>

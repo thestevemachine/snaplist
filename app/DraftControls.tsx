@@ -1,4 +1,5 @@
 "use client";
+import { isGlasses, controlledGlassesAspect } from "@/lib/glasses-rules";
 import { isSunglasses } from "@/lib/category-selection";
 import { useState, useRef, useEffect } from "react";
 import type { ItemGroup, Photo } from "@/lib/types";
@@ -33,6 +34,8 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
     if (patch.item_specifics) {
       for (const [key, field] of [
         ["Brand", "brand"],
+        ["Marke", "brand"],
+        ["Fassungsmaterial", "material"],
         ["Size", "size"],
         ["Material", "material"],
         ["Type", "item_type"],
@@ -80,7 +83,7 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
       if (!d.ok) throw new Error(d.error);
       if (latest.current.listing !== l)
         throw new Error(
-          "The draft changed while preparing. Prepare it again to keep your edits.",
+          "Der Entwurf wurde während der Vorbereitung geändert. Bitte erneut vorbereiten; deine Änderungen bleiben erhalten.",
         );
       onGroupEdit(g.id, {
         listing: d.listing,
@@ -133,41 +136,43 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
       disabled={busy || g.postStatus === "posted" || g.postStatus === "posting"}
       className="draft-controls"
     >
-      <legend>Review eBay details</legend>
-      <label>
-        Clothing department
-        <select
-          aria-label="Clothing department"
-          value={
-            l.category?.startsWith("womens_")
-              ? "Women"
-              : l.category?.startsWith("mens_")
-                ? "Men"
-                : ""
-          }
-          onChange={(e) => {
-            const family = (l.category || "clothing").replace(
-              /^(womens|mens)_/,
-              "",
-            );
-            edit({
-              category: e.target.value
-                ? (e.target.value === "Women" ? "womens_" : "mens_") + family
-                : "accessory",
-              category_id: "",
-              ebay_condition: "",
-              item_specifics: { ...specifics, Department: e.target.value },
-            });
-          }}
-        >
-          <option value="">Not established / other</option>
-          <option>Women</option>
-          <option>Men</option>
-        </select>
-      </label>
+      <legend>eBay-Details prüfen</legend>
+      {!isGlasses(l) && (
+        <label>
+          Bekleidungsabteilung
+          <select
+            aria-label="Bekleidungsabteilung"
+            value={
+              l.category?.startsWith("womens_")
+                ? "Women"
+                : l.category?.startsWith("mens_")
+                  ? "Men"
+                  : ""
+            }
+            onChange={(e) => {
+              const family = (l.category || "clothing").replace(
+                /^(womens|mens)_/,
+                "",
+              );
+              edit({
+                category: e.target.value
+                  ? (e.target.value === "Women" ? "womens_" : "mens_") + family
+                  : "accessory",
+                category_id: "",
+                ebay_condition: "",
+                item_specifics: { ...specifics, Department: e.target.value },
+              });
+            }}
+          >
+            <option value="">Nicht festgelegt / Sonstiges</option>
+            <option>Women</option>
+            <option>Men</option>
+          </select>
+        </label>
+      )}
       {!!g.preparation?.suggestions?.length && (
         <label>
-          Suggested category
+          Vorgeschlagene Kategorie
           <select
             value={l.category_id || ""}
             onChange={(e) =>
@@ -183,9 +188,9 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
         </label>
       )}
       <label>
-        Category ID{" "}
+        Kategorie-ID{" "}
         <input
-          aria-label="Category ID"
+          aria-label="Kategorie-ID"
           value={l.category_id ?? ""}
           onChange={(e) =>
             edit({ category_id: e.target.value, ebay_condition: "" })
@@ -193,34 +198,49 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
         />
       </label>
       <button type="button" onClick={prepare}>
-        {busy ? "Working…" : isSunglasses(l) ? "Sonnenbrillen: Herren + Damen vorbereiten" : "Prepare category and specifics"}
+        {busy
+          ? "Wird vorbereitet…"
+          : isSunglasses(l)
+            ? "Sonnenbrillen: Herren + Damen vorbereiten"
+            : "Kategorie und Merkmale vorbereiten"}
       </button>
       {g.preparation && <p>{g.preparation.categoryName}</p>}
-      {g.preparation?.secondaryCategoryId && <p>Zweitkategorie: {g.preparation.secondaryCategoryName} ({g.preparation.secondaryCategoryId})</p>}
-      {isSunglasses(l) && <p className="note">Ein Angebot in beiden Kategorien: Herren und Damen. eBay kann für die zweite Kategorie zusätzliche Gebühren berechnen.</p>}
+      {g.preparation?.secondaryCategoryId && (
+        <p>
+          Zweitkategorie: {g.preparation.secondaryCategoryName} (
+          {g.preparation.secondaryCategoryId})
+        </p>
+      )}
+      {isSunglasses(l) && (
+        <p className="note">
+          Ein Angebot in beiden Kategorien: Herren und Damen. eBay kann für die
+          zweite Kategorie zusätzliche Gebühren berechnen.
+        </p>
+      )}
       {(error || g.preparationError) && (
         <p role="alert">{error || g.preparationError}</p>
       )}
       {g.preparation && (
         <label>
-          eBay condition{" "}
+          eBay-Zustand{" "}
           <select
-            aria-label="eBay condition"
+            aria-label="eBay-Zustand"
             value={l.ebay_condition ?? ""}
             onChange={(e) =>
               edit({
                 ebay_condition: e.target.value,
-                condition: e.target.value === "NEW_OTHER"
-                  ? "NEW_NO_TAGS"
-                  : e.target.value.startsWith("NEW")
-                  ? "NEW_WITH_TAGS"
-                  : e.target.value === "FOR_PARTS_OR_NOT_WORKING"
-                    ? "FOR_PARTS_OR_NOT_WORKING"
-                    : "GOOD",
+                condition:
+                  e.target.value === "NEW_OTHER"
+                    ? "NEW_NO_TAGS"
+                    : e.target.value.startsWith("NEW")
+                      ? "NEW_WITH_TAGS"
+                      : e.target.value === "FOR_PARTS_OR_NOT_WORKING"
+                        ? "FOR_PARTS_OR_NOT_WORKING"
+                        : "GOOD",
               })
             }
           >
-            <option value="">Choose condition</option>
+            <option value="">Zustand auswählen</option>
             {g.preparation.conditions.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
@@ -230,7 +250,7 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
         </label>
       )}
       <label>
-        Condition / testing notes
+        Zustand und Hinweise
         <textarea
           value={l.condition_notes ?? ""}
           onChange={(e) => edit({ condition_notes: e.target.value })}
@@ -238,7 +258,8 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
       </label>
       <details open>
         <summary>
-          Editable item specifics — AI estimates are marked; check them before posting
+          Artikelmerkmale bearbeiten – KI-Schätzungen bitte vor dem
+          Veröffentlichen prüfen
         </summary>
         {names.map((name) => {
           const meta = g.preparation?.aspects.find((a) => a.name === name);
@@ -246,22 +267,26 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
             <label key={name} className="specific-edit">
               {name}
               {l.evidence?.[name]?.length
-                ? ` (AI cites photo ${l.evidence[name]
+                ? ` (KI verweist auf Foto ${l.evidence[name]
                     .map((n) => {
                       const id = g.evidencePhotoIds?.[n - 1];
                       return id ? g.photoIds.indexOf(id) + 1 : n;
                     })
-                    .join(", ")}; verify)`
+                    .join(", ")}; bitte prüfen)`
                 : ""}
               {l.estimates?.[name] ? (
                 <span className="estimate-tag">
                   {" "}
-                  AI estimate · {l.estimates[name]}% sure
+                  KI-Schätzung · {l.estimates[name]}% sicher
                 </span>
               ) : null}
               {meta?.required ? " *" : ""}
               {meta &&
-              (meta.mode === "SELECTION_ONLY" || isStandardSizeAspect(meta)) &&
+              (meta.mode === "SELECTION_ONLY" ||
+                isStandardSizeAspect(meta) ||
+                (isGlasses(l) &&
+                  controlledGlassesAspect(meta.name) &&
+                  meta.values.length > 0)) &&
               meta.cardinality !== "MULTI" ? (
                 <select
                   aria-label={name}
@@ -272,7 +297,7 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
                     })
                   }
                 >
-                  <option value="">Unknown — leave empty</option>
+                  <option value="">Unbekannt – leer lassen</option>
                   {meta.values.map((v) => (
                     <option key={v}>{v}</option>
                   ))}
@@ -283,8 +308,8 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
                   value={specifics[name] ?? ""}
                   placeholder={
                     meta?.cardinality === "MULTI"
-                      ? "Separate multiple values with |"
-                      : "Unknown — leave empty"
+                      ? "Mehrere Werte mit | trennen"
+                      : "Unbekannt – leer lassen"
                   }
                   onChange={(e) =>
                     edit({
@@ -299,19 +324,22 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
         <button
           type="button"
           onClick={async () => {
-            const name = await requestText("Specific name, such as Model");
+            const name = await requestText(
+              "Name des Merkmals, zum Beispiel Modell",
+            );
             if (name?.trim())
               edit({ item_specifics: { ...specifics, [name.trim()]: "" } });
           }}
         >
-          Add a specific
+          Merkmal hinzufügen
         </button>
       </details>
       <details>
-        <summary>Photos and analysis evidence ({g.photoIds.length})</summary>
+        <summary>Fotos und Analysebelege ({g.photoIds.length})</summary>
         <p>
-          All item photos publish. Choose which photos the AI reads; include
-          labels and defects. Originals are saved on this device.
+          Alle Artikelfotos werden beim Veröffentlichen übertragen. Wähle die
+          Fotos für die KI-Analyse einschließlich Beschriftungen und Mängeln.
+          Originale bleiben auf diesem Gerät.
         </p>
         {g.photoIds.map((id, i) => {
           const p = photoById(id);
@@ -331,9 +359,9 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
                     })
                   }
                 />
-                Use photo {i + 1} for analysis
+                Foto verwenden: {i + 1} für die Analyse
               </label>
-              <img src={p.previewUrl} width={80} alt={`Item photo ${i + 1}`} />
+              <img src={p.previewUrl} width={80} alt={`Artikelfoto ${i + 1}`} />
               {p.original && (
                 <button
                   type="button"
@@ -346,7 +374,7 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
                     setTimeout(() => URL.revokeObjectURL(u), 1000);
                   }}
                 >
-                  Save original
+                  Original speichern
                 </button>
               )}
             </div>
@@ -354,23 +382,26 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
         })}
       </details>
       <details open>
-        <summary>Shipping and returns</summary>
-        <p className="note">Gespeicherte Shop-Vorgaben werden für neue Angebote verwendet. Hier kannst du sie für diese Brille ändern.</p>
+        <summary>Versand und Rückgabe</summary>
+        <p className="note">
+          Gespeicherte Shop-Vorgaben werden für neue Angebote verwendet. Hier
+          kannst du sie für diese Brille ändern.
+        </p>
         {options && options.returns.length === 0 && (
           <p className="note-error">
-            No returns-accepted policy was found. Check your eBay return policy,
-            then reload policies here.
+            Keine Rückgaberegel gefunden. Bitte deine eBay-Rahmenbedingungen
+            prüfen und erneut laden.
           </p>
         )}
         <button type="button" onClick={() => void loadOptions(true)}>
-          Load my eBay policies and locations
+          Meine eBay-Rahmenbedingungen laden
         </button>
         {(
           [
-            ["fulfillment", "fulfillmentPolicyId", "Shipping policy"],
-            ["payment", "paymentPolicyId", "Payment policy"],
-            ["returns", "returnPolicyId", "Return policy"],
-            ["locations", "locationKey", "Shipping origin"],
+            ["fulfillment", "fulfillmentPolicyId", "Versandregel"],
+            ["payment", "paymentPolicyId", "Zahlungsregel"],
+            ["returns", "returnPolicyId", "Rückgaberegel"],
+            ["locations", "locationKey", "Artikelstandort"],
           ] as const
         ).map(([kind, key, label]) => (
           <label key={key}>
@@ -384,10 +415,10 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
                 })
               }
             >
-              <option value="">Select…</option>
+              <option value="">Auswählen…</option>
               {!options && g.shipping?.[key] && (
                 <option value={g.shipping[key]}>
-                  {g.shipping[key]} (saved)
+                  {g.shipping[key]} (gespeichert)
                 </option>
               )}
               {options?.[kind].map((o) => (
@@ -398,94 +429,62 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
             </select>
           </label>
         ))}
-        <details>
-          <summary>Package weight and dimensions (optional)</summary>
-          <p className="note">
-            Leave blank for your flat-fee shipping. No package measurements will
-            be sent unless you enter them.
-          </p>
-          {(
-            [
-              ["weightOz", "Packed weight (oz)"],
-              ["lengthIn", "Length (in)"],
-              ["widthIn", "Width (in)"],
-              ["heightIn", "Height (in)"],
-            ] as const
-          ).map(([key, label]) => (
-            <label key={key}>
-              {label}
-              <input
-                aria-label={label}
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={g.shipping?.[key] ?? ""}
-                onChange={(e) =>
-                  onGroupEdit(g.id, {
-                    shipping: {
-                      ...g.shipping,
-                      [key]:
-                        e.target.value === ""
-                          ? undefined
-                          : Number(e.target.value),
-                    },
-                  })
-                }
-              />
-            </label>
-          ))}
-        </details>
         {!options?.locations.length && options && (
           <p>
-            Create an inventory location with your real address in eBay before
-            publishing.
+            Bitte die eBay-Kontoadresse prüfen und die Rahmenbedingungen erneut
+            laden.
           </p>
         )}
       </details>
       <button type="button" onClick={research}>
-        Refresh comparable asking prices
+        Vergleichspreise aktualisieren
       </button>
       {g.compsStatus && g.compsStatus !== "ready" && (
         <p>
-          Market research: {g.compsStatus}. The AI price is an unverified
-          estimate.
+          Preisvergleich:{" "}
+          {g.compsStatus === "loading"
+            ? "wird geladen"
+            : g.compsStatus === "stale"
+              ? "veraltet"
+              : "nicht verfügbar"}
+          . Der KI-Preis ist eine ungeprüfte Schätzung.
         </p>
       )}
       {g.comps?.sources && (
         <details>
-          <summary>Inspect comparable sources · {g.comps.matchBasis}</summary>
+          <summary>Vergleichsangebote ansehen · {g.comps.matchBasis}</summary>
           <p>
-            Checked {g.comps.checkedAt}. Asking prices are not sold prices.
-            Verify identity, condition and accessories.
+            Geprüft am {g.comps.checkedAt}. Dies sind Angebotspreise, keine
+            Verkaufspreise. Bitte Artikel, Zustand und Zubehör vergleichen.
           </p>
           {g.comps.sources.map((s) => (
             <p key={s.id}>
               <a href={s.url} target="_blank" rel="noreferrer">
                 {s.title}
               </a>{" "}
-              — ${s.price.toFixed(2)} +{" "}
+              — {s.price.toFixed(2)} € +{" "}
               {s.shipping === undefined
-                ? "unknown shipping"
-                : `$${s.shipping.toFixed(2)} shipping`}
+                ? "Versand unbekannt"
+                : `${s.shipping.toFixed(2)} € Versand`}
             </p>
           ))}
         </details>
       )}
       {!!g.usage?.length && (
         <p>
-          AI usage so far:{" "}
+          Bisherige KI-Nutzung:{" "}
           {g.usage
             .reduce((n, u) => n + u.input + u.cacheRead + u.cacheWrite, 0)
             .toLocaleString()}{" "}
-          input tokens ·{" "}
-          {g.usage.reduce((n, u) => n + u.output, 0).toLocaleString()} output ·
-          estimated $
+          Eingabe-Token ·{" "}
+          {g.usage.reduce((n, u) => n + u.output, 0).toLocaleString()} Ausgabe ·
+          geschätzt $
           {g.usage.reduce((n, u) => n + (u.estimatedUsd ?? 0), 0).toFixed(4)}{" "}
-          (recorded calls; bulk sorting separate).
+          (erfasste Aufrufe; Sortierung separat).
         </p>
       )}
       {draftIssues(g).length > 0 && (
-        <ul aria-label="Review issues">
+        <ul aria-label="Noch zu prüfen">
           {draftIssues(g).map((i) => (
             <li key={i}>{i}</li>
           ))}

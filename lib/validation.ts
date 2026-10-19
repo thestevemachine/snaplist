@@ -15,6 +15,7 @@ export const CONDITIONS = [
   "FOR_PARTS_OR_NOT_WORKING",
 ] as const;
 export const listingSchema = z.object({
+  glasses_rules_version: z.number().int().min(0).max(100).optional(),
   title: z.string().trim().min(1).max(200),
   description: z.string().max(15000),
   category: text.optional(),
@@ -22,6 +23,7 @@ export const listingSchema = z.object({
   category_id: z.string().regex(/^\d*$/).max(20).optional(),
   secondary_category_id: z.string().regex(/^\d*$/).max(20).optional(),
   ebay_condition: text.optional(),
+  estimates: z.record(z.string().max(100), z.number().finite().min(0).max(100)).optional(),
   evidence: z
     .record(
       z.string().max(100),

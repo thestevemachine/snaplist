@@ -5,6 +5,7 @@ import type { ShippingSelection } from "./validation";
 // Python script's analyze_photos(), plus the routed profile.
 
 export interface ListingResult {
+  glasses_rules_version?: number;
   title: string;
   category?: string;
   category_hint?: string;

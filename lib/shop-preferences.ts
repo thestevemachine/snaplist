@@ -47,7 +47,7 @@ export function applyShopListing(listing: ListingResult, settings: ShopPreferenc
     ? settings.descriptionTemplate.replace(/\{\{(beschreibung|titel)\}\}/g, (_, key) => key === "titel" ? listing.title : baseDescription)
     : baseDescription;
   if (description.length > 15000) throw new Error("Die Beschreibung mit Vorlage ist zu lang (maximal 15.000 Zeichen).");
-  return { ...listing, description, condition: "NEW_NO_TAGS", ebay_condition: "NEW_OTHER", item_specifics: { ...listing.item_specifics, EAN: "Nicht zutreffend" } };
+  return { ...listing, description, condition_notes: listing.condition_notes?.trim() || "Ungetragen ohne Etui", condition: "NEW_NO_TAGS", ebay_condition: "NEW_OTHER", item_specifics: { ...listing.item_specifics, EAN: "Nicht zutreffend" } };
 }
 export function applyShopGroup(group: ItemGroup, settings: ShopPreferences, options: AccountOptions): ItemGroup {
   if (!group.listing || group.status === "writing" || group.postStatus === "posted" || group.postStatus === "posting") return group;

@@ -1,3 +1,5 @@
+import { GERMAN_LISTING_PROMPT } from "@/lib/glasses-rules";
+import { EBAY_MARKETPLACE_ID } from "@/lib/ebay/config";
 import { cleanGeneratedDescription } from "@/lib/description";
 import { acceptedPhotoFact, isEstimate } from "@/lib/photo-facts";
 import { AI_LISTING_SCHEMA } from "@/lib/ai-schema";
@@ -161,7 +163,7 @@ async function handle(input: unknown) {
       routerModel,
       deadline,
     );
-    const systemPrompt = buildProfiledAnalysisPrompt(profile);
+    const systemPrompt = buildProfiledAnalysisPrompt(profile) + (EBAY_MARKETPLACE_ID === "EBAY_DE" ? GERMAN_LISTING_PROMPT : "");
 
     // Retry up to 3 times, mirroring the Python analyze_photos() loop — but
     // never start an attempt the time budget can't cover.

@@ -32,7 +32,7 @@ function MoveSelect({
     <select
       className="move-select"
       value={currentGroupId}
-      aria-label="Move photo to a different item"
+      aria-label="Foto einem anderen Artikel zuordnen"
       onChange={(e) => onMovePhoto(photoId, e.target.value as string)}
       onClick={(e) => e.stopPropagation()}
     >
@@ -41,7 +41,7 @@ function MoveSelect({
           {g.name}
         </option>
       ))}
-      <option value="orphans">Needs review</option>
+      <option value="orphans">Bitte prüfen</option>
     </select>
   );
 }
@@ -90,8 +90,8 @@ function Thumb({
     >
       <div className="board-thumb-img">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={photo.previewUrl} alt="Item photo" />
-        {drag?.isCover && <span className="thumb-cover-badge">Cover</span>}
+        <img src={photo.previewUrl} alt="Artikelfoto" />
+        {drag?.isCover && <span className="thumb-cover-badge">Titelbild</span>}
       </div>
       <MoveSelect
         photoId={photoId}
@@ -140,7 +140,8 @@ function PhotoGrid({
             draggable: group.photoIds.length > 1,
             isCover: i === 0,
             dragging: dragIndex === i,
-            dropTarget: overIndex === i && dragIndex !== null && dragIndex !== i,
+            dropTarget:
+              overIndex === i && dragIndex !== null && dragIndex !== i,
             onDragStart: (e) => {
               setDragIndex(i);
               e.dataTransfer.effectAllowed = "move";
@@ -182,15 +183,14 @@ export function ReviewBoard({
   return (
     <section className="panel" aria-labelledby="review-heading">
       <div className="result-head">
-        <h3 id="review-heading">
-          {groups.length} item{groups.length === 1 ? "" : "s"} found
-        </h3>
-        <span className="badge">{totalPhotos} photos sorted</span>
+        <h3 id="review-heading">{groups.length} Artikel gefunden</h3>
+        <span className="badge">{totalPhotos} Fotos sortiert</span>
       </div>
       <p style={{ marginTop: 0, color: "var(--color-ink-soft)" }}>
-        Check the groupings below. Rename an item, drag photos to reorder them
-        (the first photo is the eBay cover), or use the menu under any photo to
-        move it to another item. Then write all the listings at once.
+        Prüfe die Zuordnung. Du kannst Artikel umbenennen und Fotos neu
+        anordnen. Das erste Foto wird das eBay-Titelbild. Über das Menü unter
+        einem Foto kannst du es einem anderen Artikel zuordnen. Erstelle
+        anschließend die Entwürfe.
       </p>
 
       <div className="board">
@@ -201,7 +201,7 @@ export function ReviewBoard({
                 type="text"
                 className="board-sku"
                 value={group.sku}
-                aria-label="Item SKU / bin code"
+                aria-label="Artikel-SKU / Lagerbox"
                 placeholder="SKU"
                 onChange={(e) => onRenameSku(group.id, e.target.value)}
               />
@@ -209,7 +209,7 @@ export function ReviewBoard({
                 type="text"
                 className="board-name"
                 value={group.name}
-                aria-label="Item name"
+                aria-label="Artikelname"
                 onChange={(e) => onRename(group.id, e.target.value)}
               />
               <button
@@ -223,7 +223,7 @@ export function ReviewBoard({
             </header>
             {group.photoIds.length === 0 ? (
               <p className="board-empty">
-                Empty — move photos here using the menu under a photo.
+                Noch leer – Fotos über das Menü unter einem Foto zuordnen.
               </p>
             ) : (
               <PhotoGrid
@@ -241,9 +241,12 @@ export function ReviewBoard({
       {orphanIds.length > 0 && (
         <article className="board-item needs-review">
           <header className="board-item-head">
-            <strong>⚠️ Needs review ({orphanIds.length})</strong>
-            <span style={{ fontSize: "0.82rem", color: "var(--color-ink-faint)" }}>
-              These didn&rsquo;t clearly belong to one item — assign each below.
+            <strong>⚠️ Bitte prüfen ({orphanIds.length})</strong>
+            <span
+              style={{ fontSize: "0.82rem", color: "var(--color-ink-faint)" }}
+            >
+              Diese Fotos konnten nicht eindeutig zugeordnet werden. Bitte ordne
+              sie einem Artikel zu.
             </span>
           </header>
           <div className="board-thumbs">
@@ -263,10 +266,10 @@ export function ReviewBoard({
 
       <div className="result-actions">
         <button type="button" className="btn btn-ghost" onClick={onBack}>
-          ← Back to photos
+          ← Zurück zu den Fotos
         </button>
         <button type="button" className="btn btn-ghost" onClick={onAddGroup}>
-          ＋ New item
+          ＋ Neuer Artikel
         </button>
         <button
           type="button"
@@ -274,8 +277,7 @@ export function ReviewBoard({
           onClick={onWriteAll}
           disabled={usableGroups.length === 0}
         >
-          ✍️ Write {usableGroups.length} listing
-          {usableGroups.length === 1 ? "" : "s"}
+          ✍️ {usableGroups.length} Entwürfe erstellen
         </button>
       </div>
     </section>

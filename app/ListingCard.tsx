@@ -10,13 +10,13 @@ const TITLE_LIMIT = 80;
 
 // eBay's pre-owned condition tiers, matching the values the model returns.
 const CONDITIONS: { value: string; label: string }[] = [
-  { value: "NEW_WITH_TAGS", label: "New with tags" },
+  { value: "NEW_WITH_TAGS", label: "Neu mit Etikett" },
   { value: "NEW_NO_TAGS", label: "Neu ohne Etikett" },
-  { value: "EXCELLENT", label: "Pre-owned · Excellent" },
-  { value: "VERY_GOOD", label: "Pre-owned · Very good" },
-  { value: "GOOD", label: "Pre-owned · Good" },
-  { value: "FAIR", label: "Pre-owned · Fair" },
-  { value: "FOR_PARTS_OR_NOT_WORKING", label: "For parts / not working" },
+  { value: "EXCELLENT", label: "Gebraucht · ausgezeichnet" },
+  { value: "VERY_GOOD", label: "Gebraucht · sehr gut" },
+  { value: "GOOD", label: "Gebraucht · gut" },
+  { value: "FAIR", label: "Gebraucht · akzeptabel" },
+  { value: "FOR_PARTS_OR_NOT_WORKING", label: "Defekt / Ersatzteile" },
 ];
 
 function formatPrice(value: ListingResult["suggested_price"]): string {
@@ -50,7 +50,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
         }
       }}
     >
-      {copied ? "✓ Copied" : `📋 Copy ${label}`}
+      {copied ? "✓ Kopiert" : `📋 ${label} kopieren`}
     </button>
   );
 }
@@ -143,18 +143,23 @@ export function ListingCard({
           <span className="listing-card-sub">
             {group.status === "writing" && (
               <>
-                <span className="spinner small" aria-hidden="true" /> Writing…
+                <span className="spinner small" aria-hidden="true" /> Wird
+                erstellt…
               </>
             )}
             {group.status === "done" &&
               (priceMissing ? (
                 <span style={{ color: "var(--color-danger)" }}>
-                  ⚠️ needs a price
+                  ⚠️ Preis fehlt
                 </span>
               ) : (
                 <>
                   {formatPrice(listing?.suggested_price)} ·{" "}
-                  {group.postStatus === "posted" ? "Bei eBay veröffentlicht" : draftIssues(group).length ? "needs review" : "ready"}
+                  {group.postStatus === "posted"
+                    ? "Bei eBay veröffentlicht"
+                    : draftIssues(group).length
+                      ? "Bitte prüfen"
+                      : "Bereit"}
                 </>
               ))}
             {group.status === "error" && (
@@ -162,7 +167,7 @@ export function ListingCard({
                 ⚠️ {group.error || "Failed"}
               </span>
             )}
-            {group.status === "idle" && "Waiting…"}
+            {group.status === "idle" && "Wartet…"}
           </span>
         </div>
         {group.status === "error" ? (
@@ -174,7 +179,7 @@ export function ListingCard({
               onRetry(group.id);
             }}
           >
-            ↻ Retry
+            ↻ Erneut versuchen
           </button>
         ) : (
           <span className="chevron" aria-hidden="true">
@@ -194,7 +199,7 @@ export function ListingCard({
         >
           <div className="result-field">
             <label>
-              Title
+              Titel
               <span className={`count${titleLen > TITLE_LIMIT ? " over" : ""}`}>
                 {titleLen}/{TITLE_LIMIT}
               </span>
@@ -206,7 +211,7 @@ export function ListingCard({
               onChange={(e) => onEdit(group.id, { title: e.target.value })}
             />
             <div className="copy-row">
-              <CopyButton text={listing.title} label="title" />
+              <CopyButton text={listing.title} label="Titel" />
             </div>
           </div>
 
@@ -230,7 +235,7 @@ export function ListingCard({
               className={`stat editable${priceMissing ? " needs-attention" : ""}`}
             >
               <label className="k" htmlFor={`price-${group.id}`}>
-                Price
+                Preis
               </label>
               <div className="price-input">
                 <span aria-hidden="true">€</span>
@@ -251,7 +256,7 @@ export function ListingCard({
               </div>
               {group.comps?.ok && group.comps.median !== undefined && (
                 <span className="comps-line" title={group.comps.basis}>
-                  Market: {group.comps.count} similar active listings, €
+                  Markt: {group.comps.count} ähnliche aktive Angebote, €
                   {group.comps.low?.toFixed(0)}–€{group.comps.high?.toFixed(0)}
                   {" · "}
                   <button
@@ -274,7 +279,7 @@ export function ListingCard({
             </div>
             <div className="stat editable">
               <label className="k" htmlFor={`cond-${group.id}`}>
-                Condition
+                Zustand
               </label>
               <select
                 id={`cond-${group.id}`}
@@ -302,7 +307,7 @@ export function ListingCard({
             </div>
             {listing.brand && (
               <div className="stat">
-                <div className="k">Brand</div>
+                <div className="k">Marke</div>
                 <div className="v">{listing.brand}</div>
               </div>
             )}
@@ -311,7 +316,7 @@ export function ListingCard({
                 className={`stat editable${sizeMissing ? " needs-attention" : ""}`}
               >
                 <label className="k" htmlFor={`size-${group.id}`}>
-                  Size
+                  Größe
                 </label>
                 <input
                   id={`size-${group.id}`}
@@ -341,9 +346,15 @@ export function ListingCard({
             </p>
           )}
 
-          {group.postStatus === "posted" && <p className="note">Dieses Angebot wurde bereits veröffentlicht. Änderungen jetzt direkt bei eBay vornehmen; Shop-Vorgaben ändern dieses Angebot nicht.</p>}
+          {group.postStatus === "posted" && (
+            <p className="note">
+              Dieses Angebot wurde bereits veröffentlicht. Änderungen jetzt
+              direkt bei eBay vornehmen; Shop-Vorgaben ändern dieses Angebot
+              nicht.
+            </p>
+          )}
           <div className="result-field">
-            <label htmlFor={`description-${group.id}`}>Description</label>
+            <label htmlFor={`description-${group.id}`}>Beschreibung</label>
             <textarea
               id={`description-${group.id}`}
               value={listing.description}
@@ -353,12 +364,12 @@ export function ListingCard({
               rows={8}
             />
             <div className="copy-row">
-              <CopyButton text={listing.description} label="description" />
+              <CopyButton text={listing.description} label="Beschreibung" />
             </div>
           </div>
 
           <button type="button" onClick={() => onRetry(group.id)}>
-            Re-analyze selected photos (replaces this draft)
+            Ausgewählte Fotos neu analysieren (ersetzt diesen Entwurf)
           </button>
           <DraftControls
             group={group}
@@ -386,7 +397,7 @@ export function ListingCard({
           {group.postStatus === "posted" ? (
             <>
               <p className="post-result ok">
-                ✅ Posted to eBay
+                ✅ Bei eBay veröffentlicht
                 {group.listingId ? (
                   <>
                     {" "}
@@ -447,7 +458,8 @@ export function ListingCard({
             </div>
           ) : (
             <p className="post-hint">
-              Connect eBay (top of page) to post this listing.
+              Verbinde oben dein eBay-Konto, um dieses Angebot zu
+              veröffentlichen.
             </p>
           )}
         </fieldset>
