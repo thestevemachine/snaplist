@@ -14,7 +14,7 @@ export function categoryMatches(
 ): boolean {
   const department = expectedDepartment(l);
   const path = c.path.toLowerCase();
-  if (isSunglasses(l) && (!/sonnenbrillen|sunglasses/i.test(c.name) || /\b(kinder|boys|girls|kids)\b/i.test(path))) return false;
+  if (isSunglasses(l) && (!/^(sonnenbrillen|sunglasses)$/i.test(c.name.trim()) || /\b(kinder|boys|girls|kids)\b/i.test(path))) return false;
   if (department === "Women")
     return /\b(women|damen)\b/.test(path) && !/\b(men|herren)\b/.test(path);
   if (department === "Men")

@@ -73,3 +73,11 @@ Referenzen:
 - https://developer.ebay.com/devzone/xml/docs/Reference/ebay/VerifyAddFixedPriceItem.html
 - https://developer.ebay.com/devzone/xml/docs/Reference/ebay/AddFixedPriceItem.html
 - https://developer.ebay.com/api-docs/sell/inventory/overview.html
+
+## Sonnenbrillen in zwei Kategorien
+
+Sonnenbrillen werden beim Vorbereiten für eBay.de über zwei aktuelle Taxonomy-Abfragen als Herren- und Damen-Sonnenbrillen aufgelöst. Beide müssen eindeutig verfügbar sein; es gibt keinen stillen Rückfall auf nur eine Kategorie. Die zweite Kategorie wird in der Karte und der Bestätigung angezeigt. Ein einzelner Verify/Add-Aufruf enthält PrimaryCategory und SecondaryCategory, Menge bleibt 1. Die Prüf-Signatur bindet beide IDs. Merkmale und akzeptierte Zustände werden aus beiden Kategorien geprüft. Bereits veröffentlichte Karten bleiben gesperrt und werden als veröffentlicht gekennzeichnet.
+
+Bestehende Sonnenbrillen über „Sonnenbrillen: Herren + Damen vorbereiten“ erneut prüfen. Danach „Bei eBay prüfen · nicht veröffentlichen“ verwenden und Hinweise/Gebühren prüfen. eBay kann zusätzliche Gebühren oder Einschränkungen für die zweite Kategorie haben. Die echte Annahme der beiden Kategorien muss im manuellen Test bestätigt werden.
+
+Referenzen: https://developer.ebay.com/api-docs/user-guides/static/trading-user-guide/two-categories.html und https://developer.ebay.com/devzone/xml/docs/Reference/ebay/AddFixedPriceItem.html

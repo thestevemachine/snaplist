@@ -1286,6 +1286,8 @@ export default function Home() {
           <h2 id="publication-heading">Veröffentlichung bestätigen</h2>
           <p>{publicationConfirmation.listing?.title}</p>
           <p>SKU: {publicationConfirmation.sku}</p>
+          <p>Hauptkategorie: {publicationConfirmation.preparation?.categoryName || publicationConfirmation.listing?.category_id}</p>
+          {publicationConfirmation.listing?.secondary_category_id && <p>Zweitkategorie: {publicationConfirmation.preparation?.secondaryCategoryName || publicationConfirmation.listing.secondary_category_id}. eBay kann dafür zusätzliche Gebühren berechnen.</p>}
           <p><strong>Preis: {Number(publicationConfirmation.listing?.suggested_price).toFixed(2)} EUR</strong> · Menge: 1</p>
           <p>Das Angebot ist danach öffentlich und kann gekauft werden, auch bei hohem Preis. Es ist kein Entwurf.</p>
           <button type="button" autoFocus onClick={() => setPublicationConfirmation(null)}>Abbrechen</button>{" "}

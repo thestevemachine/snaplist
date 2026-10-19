@@ -20,6 +20,7 @@ export const listingSchema = z.object({
   category: text.optional(),
   category_hint: text.optional(),
   category_id: z.string().regex(/^\d*$/).max(20).optional(),
+  secondary_category_id: z.string().regex(/^\d*$/).max(20).optional(),
   ebay_condition: text.optional(),
   evidence: z
     .record(

@@ -544,3 +544,32 @@ test("shop preferences persist, fill future drafts and keep card overrides for e
   await expect(page.getByText(/eBay-Prüfung erfolgreich/)).toBeVisible();
   expect(verified).toBe(true);
 });
+
+test("sunglasses show both categories and send one confirmed listing", async ({ page }) => {
+  await setup(page);
+  await page.route("**/api/analyze", r => r.fulfill({json:{ok:true,listing:{title:"Vintage Sunglasses",description:"Test",suggested_price:9999,item_specifics:{Brand:"Test"}}}}));
+  await page.route("**/api/ebay/prepare", r => r.fulfill({json:{ok:true,listing:{...r.request().postDataJSON().listing,category_id:"11",secondary_category_id:"22",ebay_condition:"NEW_OTHER"},preparation:{categoryId:"11",categoryName:"Herren > Sonnenbrillen",secondaryCategoryId:"22",secondaryCategoryName:"Damen > Sonnenbrillen",aspects:[],conditions:[{value:"NEW_OTHER",label:"Neu ohne Etikett"}],expiresAt:Date.now()+3600000,signature:"dual",issues:[]}}}));
+  await page.locator("input[type=file]").setInputFiles([{name:"sun.png",mimeType:"image/png",buffer:png}]);
+  await page.getByRole("button",{name:"These photos are one item"}).click();
+  await page.getByRole("button",{name:/Write.*listing/i}).click();
+  await expect(page.getByText("Zweitkategorie: Damen > Sonnenbrillen (22)")).toBeVisible();
+  for (const [label,value] of [["Shipping policy","ship"],["Payment policy","pay"],["Return policy","ret"],["Shipping origin","home"]]) await page.getByLabel(label,{exact:true}).selectOption(value);
+  await page.route("**/api/ebay/upload-photos", r => r.fulfill({json:{ok:true,urls:["https://i.ebayimg.com/sun.jpg"]}}));
+  let published=0;
+  await page.route("**/api/ebay/publish", r => {
+    const body=r.request().postDataJSON();
+    expect(body.listing.secondary_category_id).toBe("22");
+    expect(body.review.secondaryCategoryId).toBe("22");
+    published++;
+    return r.fulfill({json:{success:true,listingId:"123456789012"}});
+  });
+  await page.getByRole("button",{name:"Auf eBay.de veröffentlichen…"}).click();
+  const confirmation=page.getByRole("dialog",{name:"Veröffentlichung bestätigen"});
+  await expect(confirmation).toContainText("Herren > Sonnenbrillen");
+  await expect(confirmation).toContainText("Damen > Sonnenbrillen");
+  expect(published).toBe(0);
+  await confirmation.getByRole("button",{name:"Jetzt verbindlich auf eBay veröffentlichen"}).click();
+  await expect(page.getByRole("link",{name:"Angebot bei eBay öffnen"})).toBeVisible();
+  expect(published).toBe(1);
+  await expect(page.getByText("Bei eBay veröffentlicht",{exact:false}).first()).toBeVisible();
+});

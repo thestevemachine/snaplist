@@ -1,3 +1,5 @@
+import { isSunglasses } from "../category-selection";
+import { mergeCategoryAspects } from "./secondary-category";
 import { createHash } from "node:crypto";
 import { parseListing, shippingSchema, skuSchema } from "@/lib/validation";
 import { verifyReview } from "@/lib/review";
@@ -44,10 +46,14 @@ export async function submitTradingListing(
   const listing = parseListing(input.listing);
   const shipping = shippingSchema.parse(input.shipping);
   const category = listing.category_id || "";
+  const secondary = listing.secondary_category_id || "";
+  if (isSunglasses(listing) && !secondary) throw new Error("Bitte Sonnenbrillen für Herren und Damen vorbereiten.");
+  if (secondary && secondary === category) throw new Error("Haupt- und Zweitkategorie müssen verschieden sein.");
   if (
     !input.review ||
     input.review.categoryId !== category ||
-    !verifyReview(category, input.review.expiresAt, input.review.signature)
+    (input.review.secondaryCategoryId || "") !== secondary ||
+    !verifyReview(category, input.review.expiresAt, input.review.signature, secondary)
   )
     throw new Error("Bitte die Kategorie erneut vorbereiten.");
   const price = Number(listing.suggested_price);
@@ -69,13 +75,19 @@ export async function submitTradingListing(
     throw new Error(
       "Alle ausgewählten Fotos müssen zuerst vollständig hochgeladen werden.",
     );
-  const [meta, accepted, options] = await Promise.all([
+  let [meta, accepted, options] = await Promise.all([
     categoryAspects(category),
     acceptedConditionIds(category, token),
     fetchTradingOptions(token),
   ]);
   if (!meta.length || !accepted.size)
     throw new Error("Die Kategorie-Merkmale konnten nicht geprüft werden.");
+  if (secondary) {
+    const [secondMeta, secondAccepted] = await Promise.all([categoryAspects(secondary), acceptedConditionIds(secondary, token)]);
+    if (!secondMeta.length || !secondAccepted.size) throw new Error("Die zweite Kategorie konnte nicht geprüft werden.");
+    meta = mergeCategoryAspects(meta, secondMeta);
+    accepted = new Set([...accepted].filter(id => secondAccepted.has(id)));
+  }
   for (const [rows, id] of [
     [options.fulfillment, shipping.fulfillmentPolicyId],
     [options.payment, shipping.paymentPolicyId],
@@ -119,6 +131,7 @@ export async function submitTradingListing(
   const item = `<Item>
     <Title>${xml(listing.title)}</Title><Description>${xml(description)}</Description>
     <PrimaryCategory><CategoryID>${xml(category)}</CategoryID></PrimaryCategory>
+    ${secondary ? `<SecondaryCategory><CategoryID>${xml(secondary)}</CategoryID></SecondaryCategory>` : ""}
     <Site>Germany</Site><Country>${xml(origin.country)}</Country><Currency>EUR</Currency>
     <Location>${xml(origin.city)}</Location><PostalCode>${xml(origin.postalCode)}</PostalCode>
     <ListingType>FixedPriceItem</ListingType><ListingDuration>GTC</ListingDuration>

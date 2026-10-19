@@ -1,4 +1,5 @@
 "use client";
+import { isSunglasses } from "@/lib/category-selection";
 import { useState, useRef, useEffect } from "react";
 import type { ItemGroup, Photo } from "@/lib/types";
 import type { AccountOptions } from "@/lib/ebay/publish";
@@ -192,9 +193,11 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
         />
       </label>
       <button type="button" onClick={prepare}>
-        {busy ? "Working…" : "Prepare category and specifics"}
+        {busy ? "Working…" : isSunglasses(l) ? "Sonnenbrillen: Herren + Damen vorbereiten" : "Prepare category and specifics"}
       </button>
       {g.preparation && <p>{g.preparation.categoryName}</p>}
+      {g.preparation?.secondaryCategoryId && <p>Zweitkategorie: {g.preparation.secondaryCategoryName} ({g.preparation.secondaryCategoryId})</p>}
+      {isSunglasses(l) && <p className="note">Ein Angebot in beiden Kategorien: Herren und Damen. eBay kann für die zweite Kategorie zusätzliche Gebühren berechnen.</p>}
       {(error || g.preparationError) && (
         <p role="alert">{error || g.preparationError}</p>
       )}

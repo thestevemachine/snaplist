@@ -9,6 +9,7 @@ export interface ListingResult {
   category?: string;
   category_hint?: string;
   category_id?: string;
+  secondary_category_id?: string;
   ebay_condition?: string;
   evidence?: Record<string, number[]>;
   // Confidence (60–100) for specifics the AI estimated rather than read off a label.
@@ -128,6 +129,8 @@ export interface ItemGroup {
 }
 
 export interface PreparedCategory {
+  secondaryCategoryId?: string;
+  secondaryCategoryName?: string;
   suggestions?: import("./ebay/taxonomy").CategorySuggestion[];
   categoryId: string;
   categoryName: string;

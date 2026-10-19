@@ -192,6 +192,39 @@ describe("Trading listing flow", () => {
     vi.mocked(categoryAspects).mockResolvedValue([{ name: "EAN", required: true, mode: "FREE_TEXT", values: [], cardinality: "SINGLE" } as any]);
     await expect(submitTradingListing("private-token", input(), "verify")).resolves.toMatchObject({ verified: true });
   });
+  it("does not publish a legacy sunglasses draft in only one category", async () => {
+    const draft = input(); draft.listing.title = "Vintage Sunglasses";
+    await expect(submitTradingListing("private-token", draft, "publish")).rejects.toThrow("Herren und Damen");
+    expect(calls).toHaveLength(0);
+  });
+  it("sends one listing in two signed categories to Verify and Add", async () => {
+    const draft = input();
+    draft.listing.secondary_category_id = "999";
+    draft.review!.secondaryCategoryId = "999";
+    draft.review!.signature = signReview(draft.review!.categoryId, draft.review!.expiresAt, "999");
+    await submitTradingListing("private-token", draft, "publish");
+    const writes = calls.filter(c => c.call === "VerifyAddFixedPriceItem" || c.call === "AddFixedPriceItem");
+    expect(writes.map(c => c.call)).toEqual(["VerifyAddFixedPriceItem", "AddFixedPriceItem"]);
+    for (const c of writes) expect(c.body).toContain("<SecondaryCategory><CategoryID>999</CategoryID></SecondaryCategory>");
+    expect(categoryAspects).toHaveBeenCalledWith("999");
+  });
+  it("rejects an added or changed second category without a matching signed review", async () => {
+    const draft = input();
+    draft.listing.secondary_category_id = "999";
+    await expect(submitTradingListing("private-token", draft, "publish")).rejects.toThrow("Kategorie erneut");
+    expect(calls).toHaveLength(0);
+    draft.review!.secondaryCategoryId = "999";
+    await expect(submitTradingListing("private-token", draft, "publish")).rejects.toThrow("Kategorie erneut");
+  });
+  it("validates required specifics from the second category before Verify or Add", async () => {
+    const draft = input();
+    draft.listing.secondary_category_id = "999";
+    draft.review!.secondaryCategoryId = "999";
+    draft.review!.signature = signReview(draft.review!.categoryId, draft.review!.expiresAt, "999");
+    vi.mocked(categoryAspects).mockImplementation(async id => [{name: id === "999" ? "SecondRequired" : "Marke", required: true, mode: "FREE_TEXT", values: [], cardinality: "SINGLE"} as any]);
+    await expect(submitTradingListing("private-token", draft, "publish")).rejects.toThrow("SecondRequired");
+    expect(calls.some(c => c.call === "VerifyAddFixedPriceItem" || c.call === "AddFixedPriceItem")).toBe(false);
+  });
   it("stops at failed verification without Add or automatic fact changes", async () => {
     verifyAck = "Failure";
     await expect(

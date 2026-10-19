@@ -956,7 +956,7 @@ export async function fetchAccountOptions(
 
 export interface PublishInput {
   shipping?: import("@/lib/validation").ShippingSelection;
-  review?: { categoryId: string; expiresAt: number; signature: string };
+  review?: { categoryId: string; secondaryCategoryId?: string; expiresAt: number; signature: string };
   expectedPhotoCount?: number;
   sku: string;
   listing: ListingResult;

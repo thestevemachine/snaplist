@@ -1,6 +1,7 @@
+import { mergeCategoryAspects, sunglassesPair } from "@/lib/ebay/secondary-category";
 import { EBAY_MARKETPLACE_ID } from "@/lib/ebay/config";
 import { applyListingDefaults } from "@/lib/listing-defaults";
-import { categoryMatches, expectedDepartment, categorySearchQuery } from "@/lib/category-selection";
+import { categoryMatches, expectedDepartment, categorySearchQuery, isSunglasses } from "@/lib/category-selection";
 import { NextRequest, NextResponse } from "next/server";
 import { guardApiRequest } from "@/lib/api-guard";
 import {
@@ -38,7 +39,9 @@ export async function prepareListing(body: any, sealedConnection?: string) {
           const listing = parseListing(body.listing);
           const images =
             body.enrich === true ? imagesSchema.parse(body.images) : [];
-          const suggestions = listing.category_id
+          const dual = EBAY_MARKETPLACE_ID === "EBAY_DE" && isSunglasses(listing);
+          const pair = dual ? sunglassesPair(...await Promise.all([suggestLeafCategories("Sonnenbrille Herren", 10), suggestLeafCategories("Sonnenbrille Damen", 10)]), listing) : undefined;
+          const suggestions = pair ? [...pair] : listing.category_id
             ? []
             : await suggestLeafCategories(
                 categorySearchQuery(listing, EBAY_MARKETPLACE_ID === "EBAY_DE"),
@@ -47,13 +50,15 @@ export async function prepareListing(body: any, sealedConnection?: string) {
           const compatible = suggestions.filter((c) =>
             categoryMatches(c, listing),
           );
-          const id = listing.category_id || compatible[0]?.id;
+          const id = pair?.[0].id || listing.category_id || compatible[0]?.id;
+          const secondaryId = pair?.[1].id;
+          listing.secondary_category_id = secondaryId;
           if (!id)
             throw new Error(
               "Could not resolve a category matching this department. Review the department/category and enter the correct leaf category ID.",
             );
           const token = await sellerAccessToken(sealedConnection);
-          const [meta, ids] = await Promise.all([
+          let [meta, ids] = await Promise.all([
             categoryAspects(id),
             acceptedConditionIds(id, token ?? undefined),
           ]);
@@ -61,10 +66,17 @@ export async function prepareListing(body: any, sealedConnection?: string) {
             throw new Error(
               "Category specifics or conditions could not be loaded. Connect eBay and retry.",
             );
+          if (secondaryId) {
+            const [secondMeta, secondIds] = await Promise.all([categoryAspects(secondaryId), acceptedConditionIds(secondaryId, token ?? undefined)]);
+            if (!secondMeta.length || !secondIds.size) throw new Error("Die zweite Kategorie konnte nicht geprüft werden.");
+            meta = mergeCategoryAspects(meta, secondMeta);
+            ids = new Set([...ids].filter(id => secondIds.has(id)));
+            if (!ids.size) throw new Error("Die Kategorien unterstützen keinen gemeinsamen Zustand.");
+          }
           const departmentMeta = meta.find((a) => a.name === "Department");
           const expected = expectedDepartment(listing);
           if (
-            expected &&
+            !dual && expected &&
             departmentMeta?.mode === "SELECTION_ONLY" &&
             !departmentMeta.values.includes(expected)
           )
@@ -115,13 +127,15 @@ export async function prepareListing(body: any, sealedConnection?: string) {
             listing,
             preparation: {
               categoryId: id,
+              secondaryCategoryId: secondaryId,
+              secondaryCategoryName: pair?.[1].path,
               categoryName:
                 suggestions.find((c) => c.id === id)?.path || `Category ${id}`,
-              suggestions: compatible,
+              suggestions: pair ? [...pair] : compatible,
               aspects: meta,
               conditions,
               expiresAt,
-              signature: signReview(id, expiresAt),
+              signature: signReview(id, expiresAt, secondaryId),
               issues: validateAspects(aspects, meta),
             },
             usage: currentUsage(),
