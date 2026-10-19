@@ -1,4 +1,5 @@
 "use client";
+import { FrontMeasurementControls } from "./FrontMeasurementControls";
 
 import { EyewearDetails } from "./EyewearDetails";
 import { isGlasses, glassesTitleHints } from "@/lib/glasses-rules";
@@ -411,6 +412,11 @@ export function ListingCard({
             listing={listing}
             meta={group.preparation?.aspects ?? []}
             onEdit={(patch) => onEdit(group.id, patch)}
+          />
+          <FrontMeasurementControls
+            group={group}
+            photoById={photoById}
+            onEdit={onGroupEdit}
           />
           <DraftControls
             group={group}

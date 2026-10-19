@@ -1,3 +1,4 @@
+import { frontMeasurementFields } from "@/lib/front-measurement-fields";
 import { applyContentRules } from "@/lib/listing-content-rules";
 import { mapEyewear } from "@/lib/eyewear-inscriptions";
 import {
@@ -276,6 +277,16 @@ export async function prepareListing(body: any, sealedConnection?: string) {
           );
           if (glasses) {
             const patch = eyewearFeatureDefaultPatch(listing, meta);
+            if (patch) {
+              Object.assign(listing, patch);
+              for (const [name, value] of Object.entries(
+                patch.item_specifics ?? {},
+              ))
+                aspects[name] = value.split(" | ").filter(Boolean);
+            }
+          }
+          if (glasses) {
+            const patch = frontMeasurementFields(listing, meta);
             if (patch) {
               Object.assign(listing, patch);
               for (const [name, value] of Object.entries(

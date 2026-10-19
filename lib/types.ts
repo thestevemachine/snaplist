@@ -30,6 +30,7 @@ export interface ListingResult {
   condition?: string;
   condition_notes?: string;
   measurements?: string;
+  manual_measurement_fields?: string[];
   frontMeasurement?: import("./front-measurements").FrontMeasurement;
   description: string;
   best_offer_enabled?: boolean;

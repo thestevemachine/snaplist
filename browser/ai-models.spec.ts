@@ -281,6 +281,20 @@ test("front-photo estimates remain visible and persisted without overwriting man
               issues: [],
               aspects: [
                 {
+                  name: "Glashöhe",
+                  mode: "FREE_TEXT",
+                  values: [],
+                  cardinality: "SINGLE",
+                  usage: "OPTIONAL",
+                },
+                {
+                  name: "Rahmenbreite",
+                  mode: "FREE_TEXT",
+                  values: [],
+                  cardinality: "SINGLE",
+                  usage: "OPTIONAL",
+                },
+                {
                   name: "Besonderheiten",
                   required: true,
                   usage: "REQUIRED",
@@ -362,6 +376,10 @@ test("front-photo estimates remain visible and persisted without overwriting man
   };
   await open();
   await expect(
+    page.getByRole("textbox", { name: "Glashöhe", exact: true }),
+  ).toHaveValue("40 mm");
+  await page.getByRole("textbox", { name: "Glashöhe", exact: true }).fill("");
+  await expect(
     page.getByLabel("Besonderheiten: Auswahl bearbeiten"),
   ).toContainText("Wasserfest");
   await expect(
@@ -383,6 +401,9 @@ test("front-photo estimates remain visible and persisted without overwriting man
   await page.waitForTimeout(450);
   await page.reload();
   await open();
+  await expect(
+    page.getByRole("textbox", { name: "Glashöhe", exact: true }),
+  ).toHaveValue("");
   await expect(page.getByLabel("Geschätzte Maße", { exact: true })).toHaveValue(
     "Meine geprüfte Messnotiz",
   );
@@ -408,5 +429,56 @@ test("front-photo estimates remain visible and persisted without overwriting man
   expect(stored.listing.feature_defaults_version).toBe(1);
   expect(stored.listing.title).toBe("Mein Brillentitel");
   expect(stored.listing.frontMeasurement.status).toBe("uncertain");
+  expect(calls).toBe(0);
+  let measureCalls = 0;
+  await page.route("**/api/ai/measure", (r) => {
+    measureCalls++;
+    const b = r.request().postDataJSON();
+    expect(b.confirmed).toBe(true);
+    expect(b.photoIndex).toBe(1);
+    expect(b.model).toBe("gemini-3.5-flash-lite");
+    return r.fulfill({
+      json: {
+        ok: true,
+        measurement: { ...stored.listing.frontMeasurement, lensHeightMm: 41 },
+        usage: [],
+      },
+    });
+  });
+  await page.evaluate(() =>
+    localStorage.setItem(
+      "listing-writer:analysis-model",
+      "gemini-3.5-flash-lite",
+    ),
+  );
+  await page.reload();
+  await page
+    .getByText("Nur Brillenmaße berechnen · Entwurf behalten", { exact: true })
+    .click();
+  page.once("dialog", (d) => d.dismiss());
+  await page
+    .getByRole("button", {
+      name: "Nur Maße berechnen (kostenpflichtig)",
+      exact: true,
+    })
+    .click();
+  expect(measureCalls).toBe(0);
+  page.once("dialog", (d) => d.accept());
+  await page
+    .getByRole("button", {
+      name: "Nur Maße berechnen (kostenpflichtig)",
+      exact: true,
+    })
+    .click();
+  await expect.poll(() => measureCalls).toBe(1);
+  await expect(
+    page.getByRole("textbox", { name: "Glashöhe", exact: true }),
+  ).toHaveValue("");
+  await expect(page.locator(".title-input")).toHaveValue("Mein Brillentitel");
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Auf diesem Gerät gespeichert" }),
+  ).toBeVisible();
   expect(calls).toBe(0);
 });

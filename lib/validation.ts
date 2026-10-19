@@ -73,6 +73,7 @@ export const listingSchema = z.object({
   condition: z.enum(CONDITIONS).optional(),
   condition_notes: z.string().max(3000).optional(),
   measurements: text.optional(),
+  manual_measurement_fields: z.array(z.string().max(100)).max(30).optional(),
   frontMeasurement: frontMeasurementSchema.optional(),
   best_offer_enabled: z.boolean().optional(),
   suggested_price: z
