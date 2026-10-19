@@ -18,6 +18,7 @@ import { isStandardSizeAspect } from "@/lib/ebay/aspects";
 import {
   isMeasurementAspect as isMeasurement,
   formatMeasurement,
+  eyewearFeatureDefaultPatch,
 } from "@/lib/ebay/category-fields";
 interface Props {
   group: ItemGroup;
@@ -37,6 +38,18 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
       void loadOptions();
     }
   }, [Boolean(g.listing)]);
+  useEffect(() => {
+    if (
+      !g.listing ||
+      !g.preparation ||
+      !isGlasses(g.listing) ||
+      g.postStatus === "posted" ||
+      g.postStatus === "posting"
+    )
+      return;
+    const patch = eyewearFeatureDefaultPatch(g.listing, g.preparation.aspects);
+    if (patch) onGroupEdit(g.id, { listing: { ...g.listing, ...patch } });
+  }, [g.id, g.listing, g.preparation, g.postStatus, onGroupEdit]);
   if (!g.listing) return null;
   const l = g.listing;
   const edit = (patch: Partial<typeof l>) => {
@@ -375,6 +388,13 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
                     Brille prüfen und bei Bedarf ändern.
                   </p>
                 )}
+              {isGlasses(l) && /^Besonderheiten$/i.test(name) && (
+                <p className="note">
+                  Shop-Vorgabe bei leerem Feld: Wasserfest. Bitte für diese
+                  Brille prüfen und bei Bedarf ändern; die Fotoanalyse prüft
+                  keine Wasserfestigkeit.
+                </p>
+              )}
               {isSunglasses(l) && /^UV[- ]?Schutz$/i.test(name) && (
                 <p className="note">
                   Shop-Vorgabe: UV400. Bitte für diese Brille prüfen; die

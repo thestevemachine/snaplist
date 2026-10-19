@@ -1,3 +1,4 @@
+import type { ListingResult } from "../types";
 import type { AspectMeta } from "./taxonomy";
 
 export const isMeasurementAspect = (name: string) =>
@@ -202,4 +203,33 @@ export function mapGridMeasurements(
         aspects[field.name] = [String(measured)];
     }
   }
+}
+
+// Explicit seller instruction, not a photo-derived assertion. Apply once per
+// draft, so a later manual removal/selection is not silently undone.
+export function eyewearFeatureDefaultPatch(
+  listing: ListingResult,
+  meta: AspectMeta[],
+): Partial<ListingResult> | undefined {
+  if (listing.feature_defaults_version === 1) return;
+  const field = meta.find((m) => /^Besonderheiten$/i.test(m.name));
+  if (!field) return;
+  const patch: Partial<ListingResult> = { feature_defaults_version: 1 };
+  if (listing.item_specifics?.[field.name]?.trim()) return patch;
+  const value = field.values.find((v) => /^wasserfest$/i.test(v));
+  if (!value) return patch; // Never invent a category option or a different claim.
+  return {
+    ...patch,
+    item_specifics: { ...listing.item_specifics, [field.name]: value },
+    evidence: Object.fromEntries(
+      Object.entries(listing.evidence ?? {}).filter(
+        ([key]) => key !== field.name,
+      ),
+    ),
+    estimates: Object.fromEntries(
+      Object.entries(listing.estimates ?? {}).filter(
+        ([key]) => key !== field.name,
+      ),
+    ),
+  };
 }

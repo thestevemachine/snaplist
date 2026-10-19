@@ -272,7 +272,27 @@ test("front-photo estimates remain visible and persisted without overwriting man
             photoIds: ["p1"],
             evidencePhotoIds: ["p1"],
             status: "done",
+            preparation: {
+              categoryId: "123",
+              categoryName: "Brillen",
+              signature: "test",
+              expiresAt: Date.now() + 3600000,
+              conditions: [],
+              issues: [],
+              aspects: [
+                {
+                  name: "Besonderheiten",
+                  required: true,
+                  usage: "REQUIRED",
+                  mode: "SELECTION_ONLY",
+                  cardinality: "MULTI",
+                  values: ["Wasserfest", "Randlos"],
+                },
+              ],
+            },
             listing: {
+              category_fields_version: 4,
+              glasses_rules_version: 4,
               title: "Mein Brillentitel",
               description: "Mein Text",
               eyewear_kind: "optical",
@@ -341,6 +361,17 @@ test("front-photo estimates remain visible and persisted without overwriting man
     await expect(section).toContainText("Referenz: Scheibenbreite 50 mm");
   };
   await open();
+  await expect(
+    page.getByLabel("Besonderheiten: Auswahl bearbeiten"),
+  ).toContainText("Wasserfest");
+  await expect(
+    page.getByText(/Shop-Vorgabe bei leerem Feld: Wasserfest/),
+  ).toBeVisible();
+  await page.getByLabel("Besonderheiten: Auswahl bearbeiten").click();
+  await page
+    .getByRole("checkbox", { name: "Wasserfest", exact: true })
+    .uncheck();
+  await page.getByRole("checkbox", { name: "Randlos", exact: true }).check();
   await page
     .getByLabel("Geschätzte Maße", { exact: true })
     .fill("Meine geprüfte Messnotiz");
@@ -373,6 +404,8 @@ test("front-photo estimates remain visible and persisted without overwriting man
       }),
   );
   expect(stored.listing.item_specifics.Gesamtbreite).toBe("141 mm");
+  expect(stored.listing.item_specifics.Besonderheiten).toBe("Randlos");
+  expect(stored.listing.feature_defaults_version).toBe(1);
   expect(stored.listing.title).toBe("Mein Brillentitel");
   expect(stored.listing.frontMeasurement.status).toBe("uncertain");
   expect(calls).toBe(0);
