@@ -29,6 +29,7 @@ const reply = (call: string, body: string) =>
 function input(): PublishInput {
   const expiresAt = Date.now() + 60_000;
   return {
+    publicationId: "draft:test-independent-draft",
     sku: "TEST-BRILLE-001",
     listing: {
       title: "Brille & Rahmen <Modell>",
@@ -98,6 +99,11 @@ beforeEach(() => {
         return Response.json({
           returnPolicies: [{ returnPolicyId: "33", name: "Rückgabe" }],
         });
+      if (call === "GetItem")
+        return reply(
+          call,
+          "<Ack>Failure</Ack><Errors><SeverityCode>Error</SeverityCode><ErrorCode>21916270</ErrorCode></Errors>",
+        );
       if (call === "GetUser")
         return reply(
           call,
@@ -156,7 +162,7 @@ describe("Trading listing flow", () => {
       PostalCode: "01234",
       Title: input().listing.title,
       InventoryTrackingMethod: "SKU",
-      UUID: listingUuid(input().sku),
+      UUID: listingUuid(input().publicationId!),
       VATDetails: { VATPercent: "19" },
       BestOfferDetails: { BestOfferEnabled: "true" },
       ProductListingDetails: {
@@ -180,7 +186,7 @@ describe("Trading listing flow", () => {
     expect(result.listingId).toBe("123456789012");
     expect(
       calls.filter((c) => c.call && c.call !== "GetUser").map((c) => c.call),
-    ).toEqual(["VerifyAddFixedPriceItem", "AddFixedPriceItem"]);
+    ).toEqual(["GetItem", "VerifyAddFixedPriceItem", "AddFixedPriceItem"]);
     expect(calls.some((c) => c.url.includes("/inventory/"))).toBe(false);
     for (const call of calls.filter(
       (c) =>
@@ -428,4 +434,105 @@ it("honors disabled best offers while retaining seller VAT", async () => {
   expect(body).toContain("<BestOfferEnabled>false</BestOfferEnabled>");
   expect(body).toContain("<VATPercent>19</VATPercent>");
   expect(body).not.toContain("BestOfferAutoAcceptPrice");
+});
+
+describe("parallel employees and retries", () => {
+  function fakeEbay() {
+    const base = globalThis.fetch;
+    const live = new Map<
+      string,
+      { uuid: string; app: string; sku: string; id: string }
+    >();
+    let adds = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url, init: RequestInit = {}) => {
+        const call = new Headers(init.headers).get("X-EBAY-API-CALL-NAME");
+        const xmlBody = String(init.body || "");
+        const tag = (name: string) =>
+          xmlBody.match(new RegExp(`<${name}>(.*?)</${name}>`))?.[1] || "";
+        if (call === "GetItem") {
+          const item = [...live.values()].find((i) => i.sku === tag("SKU"));
+          return reply(
+            call,
+            item
+              ? `<Ack>Success</Ack><Item><ItemID>${item.id}</ItemID><SKU>${item.sku}</SKU><ApplicationData>${item.app}</ApplicationData></Item>`
+              : "<Ack>Failure</Ack><Errors><SeverityCode>Error</SeverityCode><ErrorCode>21916270</ErrorCode></Errors>",
+          );
+        }
+        if (call === "AddFixedPriceItem") {
+          const uuid = tag("UUID"),
+            sku = tag("SKU");
+          const existing = live.get(uuid);
+          if (existing)
+            return reply(
+              call,
+              `<Ack>Failure</Ack><Errors><SeverityCode>Error</SeverityCode><ErrorCode>488</ErrorCode><LongMessage>Die UUID wurde bereits verwendet; Artikelnummer=${existing.id}.</LongMessage></Errors>`,
+            );
+          if ([...live.values()].some((i) => i.sku === sku))
+            return reply(
+              call,
+              "<Ack>Failure</Ack><Errors><SeverityCode>Error</SeverityCode><ErrorCode>21916271</ErrorCode><LongMessage>SKU bereits vorhanden</LongMessage></Errors>",
+            );
+          const item = {
+            uuid,
+            sku,
+            app: tag("ApplicationData"),
+            id: String(940000000000 + ++adds),
+          };
+          live.set(uuid, item);
+          return reply(call, `<Ack>Success</Ack><ItemID>${item.id}</ItemID>`);
+        }
+        return base(url, init);
+      }),
+    );
+    return { live, count: () => adds };
+  }
+  it("two employees create independent listings with different technical IDs", async () => {
+    const ebay = fakeEbay();
+    const a = input(),
+      b = { ...input(), sku: "OTHER", publicationId: "draft:employee-two" };
+    const result = await Promise.all([
+      submitTradingListing("token", a, "publish"),
+      submitTradingListing("token", b, "publish"),
+    ]);
+    expect(result.every((r) => r.success)).toBe(true);
+    expect(ebay.count()).toBe(2);
+    expect(new Set([...ebay.live.keys()]).size).toBe(2);
+  });
+  it("concurrent retries and a later retry create only one listing", async () => {
+    const ebay = fakeEbay(),
+      a = input();
+    const result = await Promise.all([
+      submitTradingListing("token", a, "publish"),
+      submitTradingListing("token", a, "publish"),
+    ]);
+    expect(result[0].listingId).toBe(result[1].listingId);
+    expect(ebay.count()).toBe(1);
+    expect((await submitTradingListing("token", a, "publish")).listingId).toBe(
+      result[0].listingId,
+    );
+    expect(ebay.count()).toBe(1);
+  });
+  it("same SKU in two different drafts never overwrites or reports the wrong listing as success", async () => {
+    const ebay = fakeEbay(),
+      a = input();
+    await submitTradingListing("token", a, "publish");
+    await expect(
+      submitTradingListing(
+        "token",
+        { ...a, publicationId: "draft:different-glasses" },
+        "publish",
+      ),
+    ).rejects.toThrow("SKU bereits belegt");
+    expect(ebay.count()).toBe(1);
+  });
+  it("rejects stale clients without a publication identity before any eBay request", async () => {
+    const a = input();
+    delete a.publicationId;
+    await expect(submitTradingListing("token", a, "publish")).rejects.toThrow(
+      "neu laden",
+    );
+    expect(calls).toHaveLength(0);
+  });
 });

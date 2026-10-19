@@ -878,7 +878,9 @@ test("only category fields appear and material supports multiple reviewed choice
   await page
     .getByLabel("Fassungsmaterial: Auswahl bearbeiten", { exact: true })
     .click();
-  await expect(page.locator(".aspect-options:visible input").first()).toBeChecked();
+  await expect(
+    page.locator(".aspect-options:visible input").first(),
+  ).toBeChecked();
   await page.getByRole("checkbox", { name: "Kunststoff", exact: true }).check();
   await expect(
     page.getByRole("checkbox", { name: "Metall", exact: true }),
@@ -1243,4 +1245,109 @@ test("eyewear condition notes can be edited and survive reload", async ({
   await expect(
     page.getByRole("textbox", { name: "Zustand und Hinweise", exact: true }),
   ).toHaveValue("Ungetragen, mit Originaletui");
+});
+
+test("repairs a legacy UUID collision without losing the draft or publishing, and persists after reload", async ({
+  page,
+}) => {
+  await setup(page);
+  await draft(page);
+  await page
+    .getByRole("button", { name: "Entwurf speichern", exact: true })
+    .click();
+  const before = await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const r = indexedDB.open("listing-writer-drafts", 3);
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+    });
+    const data: any = await new Promise((resolve, reject) => {
+      const r = db
+        .transaction("workspace")
+        .objectStore("workspace")
+        .get("current");
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+    });
+    const g = data.groups[0];
+    g.publicationId = undefined;
+    g.publicationAttemptSku = g.sku;
+    g.postStatus = "error";
+    g.postError =
+      "eBay 488: UUID bereits verwendet; Artikelnummer=940025900611.";
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction("workspace", "readwrite");
+      tx.objectStore("workspace").put(data, "current");
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+    return data;
+  });
+  let published = 0;
+  await page.route("**/api/ebay/publish", (r) => {
+    published++;
+    return r.fulfill({ json: { success: false, error: "MUST NOT PUBLISH" } });
+  });
+  await page.route("**/api/ebay/publication-status", (r) => {
+    const b = r.request().postDataJSON();
+    expect(b.publicationId).toBe(`legacy:${before.groups[0].sku}`);
+    return r.fulfill({
+      json:
+        b.action === "repair"
+          ? {
+              success: true,
+              publicationId: `draft:${before.groups[0].id}`,
+              sku: "65-23522-ABCDEF123456",
+            }
+          : {
+              success: true,
+              status: "conflict",
+              listingId: "940025900611",
+              sku: before.groups[0].sku,
+              title: "Enni Marco",
+            },
+    });
+  });
+  await page.reload();
+  await page
+    .getByRole("button", {
+      name: "Veröffentlichungsstatus abgleichen",
+      exact: true,
+    })
+    .click();
+  await expect(page.getByText("Enni Marco", { exact: true })).toBeVisible();
+  await page
+    .getByRole("button", {
+      name: "Andere Brille – diesen Entwurf reparieren",
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Entwurf repariert" }),
+  ).toBeVisible();
+  await page.reload();
+  const after = await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve) => {
+      const r = indexedDB.open("listing-writer-drafts", 3);
+      r.onsuccess = () => resolve(r.result);
+    });
+    const value: any = await new Promise((resolve) => {
+      const r = db
+        .transaction("workspace")
+        .objectStore("workspace")
+        .get("current");
+      r.onsuccess = () => resolve(r.result);
+    });
+    db.close();
+    return value;
+  });
+  expect(after.groups[0].listing).toEqual(before.groups[0].listing);
+  expect(after.groups[0].photoIds).toEqual(before.groups[0].photoIds);
+  expect(after.photos).toEqual(before.photos);
+  expect(after.groups[0].shipping).toEqual(before.groups[0].shipping);
+  expect(after.groups[0].publicationId).toBe(`draft:${before.groups[0].id}`);
+  expect(after.groups[0].sku).toBe("65-23522-ABCDEF123456");
+  expect(after.groups[0].publicationAttemptSku).toBeUndefined();
+  expect(published).toBe(0);
 });

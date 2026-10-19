@@ -66,7 +66,10 @@ interface ListingCardProps {
   onRenameSku: (groupId: string, sku: string) => void;
   onRetry: (groupId: string) => void;
   onSaveDraft: () => Promise<void>;
-  onPost: (groupId: string, mode?: "verify" | "publish") => void;
+  onPost: (
+    groupId: string,
+    mode?: "verify" | "publish" | "resolve" | "repair",
+  ) => void;
 }
 
 export function ListingCard({
@@ -455,6 +458,49 @@ export function ListingCard({
             </>
           ) : ebayConnected ? (
             <div className="post-row">
+              {(group.publicationAttemptSku ||
+                group.postStatus === "error") && (
+                <div className="publication-recovery">
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    disabled={group.postStatus === "posting"}
+                    onClick={() => onPost(group.id, "resolve")}
+                  >
+                    Veröffentlichungsstatus abgleichen
+                  </button>
+                  {group.publicationConflict && (
+                    <div>
+                      <p>
+                        Bereits bei eBay:{" "}
+                        <a
+                          target="_blank"
+                          rel="noreferrer"
+                          href={`https://www.ebay.de/itm/${group.publicationConflict.listingId}`}
+                        >
+                          {group.publicationConflict.title ||
+                            group.publicationConflict.listingId}
+                        </a>{" "}
+                        · SKU {group.publicationConflict.sku}
+                      </p>
+                      <p>
+                        Nur wenn dies eine andere Brille ist: Der offene Entwurf
+                        erhält eine freie SKU und bei alten Versuchen eine
+                        eigene technische Kennung. Seine Inhalte und das
+                        bestehende Angebot bleiben unverändert.
+                      </p>
+                      <button
+                        type="button"
+                        className="btn-ghost"
+                        disabled={group.postStatus === "posting"}
+                        onClick={() => onPost(group.id, "repair")}
+                      >
+                        Andere Brille – diesen Entwurf reparieren
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
               <button
                 type="button"
                 className="btn-ghost"

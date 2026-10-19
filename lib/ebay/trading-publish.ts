@@ -8,7 +8,14 @@ import { materialTitleIssues } from "../eyewear-inscriptions";
 import { categorySpecifics } from "./category-fields";
 import { isSunglasses } from "../category-selection";
 import { mergeCategoryAspects } from "./secondary-category";
-import { createHash } from "node:crypto";
+import {
+  listingUuid,
+  applicationData,
+  inspectPublication,
+  findPublishedSku,
+  belongsToPublication,
+} from "./publication-identity";
+export { listingUuid } from "./publication-identity";
 import { parseListing, shippingSchema, skuSchema } from "@/lib/validation";
 import { verifyReview } from "@/lib/review";
 import { categoryAspects, acceptedConditionIds } from "./taxonomy";
@@ -34,16 +41,6 @@ export interface TradingResult extends PublishResult {
   fees?: { name: string; amount: string; currency: string }[];
 }
 
-// Same SKU always gets the same UUID, including after timeouts/reloads/edits.
-// eBay rejects a second Add for an already successful UUID. Never auto-revise.
-export function listingUuid(sku: string) {
-  return createHash("sha256")
-    .update(`snaplist:trading:DE:${sku}`)
-    .digest("hex")
-    .slice(0, 32)
-    .toUpperCase();
-}
-
 export async function submitTradingListing(
   token: string,
   input: PublishInput,
@@ -51,6 +48,8 @@ export async function submitTradingListing(
 ): Promise<TradingResult> {
   requireGermanMarketplace();
   const sku = skuSchema.parse(input.sku);
+  const publicationId = input.publicationId || "";
+  const uuid = listingUuid(publicationId);
   const listing = parseListing(input.listing);
   const shipping = shippingSchema.parse(input.shipping);
   const category = listing.category_id || "";
@@ -89,6 +88,22 @@ export async function submitTradingListing(
   )
     throw new Error(
       "Alle ausgewählten Fotos müssen zuerst vollständig hochgeladen werden.",
+    );
+  const existing = await inspectPublication(token, sku, publicationId);
+  if (existing.status === "published")
+    return {
+      success: true,
+      sku,
+      listingId: existing.listingId,
+      alreadyListed: true,
+    };
+  if (existing.status === "conflict")
+    throw new Error(
+      `SKU bereits belegt: ${sku}; Artikelnummer=${existing.listingId}. Bitte Veröffentlichungsstatus abgleichen und den Entwurf reparieren.`,
+    );
+  if (existing.status === "uncertain")
+    throw new Error(
+      "Alter Veröffentlichungsversuch unklar. Erst Veröffentlichungsstatus abgleichen; keine neue Kennung vergeben.",
     );
   let [meta, accepted, options] = await Promise.all([
     categoryAspects(category),
@@ -179,7 +194,7 @@ export async function submitTradingListing(
     <ListingType>FixedPriceItem</ListingType><ListingDuration>GTC</ListingDuration>
     <StartPrice currencyID="EUR">${price.toFixed(2)}</StartPrice><Quantity>1</Quantity>
     <SKU>${xml(sku)}</SKU><InventoryTrackingMethod>SKU</InventoryTrackingMethod>
-    <UUID>${listingUuid(sku)}</UUID><ConditionID>${conditionId}</ConditionID>
+    <UUID>${uuid}</UUID><ApplicationData>${xml(applicationData(publicationId))}</ApplicationData><ConditionID>${conditionId}</ConditionID>
     <ProductListingDetails><EAN>${xml(ean)}</EAN><IncludeeBayProductDetails>false</IncludeeBayProductDetails></ProductListingDetails>
     ${conditionNotes ? `<ConditionDescription>${xml(conditionNotes)}</ConditionDescription>` : ""}
     <PictureDetails>${photos.map((p) => `<PictureURL>${xml(p)}</PictureURL>`).join("")}</PictureDetails>
@@ -204,6 +219,28 @@ export async function submitTradingListing(
     "VerifyAddFixedPriceItem",
     item,
   );
+  const recoverDuplicate = async (
+    response: import("./trading").TradingResponse,
+  ) => {
+    const duplicate = list(response.Errors).find(
+      (e) => String(e.ErrorCode) === "488",
+    );
+    const itemId = duplicate?.LongMessage?.match(
+      /(?:Artikelnummer|item ID|ItemID)\s*[=:]\s*(\d+)/i,
+    )?.[1];
+    if (!itemId) return undefined;
+    const found = await findPublishedSku(token, sku, itemId);
+    if (found && belongsToPublication(found, publicationId))
+      return {
+        success: true,
+        sku,
+        listingId: found.listingId,
+        alreadyListed: true,
+      };
+    return undefined;
+  };
+  const verifiedDuplicate = await recoverDuplicate(verification);
+  if (verifiedDuplicate) return verifiedDuplicate;
   assertTradingSuccess(verification);
   const warnings = tradingMessages(verification, "Warning");
   const fees = list(verification.Fees?.Fee).map((f) => ({
@@ -215,6 +252,8 @@ export async function submitTradingListing(
   if (mode === "verify")
     return { success: true, sku, verified: true, warnings, fees };
   const result = await tradingCall(token, "AddFixedPriceItem", item);
+  const duplicate = await recoverDuplicate(result);
+  if (duplicate) return duplicate;
   assertTradingSuccess(result);
   if (!result.ItemID || !/^\d+$/.test(result.ItemID))
     throw new Error(

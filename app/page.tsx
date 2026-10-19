@@ -1,4 +1,5 @@
 "use client";
+import { withPublicationIdentity } from "@/lib/publication-identity";
 import { migrateContentGroup } from "@/lib/listing-content-rules";
 import { CATEGORY_FIELDS_VERSION } from "@/lib/ebay/category-fields";
 import { applyBatchSkus } from "@/lib/batch-sku";
@@ -626,7 +627,7 @@ export default function Home() {
   const writeGroup = useCallback(
     async (groupId: string) => {
       // Snapshot this group's photos from the latest state (no stale closure).
-      const group = groupsRef.current.find((g) => g.id === groupId);
+      let group = groupsRef.current.find((g) => g.id === groupId);
       if (
         !group ||
         group.cloudBatchId ||
@@ -881,10 +882,12 @@ export default function Home() {
   const postGroup = useCallback(
     async (
       groupId: string,
-      mode: "verify" | "publish" = "publish",
+      mode: "verify" | "publish" | "resolve" | "repair" = "publish",
       confirmedSnapshot?: string,
     ) => {
-      const group = groupsRef.current.find((g) => g.id === groupId);
+      const selectedGroup = groupsRef.current.find((g) => g.id === groupId);
+      if (!selectedGroup) return;
+      let group: ItemGroup = selectedGroup;
       if (
         !group ||
         !group.listing ||
@@ -892,6 +895,100 @@ export default function Home() {
         inFlight.current.has(groupId)
       )
         return;
+      if (mode === "resolve" || mode === "repair") {
+        inFlight.current.add(groupId);
+        const original = withPublicationIdentity(group);
+        editGroup(groupId, { postStatus: "posting" });
+        try {
+          const res = await apiPost("/api/ebay/publication-status", {
+            action: mode === "repair" ? "repair" : "inspect",
+            sku: original.publicationAttemptSku || original.sku,
+            publicationId: original.publicationId,
+            draftId: original.id,
+            conflictItemId: original.publicationConflict?.listingId,
+            differentItem: mode === "repair",
+          });
+          const data = await readJson(res);
+          if (!data.success)
+            throw new Error(data.error || "Abgleich fehlgeschlagen.");
+          let patch: Partial<ItemGroup> = {
+            publicationId: original.publicationId,
+            postStatus: undefined,
+            postError: undefined,
+          };
+          if (mode === "repair") {
+            patch = {
+              ...patch,
+              sku: data.sku,
+              publicationId: data.publicationId,
+              publicationAttemptSku: undefined,
+              publicationConflict: undefined,
+              publicationRepair: {
+                previousId: original.publicationId!,
+                previousSku: original.sku,
+                conflictItemId: original.publicationConflict!.listingId,
+                repairedAt: Date.now(),
+              },
+              verificationMessage: `Entwurf repariert und gespeichert. Neue SKU: ${data.sku}. Fotos, Beschreibung, Merkmale und Preis bleiben erhalten. Noch nicht veröffentlicht.`,
+            };
+            if (data.listingId)
+              patch = {
+                ...patch,
+                postStatus: "posted",
+                listingId: data.listingId,
+              };
+          } else if (data.status === "published") {
+            patch = {
+              ...patch,
+              postStatus: "posted",
+              listingId: data.listingId,
+              publicationConflict: undefined,
+            };
+          } else if (data.status === "conflict") {
+            patch = {
+              ...patch,
+              publicationConflict: {
+                listingId: data.listingId,
+                sku: data.sku,
+                title: data.title,
+              },
+              postStatus: "error",
+              postError:
+                "Diese SKU gehört bereits zu einem eBay-Angebot. Bitte die beiden Brillen vergleichen.",
+            };
+          } else if (data.status === "uncertain") {
+            throw new Error(
+              "Der alte Versuch ist nicht eindeutig geklärt. Bitte vorhandene eBay-Angebote prüfen; es wurde keine neue Kennung vergeben.",
+            );
+          } else {
+            patch.verificationMessage =
+              "Kein aktives Angebot mit dieser SKU gefunden. Die gespeicherte Veröffentlichungskennung bleibt erhalten.";
+          }
+          const nextGroups = groupsRef.current.map((g) =>
+            g.id === groupId ? { ...g, ...patch } : g,
+          );
+          await saveDraft({
+            version: 1,
+            photos: [...photoMap.values()],
+            groups: nextGroups,
+            orphanIds,
+            binPrefix,
+            skuStart,
+            step: "listings",
+            updatedAt: Date.now(),
+          });
+          groupsRef.current = nextGroups;
+          setGroups(nextGroups);
+        } catch (error) {
+          editGroup(groupId, {
+            postStatus: "error",
+            postError: (error as Error).message,
+          });
+        } finally {
+          inFlight.current.delete(groupId);
+        }
+        return;
+      }
       const issues = draftIssues(group);
       if (
         groupsRef.current.some((g) => g.id !== groupId && g.sku === group.sku)
@@ -906,6 +1003,18 @@ export default function Home() {
       }
       if (mode === "publish" && confirmedSnapshot !== JSON.stringify(group)) {
         setPublicationConfirmation(group);
+        return;
+      }
+      group = withPublicationIdentity(group);
+      if (
+        group.publicationAttemptSku &&
+        group.publicationAttemptSku !== group.sku
+      ) {
+        editGroup(groupId, {
+          postStatus: "error",
+          postError:
+            "Die SKU eines begonnenen Veröffentlichungsversuchs darf erst nach einem Statusabgleich geändert werden.",
+        });
         return;
       }
       setPublicationConfirmation(null);
@@ -1013,6 +1122,7 @@ export default function Home() {
             mode === "verify" ? "/api/ebay/verify" : "/api/ebay/publish",
             {
               confirmed: mode === "publish",
+              publicationId: group.publicationId,
               sku: group.sku,
               listing: group.listing,
               imageUrls,
@@ -1048,7 +1158,7 @@ export default function Home() {
         }
         if (!data?.success)
           throw new Error(data?.error || "eBay rejected the listing.");
-        if (mode === "verify") {
+        if (mode === "verify" && !data.listingId) {
           const fees = (data.fees ?? [])
             .filter((f) => Number(f.amount) > 0)
             .map((f) => `${f.name}: ${f.amount} ${f.currency}`)

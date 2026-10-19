@@ -22,7 +22,10 @@ interface ListingsViewProps {
   onRenameSku: (groupId: string, sku: string) => void;
   onNumberSkus: (first: string) => number;
   onRetry: (groupId: string) => void;
-  onPost: (groupId: string, mode?: "verify" | "publish") => void;
+  onPost: (
+    groupId: string,
+    mode?: "verify" | "publish" | "resolve" | "repair",
+  ) => void;
   onSaveDraft: () => Promise<void>;
   onPostAll: (ids?: string[]) => void;
   onWriteAll: () => void;

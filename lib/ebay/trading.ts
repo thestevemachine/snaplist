@@ -38,6 +38,12 @@ export function list<T>(value: T | T[] | undefined): T[] {
 
 export interface TradingResponse {
   Ack: string;
+  Item?: {
+    ItemID?: string;
+    SKU?: string;
+    Title?: string;
+    ApplicationData?: string;
+  };
   ItemID?: string;
   Errors?: {
     ErrorCode?: string;
@@ -63,7 +69,7 @@ export interface TradingResponse {
 
 export async function tradingCall(
   token: string,
-  call: "GetUser" | "VerifyAddFixedPriceItem" | "AddFixedPriceItem",
+  call: "GetItem" | "GetUser" | "VerifyAddFixedPriceItem" | "AddFixedPriceItem",
   content: string,
 ): Promise<TradingResponse> {
   requireGermanMarketplace();

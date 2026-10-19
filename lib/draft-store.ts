@@ -1,3 +1,4 @@
+import { withPublicationIdentity } from "./publication-identity";
 import type { ItemGroup, Photo } from "./types";
 export interface WorkspaceDraft {
   version: 1;
@@ -95,7 +96,7 @@ export async function loadDraft(
   }
   d.photos = photos;
   d.groups = d.groups.map((g: ItemGroup) => ({
-    ...g,
+    ...withPublicationIdentity(g),
     status: g.status === "writing" ? "idle" : g.status,
     postStatus: g.postStatus === "posting" ? "error" : g.postStatus,
     postError:
@@ -139,6 +140,7 @@ export function saveDraft(draft: WorkspaceDraft): Promise<void> {
           tx.objectStore("workspace").put(
             {
               ...draft,
+              groups: draft.groups.map(withPublicationIdentity),
               photos: draft.photos.map((p) => ({
                 id: p.id,
                 analysisSelected: p.analysisSelected,

@@ -124,6 +124,14 @@ export interface ItemGroup {
   imageUrls?: string[];
   uploadedPhotoIds?: string[];
   publicationAttemptSku?: string;
+  publicationId?: string;
+  publicationConflict?: { listingId: string; sku: string; title: string };
+  publicationRepair?: {
+    previousId: string;
+    previousSku: string;
+    conflictItemId: string;
+    repairedAt: number;
+  };
   evidencePhotoIds?: string[];
   // Market price check (fetched right after the listing is written)
   comps?: CompsSummary;

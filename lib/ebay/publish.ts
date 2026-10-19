@@ -955,8 +955,14 @@ export async function fetchAccountOptions(
 // ── The full publish flow for one item ───────────────────────────────────────
 
 export interface PublishInput {
+  publicationId?: string;
   shipping?: import("@/lib/validation").ShippingSelection;
-  review?: { categoryId: string; secondaryCategoryId?: string; expiresAt: number; signature: string };
+  review?: {
+    categoryId: string;
+    secondaryCategoryId?: string;
+    expiresAt: number;
+    signature: string;
+  };
   expectedPhotoCount?: number;
   sku: string;
   listing: ListingResult;
