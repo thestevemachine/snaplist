@@ -733,7 +733,7 @@ test("restored sunglasses prepare automatically once, retain descriptions and ne
         listing: {
           ...listing,
           title: "Test Sonnenbrille Herren Damen Braun",
-          glasses_rules_version: 1,
+          glasses_rules_version: 2,
           category_fields_version: 1,
           category_id: "11",
           secondary_category_id: "22",
@@ -918,7 +918,7 @@ test("inscription data remains editable, persists, and only explicitly rebuilds 
           brand: "Lindberg",
           item_type: "Brille",
           suggested_price: 200,
-          glasses_rules_version: 1,
+          glasses_rules_version: 2,
           category_fields_version: 1,
           item_specifics: { Brand: "Lindberg" },
           eyewear: {
@@ -951,11 +951,9 @@ test("inscription data remains editable, persists, and only explicitly rebuilds 
     }),
   );
   await draft(page);
-  const panel = page
-    .locator("details")
-    .filter({
-      has: page.getByText("Erkannte Bügelaufdrucke und Maße", { exact: true }),
-    });
+  const panel = page.locator("details").filter({
+    has: page.getByText("Erkannte Bügelaufdrucke und Maße", { exact: true }),
+  });
   await expect(panel.getByLabel("Glasbreite", { exact: false })).toHaveValue(
     "46",
   );
@@ -969,7 +967,12 @@ test("inscription data remains editable, persists, and only explicitly rebuilds 
   await page
     .getByRole("button", { name: "Entwurf speichern", exact: true })
     .click();
-  await expect(page.getByText("Entwurf auf diesem Gerät gespeichert. Nicht an eBay übertragen.", {exact:true})).toBeVisible();
+  await expect(
+    page.getByText(
+      "Entwurf auf diesem Gerät gespeichert. Nicht an eBay übertragen.",
+      { exact: true },
+    ),
+  ).toBeVisible();
   await page.reload();
   await expect(page.locator(".title-input")).toHaveValue(
     "Mein geprüfter Titel",
@@ -982,36 +985,129 @@ test("inscription data remains editable, persists, and only explicitly rebuilds 
     .click();
   await expect(page.locator(".title-input")).toHaveValue(/5678.*kleine Gläser/);
 });
-test('seller corrects optical frame and removes both sunglasses categories',async({page})=>{
- await setup(page);
- await page.route('**/api/analyze',r=>r.fulfill({json:{ok:true,listing:{title:'Lindberg Sonnenbrille',description:'Text',item_type:'Sonnenbrille',eyewear_kind:'sunglasses',suggested_price:200,condition_notes:'Foto zeigt Kratzer',item_specifics:{Brand:'Lindberg'}},usage:[{stage:'analysis',model:'test-analysis-model',input:10,output:10,cacheRead:0,cacheWrite:0,ms:1,ok:true}]}}));
- let last:any;
- await page.route('**/api/ebay/prepare',r=>{
-  const l=r.request().postDataJSON().listing;last=l;
-  const optical=l.eyewear_kind==='optical';
-  return r.fulfill({json:{ok:true,listing:{...l,category_id:optical?'180957':'79720',secondary_category_id:optical?undefined:'45246',glasses_rules_version:1,category_fields_version:1},preparation:{categoryId:optical?'180957':'79720',secondaryCategoryId:optical?undefined:'45246',categoryName:'Cameras',aspects:[],conditions:[],expiresAt:Date.now()+3600000,signature:'test'}}});
- });
- await draft(page);
- await expect(page.getByLabel('Zustand und Hinweise')).toHaveValue('Ungetragen ohne Etui');
- await expect(page.getByText('Verwendetes Analysemodell: test-analysis-model')).toBeVisible();
- await page.getByLabel('Brillenart',{exact:true}).selectOption('optical');
- await expect(page.locator('.title-input')).toHaveValue('Lindberg Brille');
- await page.getByRole('button',{name:'Kategorie und Merkmale vorbereiten',exact:true}).click();
- await expect.poll(()=>last?.eyewear_kind).toBe('optical');expect(['','180957']).toContain(last.category_id);expect(last.secondary_category_id).toBeUndefined();
- await expect(page.getByLabel('Kategorie-ID',{exact:true})).toHaveValue('180957');
+test("seller corrects optical frame and removes both sunglasses categories", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.route("**/api/analyze", (r) =>
+    r.fulfill({
+      json: {
+        ok: true,
+        listing: {
+          title: "Lindberg Sonnenbrille",
+          description: "Text",
+          item_type: "Sonnenbrille",
+          eyewear_kind: "sunglasses",
+          suggested_price: 200,
+          condition_notes: "Foto zeigt Kratzer",
+          item_specifics: { Brand: "Lindberg" },
+        },
+        usage: [
+          {
+            stage: "analysis",
+            model: "test-analysis-model",
+            input: 10,
+            output: 10,
+            cacheRead: 0,
+            cacheWrite: 0,
+            ms: 1,
+            ok: true,
+          },
+        ],
+      },
+    }),
+  );
+  let last: any;
+  await page.route("**/api/ebay/prepare", (r) => {
+    const l = r.request().postDataJSON().listing;
+    last = l;
+    const optical = l.eyewear_kind === "optical";
+    return r.fulfill({
+      json: {
+        ok: true,
+        listing: {
+          ...l,
+          category_id: optical ? "180957" : "79720",
+          secondary_category_id: optical ? undefined : "45246",
+          glasses_rules_version: 2,
+          category_fields_version: 1,
+        },
+        preparation: {
+          categoryId: optical ? "180957" : "79720",
+          secondaryCategoryId: optical ? undefined : "45246",
+          categoryName: "Cameras",
+          aspects: [],
+          conditions: [],
+          expiresAt: Date.now() + 3600000,
+          signature: "test",
+        },
+      },
+    });
+  });
+  await draft(page);
+  await expect(page.getByLabel("Zustand und Hinweise")).toHaveValue(
+    "Ungetragen ohne Etui",
+  );
+  await expect(
+    page.getByText("Verwendetes Analysemodell: test-analysis-model"),
+  ).toBeVisible();
+  await page.getByLabel("Brillenart", { exact: true }).selectOption("optical");
+  await expect(page.locator(".title-input")).toHaveValue("Lindberg Brille");
+  await page
+    .getByRole("button", {
+      name: "Kategorie und Merkmale vorbereiten",
+      exact: true,
+    })
+    .click();
+  await expect.poll(() => last?.eyewear_kind).toBe("optical");
+  expect(["", "180957"]).toContain(last.category_id);
+  expect(last.secondary_category_id).toBeUndefined();
+  await expect(page.getByLabel("Kategorie-ID", { exact: true })).toHaveValue(
+    "180957",
+  );
 });
-test('reanalysis reuses existing photos and replaces draft content while keeping SKU',async({page})=>{
- await setup(page);await draft(page);
- const sku=await page.getByLabel('SKU',{exact:true}).inputValue();
- await page.locator('.title-input').fill('Manuell bearbeiteter alter Titel');
- let analysisCalls=0;
- await page.route('**/api/analyze',r=>{
-  analysisCalls++;expect(r.request().postDataJSON().images).toHaveLength(2);
-  return r.fulfill({json:{ok:true,listing:{title:'Neu bewertete Brille Pilot',description:'Neu erstellter Text',brand:'Test',item_type:'Brille',eyewear_kind:'optical',glasses_rules_version:1,category_fields_version:1,content_rules_version:2,suggested_price:100,item_specifics:{Brand:'Test'}},usage:[]}});
- });
- await page.getByRole('button',{name:'Ausgewählte Fotos neu analysieren (ersetzt diesen Entwurf)',exact:true}).click();
- await expect(page.locator('.title-input')).toHaveValue('Neu bewertete Brille Pilot');
- await expect(page.getByLabel('SKU',{exact:true})).toHaveValue(sku);
- await expect(page.getByLabel('Beschreibung',{exact:true})).toHaveValue('Neu erstellter Text');
- expect(analysisCalls).toBe(1);
+test("reanalysis reuses existing photos and replaces draft content while keeping SKU", async ({
+  page,
+}) => {
+  await setup(page);
+  await draft(page);
+  const sku = await page.getByLabel("SKU", { exact: true }).inputValue();
+  await page.locator(".title-input").fill("Manuell bearbeiteter alter Titel");
+  let analysisCalls = 0;
+  await page.route("**/api/analyze", (r) => {
+    analysisCalls++;
+    expect(r.request().postDataJSON().images).toHaveLength(2);
+    return r.fulfill({
+      json: {
+        ok: true,
+        listing: {
+          title: "Neu bewertete Brille Pilot",
+          description: "Neu erstellter Text",
+          brand: "Test",
+          item_type: "Brille",
+          eyewear_kind: "optical",
+          glasses_rules_version: 2,
+          category_fields_version: 1,
+          content_rules_version: 2,
+          suggested_price: 100,
+          item_specifics: { Brand: "Test" },
+        },
+        usage: [],
+      },
+    });
+  });
+  await page
+    .getByRole("button", {
+      name: "Ausgewählte Fotos neu analysieren (ersetzt diesen Entwurf)",
+      exact: true,
+    })
+    .click();
+  await expect(page.locator(".title-input")).toHaveValue(
+    "Neu bewertete Brille Pilot",
+  );
+  await expect(page.getByLabel("SKU", { exact: true })).toHaveValue(sku);
+  await expect(page.getByLabel("Beschreibung", { exact: true })).toHaveValue(
+    "Neu erstellter Text",
+  );
+  expect(analysisCalls).toBe(1);
 });

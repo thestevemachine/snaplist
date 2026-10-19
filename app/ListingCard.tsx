@@ -1,7 +1,7 @@
 "use client";
 
 import { EyewearDetails } from "./EyewearDetails";
-import { isGlasses } from "@/lib/glasses-rules";
+import { isGlasses, glassesTitleHints } from "@/lib/glasses-rules";
 import { DraftControls } from "./DraftControls";
 import { draftIssues } from "@/lib/client-review";
 import { useEffect, useMemo, useState } from "react";
@@ -215,6 +215,15 @@ export function ListingCard({
             <div className="copy-row">
               <CopyButton text={listing.title} label="Titel" />
             </div>
+            {isGlasses(listing) &&
+              group.preparation &&
+              glassesTitleHints(listing, group.preparation.aspects).map(
+                (hint) => (
+                  <p className="note" key={hint}>
+                    {hint}
+                  </p>
+                ),
+              )}
           </div>
 
           <div className="meta-row">
@@ -375,7 +384,12 @@ export function ListingCard({
           <button type="button" onClick={() => onRetry(group.id)}>
             Ausgewählte Fotos neu analysieren (ersetzt diesen Entwurf)
           </button>
-          <p className="note">Verwendet die vorhandenen Fotos – kein erneutes Hochladen nötig. Erstellt Titel, Beschreibung und Merkmale neu; auch manuelle Änderungen daran werden ersetzt. SKU und ausgewählte Versandregeln bleiben erhalten.</p>
+          <p className="note">
+            Verwendet die vorhandenen Fotos – kein erneutes Hochladen nötig.
+            Erstellt Titel, Beschreibung und Merkmale neu; auch manuelle
+            Änderungen daran werden ersetzt. SKU und ausgewählte Versandregeln
+            bleiben erhalten.
+          </p>
           <EyewearDetails
             listing={listing}
             meta={group.preparation?.aspects ?? []}

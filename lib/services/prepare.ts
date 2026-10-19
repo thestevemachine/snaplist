@@ -208,6 +208,7 @@ export async function prepareListing(body: any, sealedConnection?: string) {
             listing.title = germanGlassesTitle(listing, meta);
             listing.glasses_rules_version = GLASSES_RULES_VERSION;
           }
+          if (glasses) listing.glasses_rules_version = GLASSES_RULES_VERSION;
           listing.item_specifics = categorySpecifics(
             listing.item_specifics ?? {},
             meta,

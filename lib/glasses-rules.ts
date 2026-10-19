@@ -4,7 +4,7 @@ import type { AspectMeta } from "./ebay/taxonomy";
 import { isSunglasses } from "./category-selection";
 import { matchAllowed } from "./ebay/aspects";
 
-export const GLASSES_RULES_VERSION = 1;
+export const GLASSES_RULES_VERSION = 2;
 export function isGlasses(l: ListingResult) {
   return (
     (l.eyewear_kind !== undefined && l.eyewear_kind !== "not_eyewear") ||
@@ -17,9 +17,42 @@ export function isGlasses(l: ListingResult) {
 const aliases: Record<string, string[]> = {
   Marke: ["Brand"],
   Modell: ["Model", "Model Number", "Modellnummer"],
-  Fassungsfarbe: ["Frame Color", "Color", "Farbe"],
-  Fassungsmaterial: ["Frame Material", "Material"],
-  Form: ["Frame Shape", "Shape", "Style"],
+  Fassungsfarbe: ["Rahmenfarbe", "Frame Color", "Color", "Farbe"],
+  Rahmenfarbe: ["Fassungsfarbe", "Frame Color", "Color", "Farbe"],
+  Fassungsmaterial: ["Rahmenmaterial", "Frame Material", "Material"],
+  Rahmenmaterial: ["Fassungsmaterial", "Frame Material", "Material"],
+  Form: [
+    "Brillenform",
+    "Rahmenform",
+    "Fassungsform",
+    "Frame Shape",
+    "Shape",
+    "Style",
+  ],
+  Brillenform: [
+    "Form",
+    "Rahmenform",
+    "Fassungsform",
+    "Frame Shape",
+    "Shape",
+    "Style",
+  ],
+  Rahmenform: [
+    "Form",
+    "Brillenform",
+    "Fassungsform",
+    "Frame Shape",
+    "Shape",
+    "Style",
+  ],
+  Fassungsform: [
+    "Form",
+    "Brillenform",
+    "Rahmenform",
+    "Frame Shape",
+    "Shape",
+    "Style",
+  ],
   Stil: ["Frame Shape", "Shape", "Form", "Style"],
   Abteilung: ["Department", "Gender", "Geschlecht"],
   Gläsermaterial: ["Lens Material"],
@@ -91,9 +124,9 @@ export function germanAspects(
     const synonyms =
       aliases[m.name] ??
       (m.name === "Farbe"
-        ? ["Color", "Frame Color"]
+        ? ["Fassungsfarbe", "Rahmenfarbe", "Color", "Frame Color"]
         : m.name === "Material"
-          ? ["Frame Material"]
+          ? ["Fassungsmaterial", "Rahmenmaterial", "Frame Material"]
           : []);
     if (!Object.prototype.hasOwnProperty.call(aspects, m.name)) {
       const source = synonyms.find((k) => aspects[k]?.length);
@@ -131,7 +164,7 @@ export function germanAspects(
   }
   for (const [german, english] of Object.entries(aliases)) {
     if (
-      meta.some((m) => m.name === german) ||
+      meta.some((m) => m.name === german || english.includes(m.name)) ||
       (german === "Stil" && aspects.Form)
     )
       continue;
@@ -161,16 +194,96 @@ function measured(l: ListingResult, keys: string[]) {
   const match = f.value.match(/^(\d+(?:[.,]\d+)?)\s*(?:mm)?$/i);
   return match ? Number(match[1].replace(",", ".")) : undefined;
 }
+function categoryTitleValue(
+  l: ListingResult,
+  meta: AspectMeta[],
+  names: string[],
+) {
+  const field = names
+    .map((name) => meta.find((m) => m.name === name))
+    .find((m) => m && Object.hasOwn(l.item_specifics ?? {}, m.name));
+  if (!field) return "";
+  return (l.item_specifics?.[field.name] ?? "")
+    .split(" | ")
+    .map((value) => {
+      if (!field.values.length)
+        return field.mode === "FREE_TEXT" ? value.trim() : "";
+      return (
+        matchAllowed(value, field.values) ??
+        matchAllowed(translations[value.toLowerCase()] ?? "", field.values) ??
+        ""
+      );
+    })
+    .filter(Boolean)
+    .join(" ");
+}
+function verifiedTitleKeywords(l: ListingResult, meta: AspectMeta[]) {
+  const supported = meta.flatMap((m) =>
+    (l.item_specifics?.[m.name] ?? "").split(" | "),
+  );
+  const keywords = ["Randlos", "Halbrand", "Vollrand", "Oversize"];
+  const result = keywords.filter((k) =>
+    supported.some(
+      (v) =>
+        v.toLowerCase() === k.toLowerCase() ||
+        (k === "Oversize" && /^oversized$/i.test(v)),
+    ),
+  );
+  const rawColor = Array.isArray(l.color) ? l.color.join(" ") : (l.color ?? "");
+  if (
+    /tortoise|havana|havanna/i.test(rawColor) &&
+    /braun/i.test(
+      categoryTitleValue(l, meta, ["Rahmenfarbe", "Fassungsfarbe", "Farbe"]),
+    )
+  )
+    result.push("Havanna");
+  return result;
+}
+export function glassesTitleHints(l: ListingResult, meta: AspectMeta[]) {
+  const hints: string[] = [];
+  if (!categoryTitleValue(l, meta, ["Rahmenfarbe", "Fassungsfarbe", "Farbe"]))
+    hints.push(
+      "Titelfarbe fehlt: bitte die Rahmenfarbe in den eBay-Merkmalen prüfen.",
+    );
+  const model = fact(l, [
+    "Modellnummer",
+    "Model Number",
+    "Modell",
+    "Modellname",
+    "Model",
+    "Model Name",
+  ]);
+  if (
+    !(model && l.estimates?.[model.key] === undefined) &&
+    !l.eyewear?.fields.modelNumber?.value &&
+    !l.eyewear?.fields.modelName?.value
+  )
+    hints.push(
+      "Modellnummer/-name nicht sicher erkannt: Bügelaufdruck prüfen oder ergänzen.",
+    );
+  return hints;
+}
 export function germanGlassesTitle(l: ListingResult, meta: AspectMeta[]) {
   const s = l.item_specifics ?? {};
   const brand = s.Marke ?? l.brand ?? "";
-  const model = fact(l, ["Modellnummer", "Modell", "Model Number", "Model"]);
-  const modelText =
-    model && l.estimates?.[model.key] === undefined
-      ? model.value
-      : l.eyewear?.fields.modelNumber?.value ||
-        l.eyewear?.fields.modelName?.value ||
-        "";
+  const modelNumber = fact(l, ["Modellnummer", "Model Number"]);
+  const modelName = fact(l, ["Modell", "Modellname", "Model", "Model Name"]);
+  const numberText =
+    modelNumber && l.estimates?.[modelNumber.key] === undefined
+      ? modelNumber.value
+      : l.eyewear?.fields.modelNumber?.value || "";
+  const nameText =
+    modelName && l.estimates?.[modelName.key] === undefined
+      ? modelName.value
+      : l.eyewear?.fields.modelName?.value || "";
+  const modelText = numberText || nameText;
+  const extraModelName =
+    numberText &&
+    nameText &&
+    !numberText.toLowerCase().includes(nameText.toLowerCase()) &&
+    !nameText.toLowerCase().includes(numberText.toLowerCase())
+      ? nameText
+      : "";
   const gender =
     fact(l, ["Abteilung", "Geschlecht", "Department", "Gender"])?.value ?? "";
   const sex = /unisex|herren.*damen|damen.*herren/i.test(gender)
@@ -180,29 +293,29 @@ export function germanGlassesTitle(l: ListingResult, meta: AspectMeta[]) {
       : /herren|\bmen\b|\bmale\b/i.test(gender)
         ? "Herren"
         : "";
-  const colorMeta =
-    meta.find((m) => m.name === "Fassungsfarbe") ??
-    meta.find((m) => m.name === "Farbe");
-  const color = colorMeta
-    ? (s[colorMeta.name] ?? "")
-        .split(" | ")
-        .filter((v) => colorMeta.values.includes(v))
-        .join(" ")
-    : "";
+  const color = categoryTitleValue(l, meta, [
+    "Rahmenfarbe",
+    "Fassungsfarbe",
+    "Farbe",
+  ]);
   const shapeRaw =
-    fact(l, ["Form", "Stil", "Frame Shape", "Shape"])?.value ?? "";
+    fact(l, [
+      "Brillenform",
+      "Rahmenform",
+      "Fassungsform",
+      "Form",
+      "Stil",
+      "Frame Shape",
+      "Shape",
+    ])?.value ?? "";
   const shape = translations[shapeRaw.toLowerCase()] ?? shapeRaw;
   const round = /^(rund|round|panto|rund panto)$/i.test(shape);
   const shapeText = round ? "Rund Panto" : shape;
-  const materialMeta =
-    meta.find((m) => m.name === "Fassungsmaterial") ??
-    meta.find((m) => m.name === "Material");
-  const material = materialMeta
-    ? (s[materialMeta.name] ?? "")
-        .split(" | ")
-        .filter((v) => materialMeta.values.includes(v))
-        .join(" ")
-    : "";
+  const material = categoryTitleValue(l, meta, [
+    "Rahmenmaterial",
+    "Fassungsmaterial",
+    "Material",
+  ]);
   const width =
     measured(l, ["Glasbreite", "Lens Width"]) ??
     Number(l.eyewear?.fields.lensWidth?.value.replace(/\s*mm$/i, "") || NaN);
@@ -217,6 +330,8 @@ export function germanGlassesTitle(l: ListingResult, meta: AspectMeta[]) {
   const extras = [
     width !== undefined && width > 0 && width < 47 ? "kleine Gläser" : "",
     total !== undefined && total > 139 ? "groß L XL" : "",
+    extraModelName,
+    ...verifiedTitleKeywords(l, meta),
   ];
   const type = isSunglasses(l) ? "Sonnenbrille" : "Brille";
   const parts = [
@@ -227,7 +342,11 @@ export function germanGlassesTitle(l: ListingResult, meta: AspectMeta[]) {
     material,
     modelText,
     ...extras,
-  ].filter(Boolean);
+  ].filter(
+    (part, index, all) =>
+      Boolean(part) &&
+      all.findIndex((p) => p.toLowerCase() === part.toLowerCase()) === index,
+  );
   // Retain brand/model before optional keywords when the title reaches 80 characters.
   while (parts.join(" ").length > 80 && parts.length > 2) {
     let index = parts.length - 1;
@@ -237,4 +356,4 @@ export function germanGlassesTitle(l: ListingResult, meta: AspectMeta[]) {
   }
   return cleanListingText(parts.join(" ").replace(/\s+/g, " ")).slice(0, 80);
 }
-export const GERMAN_LISTING_PROMPT = `\nFor eBay.de write title, description, condition_notes, search terms, keywords, and item-specific names and values in German. Keep JSON keys and enum values unchanged. For eyewear use Marke, Modellnummer, Fassungsfarbe, Fassungsmaterial, Form, Abteilung, Glasbreite, Gesamtbreite. Brand/model identifiers and dimensions must be read from a label with an exact quote, never inferred. A lens width is not total frame width. Use Herren, Damen or Herren Damen in the title, never unisex, never xy. Title order: Marke Brille (or Sonnenbrille) Geschlecht Farbe Form Modellnummer keywords; round frames use Rund Panto before Farbe. Maximum 80 characters, prioritize brand and model. Standard colors (Tortoise becomes Braun). Only add kleine Gläser for a proven lens width below 47 mm; groß L XL only for proven total width above 139 mm. Seller default: unworn without case, in German Ungetragen ohne Etui. Do not infer or describe condition from photos; use only the seller-provided condition. Do not add a generic sales template; that is supplied by the seller settings.`;
+export const GERMAN_LISTING_PROMPT = `\nFor eBay.de write title, description, condition_notes, search terms, keywords, and item-specific names and values in German. Keep JSON keys and enum values unchanged. For eyewear use Marke, Modellnummer, Fassungsfarbe, Fassungsmaterial, Form, Abteilung, Glasbreite, Gesamtbreite. Brand/model identifiers and dimensions must be read from a label with an exact quote, never inferred. A lens width is not total frame width. Use Herren, Damen or Herren Damen in the title, never unisex, never xy. Title order: Marke Brille (or Sonnenbrille) Geschlecht Farbe Form Material (if supported) Modellnummer/model name keywords; round frames use Rund Panto before Farbe. Maximum 80 characters, prioritize brand and model. Standard colors (Tortoise becomes Braun). Only add kleine Gläser for a proven lens width below 47 mm; groß L XL only for proven total width above 139 mm. Seller default: unworn without case, in German Ungetragen ohne Etui. Do not infer or describe condition from photos; use only the seller-provided condition. Do not add a generic sales template; that is supplied by the seller settings.`;

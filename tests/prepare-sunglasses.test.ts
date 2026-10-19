@@ -104,7 +104,7 @@ it("transfers the known Brand into Marke and preserves reviewed titles on anothe
   expect(body.ok).toBe(true);
   expect(body.listing.item_specifics.Marke).toBe("Test");
   expect(body.listing.title).toBe("Test Sonnenbrille");
-  expect(body.listing.glasses_rules_version).toBe(1);
+  expect(body.listing.glasses_rules_version).toBe(2);
   const second = await (
     await prepareListing({
       listing: { ...body.listing, title: "Meine eigene Korrektur" },
@@ -182,13 +182,46 @@ it("preserves a manual title even before the first category preparation", async 
   expect(body.ok).toBe(true);
   expect(body.listing.title).toBe("Meine Sonnenbrille korrigiert");
 });
-it('stops an uncertain classification before category lookup', async () => {
- const body=await(await prepareListing({listing:{title:'Brille',description:'Text',eyewear_kind:'uncertain'},enrich:false})).json();
- expect(body.ok).toBe(false);expect(body.error).toContain('Brillenart unklar');expect(suggestLeafCategories).not.toHaveBeenCalled();
+it("stops an uncertain classification before category lookup", async () => {
+  const body = await (
+    await prepareListing({
+      listing: {
+        title: "Brille",
+        description: "Text",
+        eyewear_kind: "uncertain",
+      },
+      enrich: false,
+    })
+  ).json();
+  expect(body.ok).toBe(false);
+  expect(body.error).toContain("Brillenart unklar");
+  expect(suggestLeafCategories).not.toHaveBeenCalled();
 });
-it('prepares optical frames without either sunglasses category',async()=>{
- vi.mocked(suggestLeafCategories).mockResolvedValue([{id:'180957',name:'Brillenfassungen',path:'Beauty & Gesundheit > Augenoptik > Brillenfassungen'}]);
- const body=await(await prepareListing({listing:{title:'Lindberg Sonnenbrille',item_type:'Brille',eyewear_kind:'optical',description:'Text',condition_notes:'Kratzer',item_specifics:{Marke:'Lindberg'}},enrich:false})).json();
- expect(body.ok).toBe(true);expect(suggestLeafCategories).toHaveBeenCalledWith('Brillenfassungen',10);
- expect(body.listing.category_id).toBe('180957');expect(body.listing.secondary_category_id).toBeUndefined();expect(body.listing.title).not.toContain('Sonnenbrille');expect(body.listing.condition_notes).toBe('Ungetragen ohne Etui');
+it("prepares optical frames without either sunglasses category", async () => {
+  vi.mocked(suggestLeafCategories).mockResolvedValue([
+    {
+      id: "180957",
+      name: "Brillenfassungen",
+      path: "Beauty & Gesundheit > Augenoptik > Brillenfassungen",
+    },
+  ]);
+  const body = await (
+    await prepareListing({
+      listing: {
+        title: "Lindberg Sonnenbrille",
+        item_type: "Brille",
+        eyewear_kind: "optical",
+        description: "Text",
+        condition_notes: "Kratzer",
+        item_specifics: { Marke: "Lindberg" },
+      },
+      enrich: false,
+    })
+  ).json();
+  expect(body.ok).toBe(true);
+  expect(suggestLeafCategories).toHaveBeenCalledWith("Brillenfassungen", 10);
+  expect(body.listing.category_id).toBe("180957");
+  expect(body.listing.secondary_category_id).toBeUndefined();
+  expect(body.listing.title).not.toContain("Sonnenbrille");
+  expect(body.listing.condition_notes).toBe("Ungetragen ohne Etui");
 });

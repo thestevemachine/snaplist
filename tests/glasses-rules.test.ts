@@ -141,3 +141,77 @@ it("retains the model before optional words at 80 characters", () => {
   expect(title).toContain("ABC123");
   expect(title).toContain("Sonnenbrille");
 });
+it("uses actual eBay Rahmenfarbe, Rahmenmaterial and Brillenform in titles", () => {
+  const actual = [
+    aspect("Marke"),
+    aspect("Rahmenfarbe", ["Schwarz"]),
+    aspect("Rahmenmaterial", ["Titan"]),
+    aspect("Brillenform", ["Rund"]),
+  ];
+  const l = { title: "Brille", description: "", brand: "Lindberg" };
+  const a = {
+    "Frame Color": ["Black"],
+    "Frame Material": ["Titanium"],
+    "Frame Shape": ["Round"],
+  };
+  germanAspects(l, a, actual);
+  expect(a).toMatchObject({
+    Rahmenfarbe: ["Schwarz"],
+    Rahmenmaterial: ["Titan"],
+    Brillenform: ["Rund"],
+  });
+  const title = germanGlassesTitle(
+    {
+      ...l,
+      item_specifics: {
+        ...Object.fromEntries(
+          Object.entries(a).map(([k, v]) => [k, v.join(" | ")]),
+        ),
+        Abteilung: "Herren",
+        Modellnummer: "1014",
+      },
+    },
+    actual,
+  );
+  expect(title).toBe("Lindberg Brille Herren Rund Panto Schwarz Titan 1014");
+});
+it("retains free-text category values and supported extra keywords", () => {
+  const m = [
+    aspect("Rahmenfarbe"),
+    aspect("Rahmenmaterial"),
+    aspect("Besonderheiten", ["Randlos"]),
+  ];
+  expect(
+    germanGlassesTitle(
+      {
+        title: "Sonnenbrille",
+        description: "",
+        brand: "ic! berlin",
+        item_specifics: {
+          Rahmenfarbe: "Schwarz",
+          Rahmenmaterial: "Metall",
+          Modell: "glacier",
+          Abteilung: "Unisex",
+          Besonderheiten: "Randlos",
+        },
+      },
+      m,
+    ),
+  ).toBe("ic! berlin Sonnenbrille Herren Damen Schwarz Metall glacier Randlos");
+});
+it("does not refill a deliberately cleared canonical color from an old alias", () => {
+  const m = [aspect("Rahmenfarbe", ["Braun"])];
+  const a = { Rahmenfarbe: [], "Frame Color": ["Tortoiseshell"] };
+  germanAspects({ title: "Brille", description: "" }, a, m);
+  expect(a.Rahmenfarbe).toEqual([]);
+  expect(
+    germanGlassesTitle(
+      {
+        title: "Brille",
+        description: "",
+        item_specifics: { Rahmenfarbe: "", Fassungsfarbe: "Braun" },
+      },
+      m,
+    ),
+  ).not.toContain("Braun");
+});
