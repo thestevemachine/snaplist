@@ -14,6 +14,7 @@ import {
 } from "@/lib/cloud/store";
 import { inngest } from "@/lib/cloud/inngest";
 import { EBAY_COOKIE } from "@/lib/ebay/session";
+import { isAllowedModel } from "@/lib/models";
 export const maxDuration = 300;
 const id = z.string().uuid();
 const clientId = z
@@ -22,6 +23,10 @@ const clientId = z
   .max(100)
   .regex(/^[a-zA-Z0-9_-]+$/);
 const groupSchema = z.object({
+  analysisModel: z
+    .string()
+    .refine(isAllowedModel, "Modell nicht freigegeben")
+    .optional(),
   id: clientId,
   sku: z.string().min(1).max(50),
   name: z.string().max(200),
@@ -276,7 +281,7 @@ export async function POST(req: NextRequest) {
       const jobs = checked(
         await db()
           .from("lister_jobs")
-          .select("id,item_id,status,error")
+          .select("id,item_id,status,error,failed_usage:result->failedUsage")
           .in(
             "item_id",
             items.map((i) => i.id),
@@ -322,6 +327,7 @@ export async function POST(req: NextRequest) {
                         prepared: result.prepared,
                         analysis: { usage: result.analysis?.usage ?? [] },
                         research: result.research,
+                        failedUsage: result.failedUsage ?? [],
                       }
                     : undefined,
                 }

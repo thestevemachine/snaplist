@@ -1,6 +1,7 @@
 import { withPublicationIdentity } from "./publication-identity";
 import type { ItemGroup, Photo } from "./types";
 export interface WorkspaceDraft {
+  sortUsage?: import("./ai-usage").AiUsage[];
   version: 1;
   photos: Photo[];
   groups: ItemGroup[];

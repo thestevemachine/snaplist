@@ -1,12 +1,15 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { providerFor } from "./ai-catalog";
+import { externalClient } from "./ai-providers";
 
 let client: Anthropic | null = null;
 
-export function getClient(): Anthropic {
+export function getClient(model?: string): Anthropic {
+  if (model && providerFor(model) !== "anthropic") return externalClient(model);
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     throw new Error(
-      "ANTHROPIC_API_KEY is not set. Add it in Vercel → Settings → Environment Variables (or in .env.local for local dev)."
+      "ANTHROPIC_API_KEY is not set. Add it in Vercel → Settings → Environment Variables (or in .env.local for local dev).",
     );
   }
   if (!client) {
@@ -56,17 +59,20 @@ export function anthropicAuthError(e: unknown): AnthropicAuthError | null {
   if (status === 401)
     return new AnthropicAuthError(
       "Anthropic rejected your API key (401). Check that ANTHROPIC_API_KEY is set correctly in your environment variables.",
-      401
+      401,
     );
   if (status === 403)
     return new AnthropicAuthError(
       "Your Anthropic API key isn't permitted to use this model (403). Check the key's access in the Anthropic Console.",
-      403
+      403,
     );
-  if (status === 402 || /credit balance|too low|billing|payment|insufficient|quota/i.test(message))
+  if (
+    status === 402 ||
+    /credit balance|too low|billing|payment|insufficient|quota/i.test(message)
+  )
     return new AnthropicAuthError(
       "Your Anthropic account can't cover this request — add credits/billing in the Anthropic Console, then try again.",
-      402
+      402,
     );
   return null;
 }

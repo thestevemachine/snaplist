@@ -1,4 +1,8 @@
 "use client";
+import { AiUsageSummary } from "./AiUsageSummary";
+import { analysisImages } from "@/lib/analysis-images";
+import type { AiUsage } from "@/lib/ai-usage";
+import { usageTotals } from "@/lib/ai-costs";
 import { withPublicationIdentity } from "@/lib/publication-identity";
 import { migrateContentGroup } from "@/lib/listing-content-rules";
 import { CATEGORY_FIELDS_VERSION } from "@/lib/ebay/category-fields";
@@ -113,6 +117,7 @@ export default function Home() {
   const [groups, setGroups] = useState<ItemGroup[]>([]);
   const [orphanIds, setOrphanIds] = useState<string[]>([]);
   const [dragging, setDragging] = useState(false);
+  const [sortUsage, setSortUsage] = useState<AiUsage[]>([]);
   const [sorting, setSorting] = useState(false);
   const [sortProgress, setSortProgress] = useState<string | null>(null);
   // Where bin lettering starts — continues after SKUs already on eBay, so a
@@ -177,6 +182,7 @@ export default function Home() {
         if (d && active) {
           setPhotos(d.photos);
           setGroups(d.groups);
+          setSortUsage(d.sortUsage ?? []);
           setOrphanIds(d.orphanIds);
           setBinPrefix(d.binPrefix);
           setSkuStart(d.skuStart);
@@ -225,6 +231,7 @@ export default function Home() {
     const timer = setTimeout(() => {
       void saveDraft({
         version: 1,
+        sortUsage,
         photos,
         groups,
         orphanIds,
@@ -248,6 +255,7 @@ export default function Home() {
       clearTimeout(timer);
     };
   }, [
+    sortUsage,
     restored,
     readOnly,
     photos,
@@ -464,6 +472,7 @@ export default function Home() {
           res,
           "Try sorting fewer photos per batch.",
         )) as SortResponse;
+        setSortUsage((prev) => [...prev, ...(data.usage ?? [])]);
         if (!data.ok || !data.groups) {
           throw new Error(data.error || "Could not sort the photos.");
         }
@@ -629,7 +638,7 @@ export default function Home() {
 
   // ── Write listings ──────────────────────────────────────
   const writeGroup = useCallback(
-    async (groupId: string) => {
+    async (groupId: string, confirmed = false) => {
       // Snapshot this group's photos from the latest state (no stale closure).
       let group = groupsRef.current.find((g) => g.id === groupId);
       if (
@@ -641,25 +650,20 @@ export default function Home() {
         inFlight.current.has(groupId)
       )
         return;
+      if (
+        !confirmed &&
+        (group.listing || group.usage?.length) &&
+        !window.confirm(
+          "Kostenpflichtige Neuanalyse starten? Der aktuelle Entwurf wird ersetzt. Für einen Vergleich ohne Überschreiben bitte Modelle vergleichen verwenden.",
+        )
+      )
+        return;
+      const selectedModel = getAnalysisModel() ?? "claude-opus-4-8";
       inFlight.current.add(groupId);
       const selectedPhotos = (group.analysisPhotoIds ?? group.photoIds)
         .map((id) => photoMap.get(id))
         .filter((p): p is Photo => Boolean(p) && p!.analysisSelected !== false);
-      const imgs = selectedPhotos.map((p) => ({
-        mediaType: p.mediaType,
-        data: p.data,
-      }));
-      const last = selectedPhotos.at(-1);
-      if (
-        last?.uploadData &&
-        imgs.slice(0, -1).reduce((n, p) => n + p.data.length, 0) +
-          last.uploadData.length <
-          4_000_000
-      )
-        imgs[imgs.length - 1] = {
-          mediaType: "image/jpeg",
-          data: last.uploadData,
-        };
+      const imgs = analysisImages(selectedPhotos);
       setGroups((prev) =>
         prev.map((g) =>
           g.id === groupId
@@ -677,11 +681,17 @@ export default function Home() {
         const res = await apiPost("/api/analyze", {
           profile: "auto",
           images: imgs,
-          analysisModel: getAnalysisModel() ?? undefined,
-          routerModel: getSortModel() ?? undefined,
+          analysisModel: selectedModel,
         });
         const data = (await readJson(res)) as AnalyzeResponse;
         if (!data.ok || !data.listing) {
+          setGroups((prev) =>
+            prev.map((g) =>
+              g.id === groupId
+                ? { ...g, usage: [...(g.usage ?? []), ...(data.usage ?? [])] }
+                : g,
+            ),
+          );
           throw new Error(data.error || "Could not write this listing.");
         }
         const shopOptions = await loadAccountOptions().catch(() => undefined);
@@ -702,10 +712,9 @@ export default function Home() {
                     ...g.shipping,
                   },
                   listing: data.listing,
-                  evidencePhotoIds: [
-                    ...(group.analysisPhotoIds ?? group.photoIds),
-                  ],
-                  usage: (data as any).usage ?? [],
+                  evidencePhotoIds: selectedPhotos.map((p) => p.id),
+                  analysisModel: selectedModel,
+                  usage: [...(g.usage ?? []), ...(data.usage ?? [])],
                   preparation: undefined,
                   comps: undefined,
                   compsStatus: "loading",
@@ -718,6 +727,7 @@ export default function Home() {
         try {
           const pr = await apiPost("/api/ebay/prepare", {
             listing: data.listing,
+            analysisModel: selectedModel,
             images: imgs,
             enrich: true,
           });
@@ -734,7 +744,12 @@ export default function Home() {
                       preparation: pd.preparation,
                       usage: [...(g.usage ?? []), ...(pd.usage ?? [])],
                     }
-                  : { ...g, status: "done", preparationError: pd.error }
+                  : {
+                      ...g,
+                      status: "done",
+                      preparationError: pd.error,
+                      usage: [...(g.usage ?? []), ...(pd.usage ?? [])],
+                    }
                 : g,
             ),
           );
@@ -823,7 +838,7 @@ export default function Home() {
       )
     )
       return;
-    await startQueue(ids, "write", writeGroup);
+    await startQueue(ids, "write", (id) => writeGroup(id, true));
   };
   const writeAll = async () => {
     // Only write listings that don't exist yet. Re-running everything after a
@@ -840,7 +855,16 @@ export default function Home() {
       .map((g) => g.id);
     setStep("listings");
     if (usable.length === 0) return;
-    await startQueue(usable, "write", writeGroup);
+    if (
+      groups.some(
+        (g) => usable.includes(g.id) && (g.listing || g.usage?.length),
+      ) &&
+      !window.confirm(
+        `${usable.length} Entwürfe kostenpflichtig analysieren? Bereits vorhandene Entwürfe können ersetzt werden. Erfolgreiche fertige Angebote werden übersprungen.`,
+      )
+    )
+      return;
+    await startQueue(usable, "write", (id) => writeGroup(id, true));
   };
 
   const editGroup = (id: string, patch: Partial<ItemGroup>) =>
@@ -973,6 +997,7 @@ export default function Home() {
           );
           await saveDraft({
             version: 1,
+            sortUsage,
             photos: [...photoMap.values()],
             groups: nextGroups,
             orphanIds,
@@ -1117,6 +1142,7 @@ export default function Home() {
         editGroup(groupId, uploaded);
         await saveDraft({
           version: 1,
+          sortUsage,
           photos: [...photoMap.values()],
           groups: groupsRef.current.map((g) =>
             g.id === groupId ? uploaded : g,
@@ -1224,6 +1250,7 @@ export default function Home() {
       );
     await saveDraft({
       version: 1,
+      sortUsage,
       photos,
       groups: groupsRef.current,
       orphanIds,
@@ -1262,6 +1289,7 @@ export default function Home() {
       await clearDraft();
       setPhotos([]);
       setGroups([]);
+      setSortUsage([]);
       setOrphanIds([]);
       setBinPrefix("");
       setSkuStart(0);
@@ -1561,6 +1589,35 @@ export default function Home() {
           onOpen={() => setStep("listings")}
         />
       )}
+      <AiUsageSummary
+        rows={[
+          ...sortUsage,
+          ...groups.flatMap((g) => [
+            ...(g.usage ?? []),
+            ...(g.comparisons ?? []).flatMap((c) => c.usage),
+          ]),
+        ]}
+        label="Fotoserie insgesamt · alle Modelle und Vergleiche"
+      />
+      <AiUsageSummary
+        rows={sortUsage}
+        label="Fotosortierung · gemeinsame Kosten"
+      />
+      {groups.length > 0 &&
+        (sortUsage.length > 0 || groups.some((g) => g.usage?.length)) && (
+          <p className="note">
+            Durchschnitt je Brille inklusive gemeinsamer Sortierung, ohne
+            Vergleiche: $
+            {(
+              usageTotals([
+                ...sortUsage,
+                ...groups.flatMap((g) => g.usage ?? []),
+              ]).usd / groups.length
+            ).toFixed(4)}
+            . Die Zuordnung zur einzelnen Brille ist geschätzt; fehlende
+            Nutzungsdaten sind nicht enthalten. USD, kein Eurobetrag.
+          </p>
+        )}
       {step === "review" && (
         <ReviewBoard
           groups={groups}

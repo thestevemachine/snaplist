@@ -1,4 +1,5 @@
 import { measuredMessage } from "@/lib/ai-usage";
+import { isAiTerminal } from "@/lib/ai-providers";
 import type Anthropic from "@anthropic-ai/sdk";
 import { anthropicAuthError, parseModelJson } from "@/lib/anthropic";
 import {
@@ -31,8 +32,6 @@ const PER_CALL_TIMEOUT_MS = 60_000;
 // Don't bother starting a call with less budget than this left.
 const MIN_CALL_MS = 5_000;
 
-const RETRYABLE_STATUS = new Set([408, 409, 429, 500, 502, 503, 504, 529]);
-
 export interface SortGroup {
   name: string;
   photoIndices: number[];
@@ -51,8 +50,6 @@ export class SortUnavailableError extends Error {
     this.name = "SortUnavailableError";
   }
 }
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function firstText(resp: Anthropic.Message): string {
   const block = resp.content.find((b) => b.type === "text");
@@ -80,7 +77,7 @@ async function mapLimit<T, R>(
   return results;
 }
 
-// Call Claude and parse JSON, retrying transient/rate-limit errors with backoff.
+// Use the selected model once and parse JSON. Paid retries require user action.
 // `deadline` (epoch ms) bounds the whole attempt loop: calls are skipped once
 // the budget is (nearly) spent, and each call's HTTP timeout never extends past
 // it. SDK-internal retries are disabled — this loop is the only retry layer, so
@@ -93,53 +90,25 @@ async function claudeJson<T>(
   label: string,
   deadline: number,
 ): Promise<T | null> {
-  for (let attempt = 0; attempt < 4; attempt++) {
-    const remaining = deadline - Date.now();
-    if (remaining < MIN_CALL_MS) {
-      console.warn(`[sort] ${label}: time budget exhausted — skipping call`);
-      return null;
-    }
-    try {
-      const resp = await measuredMessage(
-        "sort",
-        client,
-        {
-          model,
-          max_tokens: maxTokens,
-          messages: [{ role: "user", content }],
-        },
-        { timeout: Math.min(PER_CALL_TIMEOUT_MS, remaining), maxRetries: 0 },
-      );
-      return parseModelJson<T>(firstText(resp));
-    } catch (e) {
-      const status =
-        e && typeof e === "object" && "status" in e
-          ? Number((e as { status?: number }).status)
-          : undefined;
-      // Account-level failures won't fix themselves on retry — surface them.
-      const fatal = anthropicAuthError(e);
-      if (fatal) throw fatal;
-      const retryable = status === undefined || RETRYABLE_STATUS.has(status);
-      if (attempt < 3 && retryable) {
-        const wait =
-          Math.min(10000, 800 * 2 ** attempt) + Math.floor(Math.random() * 400);
-        if (Date.now() + wait + MIN_CALL_MS >= deadline) {
-          console.warn(`[sort] ${label}: no budget left for retry — giving up`);
-          return null;
-        }
-        console.warn(
-          `[sort] ${label}: ${status ?? "parse/conn"} error — retry ${attempt + 1} in ${wait}ms`,
-        );
-        await sleep(wait);
-        continue;
-      }
-      console.warn(
-        `[sort] ${label}: giving up (${status ?? (e as Error).message})`,
-      );
-      return null;
-    }
+  const remaining = deadline - Date.now();
+  if (remaining < MIN_CALL_MS) return null;
+  try {
+    const resp = await measuredMessage(
+      "sort",
+      client,
+      { model, max_tokens: maxTokens, messages: [{ role: "user", content }] },
+      { timeout: Math.min(PER_CALL_TIMEOUT_MS, remaining), maxRetries: 0 },
+    );
+    return parseModelJson<T>(firstText(resp));
+  } catch (error) {
+    if (isAiTerminal(error)) throw error;
+    const fatal = anthropicAuthError(error);
+    if (fatal) throw fatal;
+    console.warn(
+      `[sort] ${label}: Aufruf fehlgeschlagen; keine automatische Wiederholung.`,
+    );
+    return null;
   }
-  return null;
 }
 
 // Step 1 — group photos in independent batches of 10 (run a few at a time).

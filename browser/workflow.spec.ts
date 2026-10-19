@@ -437,6 +437,12 @@ test("defaults the seller policies and allows review without package measurement
       }),
     ),
   );
+  // Seller options are cached per document. Reload after replacing the API
+  // fixture so this test starts with the intended seller, not setup's seller.
+  await page.reload();
+  await expect(page.getByRole("status")).toContainText(
+    "Auf diesem Gerät gespeichert",
+  );
   await draft(page);
   await expect(page.getByLabel("Versandregel", { exact: true })).toHaveValue(
     "usual",
@@ -769,6 +775,11 @@ test("restored sunglasses prepare automatically once, retain descriptions and ne
           const d = get.result,
             g = d.groups[0];
           g.listing.title = "Test Sunglasses";
+          // The preceding fixture was a camera. Restored eyewear now has an
+          // explicit reviewed classification; changing a title alone must not
+          // override that classification.
+          g.listing.eyewear_kind = "sunglasses";
+          g.listing.item_type = "Sonnenbrille";
           g.listing.description = "Mein eigener Beschreibungstext";
           g.preparation = undefined;
           d.groups.push({
@@ -971,6 +982,7 @@ test("inscription data remains editable, persists, and only explicitly rebuilds 
   await expect(panel.getByLabel("Glasbreite", { exact: false })).toHaveValue(
     "46",
   );
+  await panel.locator("summary").first().click();
   await panel.getByLabel("Modellnummer", { exact: false }).fill("5678");
   await expect(page.locator(".title-input")).toHaveValue("Lindberg Brille");
   await page.locator(".title-input").fill("Mein geprüfter Titel");
@@ -994,6 +1006,7 @@ test("inscription data remains editable, persists, and only explicitly rebuilds 
   await expect(panel.getByLabel("Glasbreite", { exact: false })).toHaveValue(
     "45",
   );
+  await panel.locator("summary").first().click();
   await panel
     .getByRole("button", { name: "Titel aus geprüften Angaben neu bilden" })
     .click();
@@ -1083,6 +1096,7 @@ test("seller corrects optical frame and removes both sunglasses categories", asy
 test("reanalysis reuses existing photos and replaces draft content while keeping SKU", async ({
   page,
 }) => {
+  page.on("dialog", (dialog) => dialog.accept());
   await setup(page);
   await draft(page);
   const sku = await page.getByLabel("SKU", { exact: true }).inputValue();
@@ -1352,7 +1366,9 @@ test("repairs a legacy UUID collision without losing the draft or publishing, an
   expect(published).toBe(0);
 });
 
-test("manual SKU changes after a failed attempt persist without rotating identity and check the original SKU", async ({page}) => {
+test("manual SKU changes after a failed attempt persist without rotating identity and check the original SKU", async ({
+  page,
+}) => {
   await setup(page);
   await draft(page);
   await shipping(page);
@@ -1391,23 +1407,37 @@ test("manual SKU changes after a failed attempt persist without rotating identit
 
   let lookups = 0;
   let publishes = 0;
-  await page.route("**/api/ebay/publication-status", r => {
+  await page.route("**/api/ebay/publication-status", (r) => {
     const b = r.request().postDataJSON();
     expect(b.sku).toBe(before.groups[0].sku);
     expect(b.publicationId).toBe(before.groups[0].publicationId);
     lookups++;
-    return r.fulfill({json:{success:true,status:"published",listingId:"940025900611"}});
+    return r.fulfill({
+      json: { success: true, status: "published", listingId: "940025900611" },
+    });
   });
-  await page.route("**/api/ebay/publish", r => { publishes++; return r.abort(); });
+  await page.route("**/api/ebay/publish", (r) => {
+    publishes++;
+    return r.abort();
+  });
   await page.reload();
-  await page.getByLabel("SKU", {exact:true}).fill("65-99999");
-  await expect(page.getByLabel("SKU", {exact:true})).toHaveValue("65-99999");
-  await page.getByRole("button", {name:"Entwurf speichern",exact:true}).click();
+  await page.getByLabel("SKU", { exact: true }).fill("65-99999");
+  await expect(page.getByLabel("SKU", { exact: true })).toHaveValue("65-99999");
+  await page
+    .getByRole("button", { name: "Entwurf speichern", exact: true })
+    .click();
   await page.reload();
-  await expect(page.getByLabel("SKU", {exact:true})).toHaveValue("65-99999");
-  await page.getByRole("button", {name:"Bei eBay prüfen · nicht veröffentlichen",exact:true}).click();
-  await expect(page.getByLabel("SKU", {exact:true})).toHaveValue(before.groups[0].sku);
-  await expect(page.getByLabel("SKU", {exact:true})).toBeDisabled();
+  await expect(page.getByLabel("SKU", { exact: true })).toHaveValue("65-99999");
+  await page
+    .getByRole("button", {
+      name: "Bei eBay prüfen · nicht veröffentlichen",
+      exact: true,
+    })
+    .click();
+  await expect(page.getByLabel("SKU", { exact: true })).toHaveValue(
+    before.groups[0].sku,
+  );
+  await expect(page.getByLabel("SKU", { exact: true })).toBeDisabled();
   expect(lookups).toBe(1);
   expect(publishes).toBe(0);
 });

@@ -93,6 +93,7 @@ export async function fillRecommendedAspects(
   // body limit), the publish request has no base64 in hand — the vision pass
   // reads the eBay-hosted URLs instead, so photo grounding survives.
   imageUrls: string[] = [],
+  model: string = FILL_MODEL,
 ): Promise<void> {
   const have = new Set(
     Object.entries(aspects)
@@ -182,12 +183,12 @@ Label-only (never estimate): UPC/EAN/ISBN/MPN, year of manufacture, country/regi
 Return {"facts":[{"name":"Material","value":"Cashmere","basis":"label","quote":"100% CASHMERE","photoIndices":[2],"confidence":98},{"name":"Upper Material","value":"Leather","basis":"estimate","quote":"","photoIndices":[1],"confidence":80}]}. basis: label for text read off a tag or label (quote it exactly); visible_feature for something plainly visible; estimate for an educated guess. Use an empty quote for visible_feature and estimate EXCEPT grid measurements: inspect especially the LAST photo, where eyewear is placed face down on millimeter paper photographed from above. Count calibrated grid intervals to estimate the maximum vertical groove-to-groove lens height (Glashöhe/Scheibenhöhe) and total outer frame width (Gesamtbreite), in mm. Use basis estimate and a quote explicitly containing Millimeterpapier or Messschieber, the grid calibration and measured span; round down to a whole mm. Do not confuse total width with lens width. Omit only when the grid scale cannot be read. Optyl printed on a lens/frame is material evidence: never infer Acetat from it; use Optyl if available, otherwise Kunststoff. Printed material takes priority over prior guesses. Photo indices are 1-based. Return {"facts":[]} if nothing reaches ${MIN_ESTIMATE_CONFIDENCE}`;
 
   try {
-    const client = getClient();
+    const client = getClient(model);
     const resp = await measuredMessage(
       "specifics",
       client,
       {
-        model: FILL_MODEL,
+        model,
         max_tokens: 2200,
         output_config: {
           format: {

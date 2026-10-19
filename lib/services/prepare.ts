@@ -55,6 +55,8 @@ import { EBAY_COOKIE, sellerAccessToken } from "@/lib/ebay/session";
 import { signReview } from "@/lib/review";
 import { withDeadline } from "@/lib/network";
 import { collectUsage, currentUsage } from "@/lib/ai-usage";
+import { resolveModel } from "@/lib/models";
+import { providerFor } from "@/lib/ai-catalog";
 export const maxDuration = 180;
 export async function prepareListing(body: any, sealedConnection?: string) {
   return (
@@ -162,6 +164,12 @@ export async function prepareListing(body: any, sealedConnection?: string) {
               meta,
               "draft",
               images,
+              [],
+              providerFor(
+                resolveModel(body.analysisModel, "claude-sonnet-4-6"),
+              ) === "anthropic"
+                ? "claude-sonnet-4-6"
+                : resolveModel(body.analysisModel, "claude-sonnet-4-6"),
             );
           if (glasses) {
             mapEyewear(listing, aspects, meta);

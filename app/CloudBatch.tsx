@@ -4,6 +4,7 @@ import { apiPost } from "@/lib/api-client";
 import { loadPhoto } from "@/lib/draft-store";
 import { runBatch } from "@/lib/batch-queue";
 import type { ItemGroup, Photo } from "@/lib/types";
+import { getAnalysisModel } from "@/lib/model-preferences";
 const KEY = "lister-cloud-batch";
 async function call(body: unknown) {
   const r = await apiPost("/api/cloud", body);
@@ -73,9 +74,14 @@ export function CloudBatch({
             const { prepared, analysis, research } = row.job.result;
             latest.current.onResult(g.id, {
               status: "done",
+              analysisModel: row.draft.analysisModel,
               listing: prepared.listing,
               preparation: prepared.preparation,
-              usage: [...(analysis.usage ?? []), ...(prepared.usage ?? [])],
+              usage: [
+                ...(analysis.usage ?? []),
+                ...(prepared.usage ?? []),
+                ...(row.job.result.failedUsage ?? []),
+              ],
               error: undefined,
               comps: research?.comps,
               compsStatus: research?.comps?.ok ? "ready" : "unavailable",
@@ -89,10 +95,11 @@ export function CloudBatch({
               status: "writing",
               cloudBatchId: batchId,
             });
-          } else if (row.job?.status === "failed")
+          } else if (row.job?.status === "failed" && g.status !== "error")
             latest.current.onResult(g.id, {
               status: "error",
               error: row.job.error,
+              usage: [...(g.usage ?? []), ...(row.job.failed_usage ?? [])],
             });
         }
       } catch (e) {
@@ -115,6 +122,13 @@ export function CloudBatch({
           g.status !== "done" && g.postStatus !== "posted" && g.photoIds.length,
       );
       if (!pending.length) throw new Error("All drafts are already written.");
+      if (
+        pending.some((g) => g.listing || g.usage?.length) &&
+        !window.confirm(
+          "Offene Entwürfe kostenpflichtig erneut analysieren? Bestehende manuelle Änderungen können ersetzt werden.",
+        )
+      )
+        return;
       if (pending.length > 100)
         throw new Error("Select a batch of at most 100 items.");
       // A saved cloud batch can resume uploads. Start a new batch when item identities change.
@@ -127,6 +141,7 @@ export function CloudBatch({
           action: "create",
           batchId: id,
           groups: pending.map((g) => ({
+            analysisModel: getAnalysisModel() ?? "claude-opus-4-8",
             id: g.id,
             sku: g.sku,
             name: g.name,
@@ -222,6 +237,12 @@ export function CloudBatch({
             type="button"
             disabled={busy}
             onClick={async () => {
+              if (
+                !window.confirm(
+                  "Offene Hintergrundanalysen kostenpflichtig erneut starten? Erfolgreich gespeicherte Schritte werden wiederverwendet.",
+                )
+              )
+                return;
               setBusy(true);
               setError("");
               try {
