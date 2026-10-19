@@ -69,7 +69,7 @@ export function acceptedPhotoFact(
   }
   if (s.basis !== "visible_feature" && s.basis !== "estimate") return false;
   if (
-    /^(Scheibenhöhe|Glashöhe|Gläserhöhe|Gesamtbreite|Lichte Breite)$/i.test(
+    /^(Scheibenhöhe|Glashöhe|Gläserhöhe|Gesamtbreite|Fassungsbreite|Rahmenbreite|Lichte Breite)$/i.test(
       s.name,
     )
   ) {

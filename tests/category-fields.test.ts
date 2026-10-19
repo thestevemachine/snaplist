@@ -101,12 +101,49 @@ it("applies category-backed sun defaults and retains multiple lens technologies"
   expect(b.Vintage).toBeUndefined();
 });
 it("expands physical features without misclassifying rimless frames", async () => {
- const {expandEyewearFeatures}=await import("@/lib/ebay/category-fields");
- const m={...material,name:"Besonderheiten",values:["Randlos","Halbrand","Halbrahmen","Vollrand","Eckig","Rechteckig","Rund"]};
- const a:Record<string,string[]>={Stil:["Randlos"],Form:["Rechteckig"]};
- expandEyewearFeatures(a,[m]);
- expect(a.Besonderheiten).toEqual(["Randlos","Rechteckig","Eckig"]);
- const b:Record<string,string[]>={Stil:["Nylon"],Form:["Rund"]};
- expandEyewearFeatures(b,[m]);
- expect(b.Besonderheiten).toEqual(["Halbrand","Halbrahmen","Rund"]);
+  const { expandEyewearFeatures } = await import("@/lib/ebay/category-fields");
+  const m = {
+    ...material,
+    name: "Besonderheiten",
+    values: [
+      "Randlos",
+      "Halbrand",
+      "Halbrahmen",
+      "Vollrand",
+      "Eckig",
+      "Rechteckig",
+      "Rund",
+    ],
+  };
+  const a: Record<string, string[]> = {
+    Stil: ["Randlos"],
+    Form: ["Rechteckig"],
+  };
+  expandEyewearFeatures(a, [m]);
+  expect(a.Besonderheiten).toEqual(["Randlos", "Rechteckig", "Eckig"]);
+  const b: Record<string, string[]> = { Stil: ["Nylon"], Form: ["Rund"] };
+  expandEyewearFeatures(b, [m]);
+  expect(b.Besonderheiten).toEqual(["Halbrand", "Halbrahmen", "Rund"]);
+});
+
+it("maps measured lens height and total width to real category dropdown values", async () => {
+  const { mapGridMeasurements } = await import("@/lib/ebay/category-fields");
+  const aspects: Record<string, string[]> = {};
+  mapGridMeasurements(
+    { Scheibenhöhe: "42.8 mm", Gesamtbreite: "137 mm" },
+    aspects,
+    [
+      {
+        name: "Glashöhe",
+        values: ["41 mm", "42 mm", "43 mm"],
+        mode: "SELECTION_ONLY",
+      },
+      {
+        name: "Fassungsbreite",
+        values: ["136 mm", "140 mm"],
+        mode: "SELECTION_ONLY",
+      },
+    ] as any,
+  );
+  expect(aspects).toEqual({ Glashöhe: ["42 mm"], Fassungsbreite: ["136 mm"] });
 });

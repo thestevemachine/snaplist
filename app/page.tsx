@@ -623,15 +623,45 @@ export default function Home() {
     async (groupId: string) => {
       // Snapshot this group's photos from the latest state (no stale closure).
       const group = groupsRef.current.find((g) => g.id === groupId);
-      if (!group || group.cloudBatchId || inFlight.current.has(groupId)) return;
+      if (
+        !group ||
+        group.cloudBatchId ||
+        group.postStatus === "posted" ||
+        group.postStatus === "posting" ||
+        group.publicationAttemptSku ||
+        inFlight.current.has(groupId)
+      )
+        return;
       inFlight.current.add(groupId);
-      const imgs = (group.analysisPhotoIds ?? group.photoIds)
+      const selectedPhotos = (group.analysisPhotoIds ?? group.photoIds)
         .map((id) => photoMap.get(id))
-        .filter((p): p is Photo => Boolean(p) && p!.analysisSelected !== false)
-        .map((p) => ({ mediaType: p.mediaType, data: p.data }));
+        .filter((p): p is Photo => Boolean(p) && p!.analysisSelected !== false);
+      const imgs = selectedPhotos.map((p) => ({
+        mediaType: p.mediaType,
+        data: p.data,
+      }));
+      const last = selectedPhotos.at(-1);
+      if (
+        last?.uploadData &&
+        imgs.slice(0, -1).reduce((n, p) => n + p.data.length, 0) +
+          last.uploadData.length <
+          4_000_000
+      )
+        imgs[imgs.length - 1] = {
+          mediaType: "image/jpeg",
+          data: last.uploadData,
+        };
       setGroups((prev) =>
         prev.map((g) =>
-          g.id === groupId ? { ...g, status: "writing", error: undefined } : g,
+          g.id === groupId
+            ? {
+                ...g,
+                status: "writing",
+                error: undefined,
+                verificationMessage: undefined,
+                preparationError: undefined,
+              }
+            : g,
         ),
       );
       try {
@@ -765,6 +795,27 @@ export default function Home() {
     [photoMap],
   );
 
+  const reanalyzeAll = async () => {
+    const ids = groupsRef.current
+      .filter(
+        (g) =>
+          g.photoIds.length &&
+          !g.cloudBatchId &&
+          g.status !== "writing" &&
+          g.postStatus !== "posted" &&
+          g.postStatus !== "posting" &&
+          !g.publicationAttemptSku,
+      )
+      .map((g) => g.id);
+    if (
+      !ids.length ||
+      !window.confirm(
+        `${ids.length} offene Brillen mit vorhandenen Fotos neu analysieren? Titel, Merkmale, Beschreibung und manuelle Änderungen daran werden ersetzt. SKU und Versandregeln bleiben erhalten. Es entstehen Analysekosten.`,
+      )
+    )
+      return;
+    await startQueue(ids, "write", writeGroup);
+  };
   const writeAll = async () => {
     // Only write listings that don't exist yet. Re-running everything after a
     // trip back to the review step re-billed the AI for unchanged listings
@@ -1422,6 +1473,7 @@ export default function Home() {
           onSaveDraft={saveCurrentDraft}
           onPostAll={postAll}
           onWriteAll={writeAll}
+          onReanalyzeAll={reanalyzeAll}
           onResume={() =>
             queue?.kind === "post"
               ? void postAll(queueIds.current)

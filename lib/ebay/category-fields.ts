@@ -86,7 +86,9 @@ export function applyEyewearSellerDefaults(
     else {
       const shapes = Object.entries(aspects)
         .filter(([key]) =>
-          /^(Form|Brillenform|Rahmenform|Fassungsform|Besonderheiten|Rahmentyp)$/i.test(key),
+          /^(Form|Brillenform|Rahmenform|Fassungsform|Besonderheiten|Rahmentyp)$/i.test(
+            key,
+          ),
         )
         .flatMap(([, v]) => v);
       const match = style.values.find(
@@ -94,7 +96,11 @@ export function applyEyewearSellerDefaults(
           shapes.some((s) => s.toLowerCase() === v.toLowerCase()) &&
           !/flieger|aviator|clubmaster|klappmaster/i.test(v),
       );
-      const fallback = shapes.some(v=>/randlos|halbrand|halbrahmen|nylon/i.test(v)) ? undefined : style.values.find((v) => /^vollrand$/i.test(v));
+      const fallback = shapes.some((v) =>
+        /randlos|halbrand|halbrahmen|nylon/i.test(v),
+      )
+        ? undefined
+        : style.values.find((v) => /^vollrand$/i.test(v));
       aspects[style.name] = match ? [match] : fallback ? [fallback] : [];
     }
   }
@@ -133,4 +139,40 @@ export function expandEyewearFeatures(
     0,
     field.cardinality === "MULTI" ? 5 : 1,
   );
+}
+
+// Match photo-derived size aliases to the actual category fields, never create new fields.
+export function mapGridMeasurements(
+  specifics: Record<string, string>,
+  aspects: Record<string, string[]>,
+  meta: AspectMeta[],
+) {
+  for (const aliases of [
+    /^(Scheibenhöhe|Glashöhe|Gläserhöhe)$/i,
+    /^(Gesamtbreite|Fassungsbreite|Rahmenbreite)$/i,
+  ]) {
+    const source = Object.entries(specifics).find(
+      ([name, value]) =>
+        aliases.test(name) && /^\d+(?:[.,]\d+)?(?:\s*mm)?$/i.test(value.trim()),
+    );
+    if (!source) continue;
+    const measured = Math.floor(
+      Number(source[1].replace(/\s*mm$/i, "").replace(",", ".")),
+    );
+    for (const field of meta.filter((m) => aliases.test(m.name))) {
+      if (aspects[field.name]?.length) continue;
+      const choices = field.values
+        .map((value) => ({
+          value,
+          mm: /^\d+(?:[.,]\d+)?(?:\s*mm)?$/i.test(value.trim())
+            ? Number(value.replace(/\s*mm$/i, "").replace(",", "."))
+            : NaN,
+        }))
+        .filter((v) => v.mm <= measured && measured - v.mm <= 1)
+        .sort((a, b) => b.mm - a.mm);
+      if (choices.length) aspects[field.name] = [choices[0].value];
+      else if (!field.values.length && field.mode === "FREE_TEXT")
+        aspects[field.name] = [String(measured)];
+    }
+  }
 }

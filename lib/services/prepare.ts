@@ -3,6 +3,7 @@ import { mapEyewear } from "@/lib/eyewear-inscriptions";
 import {
   categorySpecifics,
   applyFrameMaterialDefault,
+  mapGridMeasurements,
   applyEyewearSellerDefaults,
   expandEyewearFeatures,
   applySunglassesLensDefault,
@@ -126,7 +127,9 @@ export async function prepareListing(body: any, sealedConnection?: string) {
           }
           meta = meta.map((m) => ({
             ...m,
-            required: m.required || (isGlasses(listing) && /^Besonderheiten$/i.test(m.name)),
+            required:
+              m.required ||
+              (isGlasses(listing) && /^Besonderheiten$/i.test(m.name)),
             values: m.values.filter(
               (v) => !/flieger|aviator|clubmaster|klappmaster/i.test(v),
             ),
@@ -148,6 +151,7 @@ export async function prepareListing(body: any, sealedConnection?: string) {
             EBAY_MARKETPLACE_ID === "EBAY_DE" && isGlasses(listing);
           if (glasses) {
             mapEyewear(listing, aspects, meta);
+            mapGridMeasurements(listing.item_specifics ?? {}, aspects, meta);
             germanAspects(listing, aspects, meta);
           }
           reconcileAspects(aspects, meta, listing, listing.category || "");
@@ -161,6 +165,7 @@ export async function prepareListing(body: any, sealedConnection?: string) {
             );
           if (glasses) {
             mapEyewear(listing, aspects, meta);
+            mapGridMeasurements(listing.item_specifics ?? {}, aspects, meta);
             germanAspects(listing, aspects, meta);
           }
           if (

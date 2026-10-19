@@ -213,3 +213,22 @@ it("maps box dimensions only to matching existing eBay dropdown values", () => {
   mapEyewear(l, b, [m("Glasbreite", ["50 mm"]), m("Stegbreite", [])]);
   expect(b).toEqual({});
 });
+
+it("keeps printed Optyl and maps it to plastic, never acetate", () => {
+  const eyewear = extractEyewear([fact("Bügelaufdruck", "FENDI OPTYL")]);
+  expect(eyewear.fields.material?.value).toBe("Optyl");
+  const listing = {
+    eyewear,
+    item_specifics: { Fassungsmaterial: "Acetat" },
+  } as any;
+  const aspects = { Fassungsmaterial: ["Acetat"] };
+  mapEyewear(listing, aspects, [
+    {
+      name: "Fassungsmaterial",
+      mode: "SELECTION_ONLY",
+      cardinality: "MULTI",
+      values: ["Acetat", "Kunststoff", "Metall"],
+    } as any,
+  ]);
+  expect(aspects.Fassungsmaterial).toEqual(["Kunststoff"]);
+});

@@ -26,6 +26,7 @@ interface ListingsViewProps {
   onSaveDraft: () => Promise<void>;
   onPostAll: (ids?: string[]) => void;
   onWriteAll: () => void;
+  onReanalyzeAll: () => void;
   onResume: () => void;
   queue:
     | (QueueProgress & {
@@ -225,6 +226,24 @@ export function ListingsView(props: ListingsViewProps) {
             <option value="posted">Veröffentlicht</option>
           </select>
         </label>
+        <button
+          type="button"
+          disabled={
+            active ||
+            !groups.some(
+              (g) =>
+                g.photoIds.length &&
+                !g.cloudBatchId &&
+                g.status !== "writing" &&
+                g.postStatus !== "posted" &&
+                g.postStatus !== "posting" &&
+                !g.publicationAttemptSku,
+            )
+          }
+          onClick={props.onReanalyzeAll}
+        >
+          Alle offenen Brillen neu analysieren
+        </button>
         {remaining > 0 && (
           <button type="button" disabled={active} onClick={props.onWriteAll}>
             {remaining} verbleibende Entwürfe erstellen / erneut versuchen

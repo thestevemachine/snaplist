@@ -1,9 +1,30 @@
 import { expect, it, vi } from "vitest";
 
 const facts = [
-  { name: "Upper Material", value: "Leather", basis: "estimate", quote: "", photoIndices: [1], confidence: 75 },
-  { name: "Shoe Width", value: "Wide", basis: "estimate", quote: "", photoIndices: [1], confidence: 40 },
-  { name: "US Shoe Size", value: "6.5", basis: "label", quote: "US 6.5", photoIndices: [1], confidence: 99 },
+  {
+    name: "Upper Material",
+    value: "Leather",
+    basis: "estimate",
+    quote: "",
+    photoIndices: [1],
+    confidence: 75,
+  },
+  {
+    name: "Shoe Width",
+    value: "Wide",
+    basis: "estimate",
+    quote: "",
+    photoIndices: [1],
+    confidence: 40,
+  },
+  {
+    name: "US Shoe Size",
+    value: "6.5",
+    basis: "label",
+    quote: "US 6.5",
+    photoIndices: [1],
+    confidence: 99,
+  },
 ];
 vi.mock("@/lib/anthropic", () => ({
   getClient: () => ({}),
@@ -38,6 +59,67 @@ it("fills confident estimates, marks them, and leaves low-confidence aspects bla
 
 it("asks for a best guess on always-estimate aspects in the fill prompt", async () => {
   const { alwaysEstimatePromptLine } = await import("@/lib/ebay/aspectFill");
-  expect(alwaysEstimatePromptLine(["Upper Material", "Color"])).toContain('"Upper Material"');
+  expect(alwaysEstimatePromptLine(["Upper Material", "Color"])).toContain(
+    '"Upper Material"',
+  );
   expect(alwaysEstimatePromptLine(["Color"])).toBe("");
+});
+
+it("fills empty arrays and augments multiple category choices without duplicates", async () => {
+  const old = [...facts];
+  try {
+    facts.splice(
+      0,
+      facts.length,
+      {
+        name: "Thema",
+        value: "Retro | 80er | 90er | Klassisch",
+        basis: "estimate",
+        quote: "",
+        photoIndices: [1],
+        confidence: 80,
+      },
+      {
+        name: "Glashöhe",
+        value: "42 mm",
+        basis: "estimate",
+        quote: "Millimeterpapier: 1 mm Raster, 42 Intervalle vertikal",
+        photoIndices: [1],
+        confidence: 85,
+      },
+    );
+    const { fillRecommendedAspects } = await import("@/lib/ebay/aspectFill");
+    const listing = { title: "Brille", description: "" } as any;
+    const aspects: Record<string, string[]> = {
+      Thema: ["Retro"],
+      Glashöhe: [],
+    };
+    await fillRecommendedAspects(
+      listing,
+      aspects,
+      [
+        {
+          name: "Thema",
+          usage: "OPTIONAL",
+          mode: "SELECTION_ONLY",
+          cardinality: "MULTI",
+          values: ["Retro", "80er", "90er", "Klassisch"],
+        },
+        {
+          name: "Glashöhe",
+          usage: "OPTIONAL",
+          mode: "SELECTION_ONLY",
+          cardinality: "SINGLE",
+          values: ["42 mm"],
+        },
+      ] as any,
+      "test",
+      [{ data: "aGVsbG8=", mediaType: "image/jpeg" }],
+    );
+    expect(aspects.Thema).toEqual(["Retro", "80er", "90er", "Klassisch"]);
+    expect(aspects.Glashöhe).toEqual(["42 mm"]);
+    expect(listing.measurements).toContain("Millimeterpapier, Foto 1");
+  } finally {
+    facts.splice(0, facts.length, ...old);
+  }
 });

@@ -63,6 +63,7 @@ export function parseBoxDimensions(text: string) {
 }
 const materialName = (v: string) =>
   v
+    .replace(/\boptyl\b/gi, "Optyl")
     .replace(/\btitanium\b/gi, "Titan")
     .replace(/\bacetate\b/gi, "Acetat")
     .replace(/\bmetal\b/gi, "Metall")
@@ -113,13 +114,16 @@ export function extractEyewear(facts: PhotoFact[]): EyewearData {
         fact,
       );
     }
-    const printed = fact.quote.match(/\b(titanium|titan|acetate|acetat)\b/i);
+    const printed = fact.quote.match(
+      /\b(optyl|titanium|titan|acetate|acetat)\b/i,
+    );
     if (printed)
       set(
         "material",
         materialName(printed[0])
           .replace(/^titan$/i, "Titan")
-          .replace(/^acetat$/i, "Acetat"),
+          .replace(/^acetat$/i, "Acetat")
+          .replace(/^optyl$/i, "Optyl"),
         fact,
       );
   }
@@ -169,9 +173,20 @@ export function mapEyewear(
         names[key].includes(m.name) ||
         (key === "modelNumber" && m.name === "Modell"),
     )) {
-      if (!overwriteKey && Object.hasOwn(l.item_specifics ?? {}, m.name))
+      if (
+        !overwriteKey &&
+        field.value !== "Optyl" &&
+        Object.hasOwn(l.item_specifics ?? {}, m.name)
+      )
         continue;
       let value = field.value;
+      if (
+        key === "material" &&
+        /^optyl$/i.test(value) &&
+        m.values.length &&
+        !m.values.some((v) => /^optyl$/i.test(v))
+      )
+        value = "Kunststoff";
       const dimension = ["lensWidth", "bridgeWidth"].includes(key);
       // Only eBay's enumerated sizes are transferred, never a newly invented choice.
       if (dimension && !m.values.length) continue;
@@ -212,7 +227,7 @@ export function eyewearWarnings(l: ListingResult) {
   }
   return [...new Set(warnings)];
 }
-export const INSCRIPTION_PROMPT = `\nFor eyewear transcribe all legible temple/bridge inscriptions as specifics named Bügelaufdruck (basis label, value and quote exact, photoIndices). Also classify separately Marke, Modellnummer, Modellname, Farbcode, Fassungsmaterial. Example fictitious Lindberg Air Titanium 1234 C02 52□18 140: brand Lindberg, model name Air Titanium, model number 1234, color code C02. Never label 52/18/140 as model. Box dimensions are parsed deterministically from the exact inscription, never invent missing digits or infer total width. For unclear characters add a specific Prüfhinweis with a German review note and basis estimate, confidence 100, relevant photoIndices; do not invent readable values. Distinguish material assertions from model names. Preserve exact quotes for all label facts.`;
+export const INSCRIPTION_PROMPT = `\nOptyl printed on a lens or frame identifies Optyl plastic, NOT Acetat. Return a label fact Fassungsmaterial=Optyl with the exact quote and photo index. For eyewear transcribe all legible temple/bridge inscriptions as specifics named Bügelaufdruck (basis label, value and quote exact, photoIndices). Also classify separately Marke, Modellnummer, Modellname, Farbcode, Fassungsmaterial. Example fictitious Lindberg Air Titanium 1234 C02 52□18 140: brand Lindberg, model name Air Titanium, model number 1234, color code C02. Never label 52/18/140 as model. Box dimensions are parsed deterministically from the exact inscription, never invent missing digits or infer total width. For unclear characters add a specific Prüfhinweis with a German review note and basis estimate, confidence 100, relevant photoIndices; do not invent readable values. Distinguish material assertions from model names. Preserve exact quotes for all label facts.`;
 
 export function syncManualEyewear(
   previous: ListingResult,

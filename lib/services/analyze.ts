@@ -232,9 +232,19 @@ async function handle(input: unknown) {
         const supported = specifics.filter((s) =>
           acceptedPhotoFact(s, imageBlocks.length),
         );
-        for(const f of supported) {
-          if(f.basis==="estimate" && /^(Scheibenhöhe|Glashöhe|Gläserhöhe|Gesamtbreite|Lichte Breite)$/i.test(f.name))
-            f.value=String(Math.floor(Number(f.value.replace(/\s*mm$/i,"").replace(",","."))))+" mm";
+        for (const f of supported) {
+          if (
+            f.basis === "estimate" &&
+            /^(Scheibenhöhe|Glashöhe|Gläserhöhe|Gesamtbreite|Fassungsbreite|Rahmenbreite|Lichte Breite)$/i.test(
+              f.name,
+            )
+          )
+            f.value =
+              String(
+                Math.floor(
+                  Number(f.value.replace(/\s*mm$/i, "").replace(",", ".")),
+                ),
+              ) + " mm";
         }
         let listing = parseListing({
           ...raw,
@@ -247,7 +257,7 @@ async function handle(input: unknown) {
           const grid = supported.filter(
             (f) =>
               f.basis === "estimate" &&
-              /^(Scheibenhöhe|Glashöhe|Gläserhöhe|Gesamtbreite|Lichte Breite)$/i.test(
+              /^(Scheibenhöhe|Glashöhe|Gläserhöhe|Gesamtbreite|Fassungsbreite|Rahmenbreite|Lichte Breite)$/i.test(
                 f.name,
               ),
           );
@@ -278,6 +288,34 @@ async function handle(input: unknown) {
               .filter((s) => s.name === "Prüfhinweis")
               .map((s) => s.value),
           );
+          if (
+            supported.some(
+              (f) => f.basis === "label" && /\boptyl\b/i.test(f.quote),
+            )
+          ) {
+            const evidence = supported.find(
+              (f) => f.basis === "label" && /\boptyl\b/i.test(f.quote),
+            )!;
+            listing.eyewear.fields.material = {
+              value: "Optyl",
+              source: "label",
+              quote: evidence.quote,
+              photos: evidence.photoIndices,
+            };
+            listing.material = "Optyl";
+            for (const key of Object.keys(listing.item_specifics ?? {})) {
+              if (
+                /^(material|fassungsmaterial|rahmenmaterial|frame material)$/i.test(
+                  key,
+                )
+              )
+                delete listing.item_specifics![key];
+            }
+            listing.item_specifics = {
+              ...listing.item_specifics,
+              Fassungsmaterial: "Optyl",
+            };
+          }
           if (listing.eyewear.fields.material?.source === "shop") {
             listing.material = listing.eyewear.fields.material.value;
             listing.item_specifics = {

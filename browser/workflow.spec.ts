@@ -590,8 +590,10 @@ test("shop preferences persist, fill future drafts and keep card overrides for e
   await expect(description).toHaveValue(
     "DE: Meine geprüfte Brille\nEN: My glasses\nVisible scuff. Untested.",
   );
-  await expect(page.getByLabel("Preisvorschläge zulassen", {exact:true})).toBeChecked();
-  await page.getByLabel("Preisvorschläge zulassen", {exact:true}).uncheck();
+  await expect(
+    page.getByLabel("Preisvorschläge zulassen", { exact: true }),
+  ).toBeChecked();
+  await page.getByLabel("Preisvorschläge zulassen", { exact: true }).uncheck();
   await description.fill("Individuell geändert");
   await page
     .getByLabel("eBay-Zustand", { exact: true })
@@ -1114,17 +1116,85 @@ test("reanalysis reuses existing photos and replaces draft content while keeping
   );
   expect(analysisCalls).toBe(1);
 });
-test("shows the current seller and saved policies without opening settings after reload", async ({page}) => {
- await setup(page);
- await page.route("**/api/ebay/status",r=>r.fulfill({json:{configured:true,connected:true,sharedConfigured:true}}));
- await page.route("**/api/ebay/options",r=>r.fulfill({json:{ok:true,options:{sellerKey:"summary-seller",sellerName:"AktuellesKonto",fulfillment:[{id:"s",name:"DHL Standard"}],payment:[{id:"p",name:"eBay Zahlung"}],returns:[{id:"r",name:"60 Tage"}],locations:[{id:"l",name:"Berlin"}]}}}));
- await page.evaluate(()=>localStorage.setItem("snaplist-shop-v1:summary-seller",JSON.stringify({version:1,shipping:{fulfillmentPolicyId:"s",paymentPolicyId:"p",returnPolicyId:"r",locationKey:"l"},descriptionTemplate:"Meine Vorlage"})));
- await page.reload();
- const summary=page.getByRole("region",{name:"Gespeicherte Shop-Vorgaben"});
- await expect(summary).toContainText("AktuellesKonto");
- await expect(summary).toContainText("DHL Standard");
- await expect(summary).toContainText("60 Tage");
- await expect(summary).toContainText("Gespeichert");
- await expect(page.locator(".ebay-bar")).toContainText("AktuellesKonto");
- await expect(page.locator(".shop-settings")).not.toHaveAttribute("open","");
+test("shows the current seller and saved policies without opening settings after reload", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.route("**/api/ebay/status", (r) =>
+    r.fulfill({
+      json: { configured: true, connected: true, sharedConfigured: true },
+    }),
+  );
+  await page.route("**/api/ebay/options", (r) =>
+    r.fulfill({
+      json: {
+        ok: true,
+        options: {
+          sellerKey: "summary-seller",
+          sellerName: "AktuellesKonto",
+          fulfillment: [{ id: "s", name: "DHL Standard" }],
+          payment: [{ id: "p", name: "eBay Zahlung" }],
+          returns: [{ id: "r", name: "60 Tage" }],
+          locations: [{ id: "l", name: "Berlin" }],
+        },
+      },
+    }),
+  );
+  await page.evaluate(() =>
+    localStorage.setItem(
+      "snaplist-shop-v1:summary-seller",
+      JSON.stringify({
+        version: 1,
+        shipping: {
+          fulfillmentPolicyId: "s",
+          paymentPolicyId: "p",
+          returnPolicyId: "r",
+          locationKey: "l",
+        },
+        descriptionTemplate: "Meine Vorlage",
+      }),
+    ),
+  );
+  await page.reload();
+  const summary = page.getByRole("region", {
+    name: "Gespeicherte Shop-Vorgaben",
+  });
+  await expect(summary).toContainText("AktuellesKonto");
+  await expect(summary).toContainText("DHL Standard");
+  await expect(summary).toContainText("60 Tage");
+  await expect(summary).toContainText("Gespeichert");
+  await expect(page.locator(".ebay-bar")).toContainText("AktuellesKonto");
+  await expect(page.locator(".shop-settings")).not.toHaveAttribute("open", "");
+});
+
+test("batch reanalysis asks before replacing drafts and retains SKU", async ({
+  page,
+}) => {
+  await setup(page);
+  await draft(page);
+  const sku = await page.getByLabel("SKU", { exact: true }).inputValue();
+  await page.locator(".title-input").fill("Manueller Titel");
+  let calls = 0;
+  page.on("request", (request) => {
+    if (request.url().endsWith("/api/analyze")) calls++;
+  });
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await page
+    .getByRole("button", {
+      name: "Alle offenen Brillen neu analysieren",
+      exact: true,
+    })
+    .click();
+  await expect(page.locator(".title-input")).toHaveValue("Manueller Titel");
+  expect(calls).toBe(0);
+  page.once("dialog", (dialog) => dialog.accept());
+  await page
+    .getByRole("button", {
+      name: "Alle offenen Brillen neu analysieren",
+      exact: true,
+    })
+    .click();
+  await expect(page.locator(".title-input")).toHaveValue("Canon R5 Camera");
+  await expect(page.getByLabel("SKU", { exact: true })).toHaveValue(sku);
+  expect(calls).toBe(1);
 });
