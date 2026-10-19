@@ -532,6 +532,11 @@ test("SNAPLIST saves an incomplete draft locally without an eBay connection", as
       .filter({ hasText: "Entwurf auf diesem Gerät gespeichert." }),
   ).toBeVisible();
   await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Auf diesem Gerät gespeichert" }),
+  ).toBeVisible();
+  await expect(
     page.getByText(
       "Entwurf auf diesem Gerät gespeichert. Nicht an eBay übertragen.",
     ),
@@ -1008,6 +1013,11 @@ test("inscription data remains editable, persists, and only explicitly rebuilds 
       .filter({ hasText: "Entwurf auf diesem Gerät gespeichert." }),
   ).toBeVisible();
   await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Auf diesem Gerät gespeichert" }),
+  ).toBeVisible();
+  await expect(
     page.getByText(
       "Entwurf auf diesem Gerät gespeichert. Nicht an eBay übertragen.",
       { exact: true },
@@ -1274,6 +1284,11 @@ test("eyewear condition notes can be edited and survive reload", async ({
       .getByRole("status")
       .filter({ hasText: "Entwurf auf diesem Gerät gespeichert." }),
   ).toBeVisible();
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Auf diesem Gerät gespeichert" }),
+  ).toBeVisible();
   await page.reload();
   await expect(
     page.getByRole("textbox", { name: "Zustand und Hinweise", exact: true }),
@@ -1292,6 +1307,11 @@ test("repairs a legacy UUID collision without losing the draft or publishing, an
     page
       .getByRole("status")
       .filter({ hasText: "Entwurf auf diesem Gerät gespeichert." }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Auf diesem Gerät gespeichert" }),
   ).toBeVisible();
   const before = await page.evaluate(async () => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -1404,6 +1424,11 @@ test("manual SKU changes after a failed attempt persist without rotating identit
       .getByRole("status")
       .filter({ hasText: "Entwurf auf diesem Gerät gespeichert." }),
   ).toBeVisible();
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Auf diesem Gerät gespeichert" }),
+  ).toBeVisible();
   const before = await page.evaluate(async () => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
       const r = indexedDB.open("listing-writer-drafts", 3);
@@ -1459,6 +1484,11 @@ test("manual SKU changes after a failed attempt persist without rotating identit
     page
       .getByRole("status")
       .filter({ hasText: "Entwurf auf diesem Gerät gespeichert." }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Auf diesem Gerät gespeichert" }),
   ).toBeVisible();
   await page.reload();
   await expect(page.getByLabel("SKU", { exact: true })).toHaveValue("65-99999");
