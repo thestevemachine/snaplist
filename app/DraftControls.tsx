@@ -364,7 +364,10 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
                 (meta.mode === "SELECTION_ONLY" ||
                   isStandardSizeAspect(meta) ||
                   (isGlasses(l) &&
-                    controlledGlassesAspect(meta.name) &&
+                    (controlledGlassesAspect(meta.name) ||
+                      /glasbreite|gläserbreite|glasdurchmesser|stegbreite|brückenbreite/i.test(
+                        meta.name,
+                      )) &&
                     meta.values.length > 0)) &&
                 meta.cardinality !== "MULTI" ? (
                 <select

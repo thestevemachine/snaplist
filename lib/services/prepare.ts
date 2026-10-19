@@ -2,6 +2,7 @@ import { applyContentRules } from "@/lib/listing-content-rules";
 import { mapEyewear } from "@/lib/eyewear-inscriptions";
 import {
   categorySpecifics,
+  applyFrameMaterialDefault,
   applySunglassesLensDefault,
   CATEGORY_FIELDS_VERSION,
 } from "@/lib/ebay/category-fields";
@@ -163,6 +164,11 @@ export async function prepareListing(body: any, sealedConnection?: string) {
               if (listing.estimates) delete listing.estimates[defaulted];
             }
           }
+          if (
+            glasses &&
+            listing.category_fields_version !== CATEGORY_FIELDS_VERSION
+          )
+            applyFrameMaterialDefault(aspects, meta);
           enforceCardinality(aspects, meta);
           sanitizeNumericAspects(aspects, meta);
           snapStandardSizes(aspects, meta);

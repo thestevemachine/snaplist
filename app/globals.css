@@ -1300,11 +1300,68 @@ textarea {
   scroll-padding-inline: 1rem;
 }
 
-.sku-sequence { margin: 1rem 0; padding: 1rem; border: 1px solid var(--color-border, #c9d8d2); border-radius: 10px; }
-.sku-sequence input { display: block; max-width: 100%; padding: .5rem; }
-.sku-sequence p { font-size: .9rem; }
-.specific-edit { min-width: 0; border: 0; padding: .5rem 0; margin: 0; }
-.aspect-options { display: flex; flex-wrap: wrap; gap: .5rem 1rem; max-height: 15rem; overflow-y: auto; }
-.aspect-options label { display: inline-flex; align-items: center; gap: .4rem; }
-.aspect-options input[type=checkbox] { width: auto; margin: 0; }
-.aspect-options small { flex-basis: 100%; }
+.sku-sequence {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid var(--color-border, #c9d8d2);
+  border-radius: 10px;
+}
+.sku-sequence input {
+  display: block;
+  max-width: 100%;
+  padding: 0.5rem;
+}
+.sku-sequence p {
+  font-size: 0.9rem;
+}
+.specific-edit {
+  min-width: 0;
+  border: 0;
+  padding: 0.5rem 0;
+  margin: 0;
+}
+.aspect-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  max-height: 15rem;
+  overflow-y: auto;
+}
+.aspect-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.aspect-options input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+.aspect-options small {
+  flex-basis: 100%;
+}
+
+.shop-settings select {
+  display: block;
+  width: 100%;
+  margin-top: 0.35rem;
+  min-height: 2.6rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid #b8cec5;
+  border-radius: 7px;
+  background-color: #f2f5f3;
+  color: inherit;
+  font: inherit;
+}
+.shop-settings fieldset {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+}
+.shop-settings .btn {
+  white-space: normal;
+}
+.sku-sequence .btn {
+  min-height: 2.75rem;
+  padding: 0.7rem 1.1rem;
+  background: #ecece8;
+}

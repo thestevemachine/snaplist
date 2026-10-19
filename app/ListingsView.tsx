@@ -189,6 +189,7 @@ export function ListingsView(props: ListingsViewProps) {
         </p>
         {skuPreview && <p>{skuPreview}</p>}
         <button
+          className="btn btn-ghost"
           type="button"
           disabled={!firstSku.trim()}
           onClick={() => {

@@ -215,3 +215,9 @@ it("does not refill a deliberately cleared canonical color from an old alias", (
     ),
   ).not.toContain("Braun");
 });
+it("fits additional truthful category keywords without exceeding 80 characters", () => {
+ const m=[aspect("Rahmenfarbe",["Braun"]),aspect("Charakter",["Klassisch","Elegant"]),aspect("Besonderheiten",["Vollrand"])];
+ const title=germanGlassesTitle({title:"Brille",description:"",brand:"Test",item_specifics:{Rahmenfarbe:"Braun",Charakter:"Klassisch | Elegant",Besonderheiten:"Vollrand",Modell:"1234"}},m);
+ expect(title).toBe("Test Brille Braun 1234 Vollrand Klassisch Elegant");
+ expect(title.length).toBeLessThanOrEqual(80);
+});

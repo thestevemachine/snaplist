@@ -733,8 +733,8 @@ test("restored sunglasses prepare automatically once, retain descriptions and ne
         listing: {
           ...listing,
           title: "Test Sonnenbrille Herren Damen Braun",
-          glasses_rules_version: 2,
-          category_fields_version: 1,
+          glasses_rules_version: 3,
+          category_fields_version: 2,
           category_id: "11",
           secondary_category_id: "22",
         },
@@ -918,8 +918,8 @@ test("inscription data remains editable, persists, and only explicitly rebuilds 
           brand: "Lindberg",
           item_type: "Brille",
           suggested_price: 200,
-          glasses_rules_version: 2,
-          category_fields_version: 1,
+          glasses_rules_version: 3,
+          category_fields_version: 2,
           item_specifics: { Brand: "Lindberg" },
           eyewear: {
             fields: {
@@ -1029,8 +1029,8 @@ test("seller corrects optical frame and removes both sunglasses categories", asy
           ...l,
           category_id: optical ? "180957" : "79720",
           secondary_category_id: optical ? undefined : "45246",
-          glasses_rules_version: 2,
-          category_fields_version: 1,
+          glasses_rules_version: 3,
+          category_fields_version: 2,
         },
         preparation: {
           categoryId: optical ? "180957" : "79720",
@@ -1086,8 +1086,8 @@ test("reanalysis reuses existing photos and replaces draft content while keeping
           brand: "Test",
           item_type: "Brille",
           eyewear_kind: "optical",
-          glasses_rules_version: 2,
-          category_fields_version: 1,
+          glasses_rules_version: 3,
+          category_fields_version: 2,
           content_rules_version: 2,
           suggested_price: 100,
           item_specifics: { Brand: "Test" },

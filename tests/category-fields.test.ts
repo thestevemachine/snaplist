@@ -50,3 +50,21 @@ it("intersects German material dropdowns across both categories and keeps multi 
     mergeCategoryAspects([a], [{ ...a, values: ["Metall", "Kunststoff"] }])[0],
   ).toMatchObject({ cardinality: "MULTI", values: ["Metall", "Kunststoff"] });
 });
+it("uses seller fallback materials only in an empty actual multi-select", async () => {
+  const { applyFrameMaterialDefault } =
+    await import("@/lib/ebay/category-fields");
+  const m = {
+    ...material,
+    name: "Rahmenmaterial",
+    values: ["Kunststoff", "Acetat", "Metall", "Titan"],
+  };
+  const a: Record<string, string[]> = {};
+  applyFrameMaterialDefault(a, [m]);
+  expect(a.Rahmenmaterial).toEqual(["Kunststoff", "Acetat", "Metall"]);
+  a.Rahmenmaterial = ["Titan"];
+  applyFrameMaterialDefault(a, [m]);
+  expect(a.Rahmenmaterial).toEqual(["Titan"]);
+  const b = {};
+  applyFrameMaterialDefault(b, [{ ...m, cardinality: "SINGLE" }]);
+  expect(b).toEqual({});
+});

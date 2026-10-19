@@ -172,8 +172,44 @@ it("builds material before model with dimensions and never computes total", () =
     }).length,
   ).toBe(1);
 });
-it.each(['Titan','Acetat','Metall','Kunststoff','Stahl'])('checks title consistency for material %s', material => {
- const listing: ListingResult = {title:`Brille ${material}`,description:'',eyewear:{fields:{},warnings:[]},item_specifics:{Fassungsmaterial:material}};
- expect(materialTitleIssues(listing)).toEqual([]);
- expect(materialTitleIssues({...listing,item_specifics:{}})).toHaveLength(1);
+it.each(["Titan", "Acetat", "Metall", "Kunststoff", "Stahl"])(
+  "checks title consistency for material %s",
+  (material) => {
+    const listing: ListingResult = {
+      title: `Brille ${material}`,
+      description: "",
+      eyewear: { fields: {}, warnings: [] },
+      item_specifics: { Fassungsmaterial: material },
+    };
+    expect(materialTitleIssues(listing)).toEqual([]);
+    expect(
+      materialTitleIssues({ ...listing, item_specifics: {} }),
+    ).toHaveLength(1);
+  },
+);
+it("maps box dimensions only to matching existing eBay dropdown values", () => {
+  const l = {
+    title: "Brille",
+    description: "",
+    eyewear: extractEyewear([fact("Bügelaufdruck", "52□18 140")]),
+  };
+  const m = (name: string, values: string[]): AspectMeta => ({
+    name,
+    values,
+    required: false,
+    usage: "OPTIONAL",
+    mode: "FREE_TEXT",
+    cardinality: "SINGLE",
+  });
+  const a: Record<string, string[]> = {};
+  mapEyewear(l, a, [
+    m("Glasbreite", ["50 mm", "52 mm"]),
+    m("Stegbreite", ["18 mm"]),
+    m("Bügellänge", []),
+  ]);
+  expect(a.Glasbreite).toEqual(["52 mm"]);
+  expect(a.Stegbreite).toEqual(["18 mm"]);
+  const b = {};
+  mapEyewear(l, b, [m("Glasbreite", ["50 mm"]), m("Stegbreite", [])]);
+  expect(b).toEqual({});
 });

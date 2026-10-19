@@ -39,8 +39,8 @@ const names: Record<EyewearKey, string[]> = {
     "Material",
     "Frame Material",
   ],
-  lensWidth: ["Glasbreite", "Gläserbreite", "Lens Width"],
-  bridgeWidth: ["Stegbreite", "Bridge Width"],
+  lensWidth: ["Glasbreite", "Gläserbreite", "Glasdurchmesser", "Lens Width"],
+  bridgeWidth: ["Stegbreite", "Brückenbreite", "Bridge Width"],
   templeLength: ["Bügellänge", "Temple Length"],
   totalWidth: [
     "Gesamtbreite",
@@ -172,6 +172,9 @@ export function mapEyewear(
       if (!overwriteKey && Object.hasOwn(l.item_specifics ?? {}, m.name))
         continue;
       let value = field.value;
+      const dimension = ["lensWidth", "bridgeWidth"].includes(key);
+      // Only eBay's enumerated sizes are transferred, never a newly invented choice.
+      if (dimension && !m.values.length) continue;
       if (m.values.length) {
         const allowed = m.values.find(
           (v) =>
@@ -181,7 +184,11 @@ export function mapEyewear(
                 value.replace(/\s*mm$/i, "").trim()),
         );
         if (allowed) value = allowed;
-        else if (m.mode === "SELECTION_ONLY" || /material|farbe/i.test(m.name))
+        else if (
+          dimension ||
+          m.mode === "SELECTION_ONLY" ||
+          /material|farbe/i.test(m.name)
+        )
           continue;
       }
       aspects[m.name] = value ? [value] : [];

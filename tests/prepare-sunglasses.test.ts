@@ -104,7 +104,7 @@ it("transfers the known Brand into Marke and preserves reviewed titles on anothe
   expect(body.ok).toBe(true);
   expect(body.listing.item_specifics.Marke).toBe("Test");
   expect(body.listing.title).toBe("Test Sonnenbrille");
-  expect(body.listing.glasses_rules_version).toBe(2);
+  expect(body.listing.glasses_rules_version).toBe(3);
   const second = await (
     await prepareListing({
       listing: { ...body.listing, title: "Meine eigene Korrektur" },
@@ -155,7 +155,7 @@ it("removes invented fields and defaults only the official lens material", async
     Marke: "Test",
     Gläsermaterial: "Kunststoff",
   });
-  expect(body.listing.category_fields_version).toBe(1);
+  expect(body.listing.category_fields_version).toBe(2);
   const second = await (
     await prepareListing({
       listing: {

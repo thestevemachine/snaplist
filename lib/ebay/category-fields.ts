@@ -1,6 +1,6 @@
 import type { AspectMeta } from "./taxonomy";
 
-export const CATEGORY_FIELDS_VERSION = 1;
+export const CATEGORY_FIELDS_VERSION = 2;
 // EAN is also a Trading ProductListingDetails field, even if not listed by Taxonomy.
 export function categorySpecifics<T>(
   specifics: Record<string, T>,
@@ -24,4 +24,20 @@ export function applySunglassesLensDefault(
     aspects[lens.name] = [plastic];
     return lens.name;
   }
+}
+
+// Seller-requested fallback, only when no material is known; category cardinality wins.
+export function applyFrameMaterialDefault(
+  aspects: Record<string, string[]>,
+  meta: AspectMeta[],
+) {
+  const field = meta.find((a) =>
+    /^(rahmenmaterial|fassungsmaterial|material)$/i.test(a.name),
+  );
+  if (!field || aspects[field.name]?.length || field.cardinality !== "MULTI")
+    return;
+  const values = ["Kunststoff", "Acetat", "Metall"].flatMap((w) =>
+    field.values.filter((v) => v.toLowerCase() === w.toLowerCase()),
+  );
+  if (values.length) aspects[field.name] = values;
 }
