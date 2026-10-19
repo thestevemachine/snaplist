@@ -49,7 +49,7 @@ it("manual correction clears both old categories and changes only product noun",
   expect(next.secondary_category_id).toBeUndefined();
   expect(isSunglasses(next)).toBe(false);
 });
-it.each(["Pilot", "Pilotenbrille", "Pilotenform", "Aviator", "AVIATORS"])(
+it.each(["Flieger", "Fliegerbrille", "Fliegerform", "Aviator", "AVIATORS"])(
   "removes prohibited word %s from generated listing fields",
   (word) => {
     const next = applyContentRules({
@@ -84,4 +84,13 @@ it("migrates open drafts once but leaves published drafts untouched", () => {
   expect(migrateContentGroup(next)).toBe(next);
   const posted = { ...g, postStatus: "posted" as const };
   expect(migrateContentGroup(posted)).toBe(posted);
+});
+
+it.each(["Pilot", "Pilotenbrille", "Pilotenform"])("explicitly allows %s", word => {
+ const next=applyContentRules({...l,title:`Lindberg ${word} Brille`,item_specifics:{Form:word}});
+ expect(next.title).toBe(`Lindberg ${word} Brille`);expect(next.item_specifics?.Form).toBe(word);expect(contentIssues(next)).toEqual([]);
+});
+it("updates old word-list drafts without restoring removed text or changing publication",()=>{
+ const g:ItemGroup={id:"1",name:"Brille",sku:"1",photoIds:["1"],status:"done",listing:{...l,title:"Lindberg Pilot Flieger Brille",content_rules_version:1}};
+ const next=migrateContentGroup(g);expect(next.listing?.title).toBe("Lindberg Pilot Brille");expect(next.listing?.content_rules_version).toBe(2);expect(migrateContentGroup(next)).toBe(next);
 });

@@ -1,7 +1,7 @@
 import type { ListingResult, ItemGroup } from "./types";
 export const FIXED_CONDITION_NOTES = "Ungetragen ohne Etui";
 // Seller's word blacklist, independent of any legal assessment.
-const forbidden = /\b(?:aviator[\p{L}-]*|pilot[\p{L}-]*)\b/giu;
+const forbidden = /\b(?:aviator[\p{L}-]*|flieger[\p{L}-]*)\b/giu;
 export function cleanListingText(text: string) {
   return text
     .replace(forbidden, "")
@@ -22,7 +22,7 @@ export function contentIssues(l: ListingResult) {
     (t) => t && cleanListingText(t) !== t.trim().replace(/[ \t]{2,}/g, " "),
   )
     ? [
-        "Gesperrter Begriff im Angebot: Pilot/Aviator oder eine Variante. Bitte entfernen.",
+        "Gesperrter Begriff im Angebot: Flieger/Aviator oder eine Variante. Bitte entfernen.",
       ]
     : [];
   if (l.eyewear_kind === "uncertain")
@@ -34,7 +34,7 @@ export function contentIssues(l: ListingResult) {
 export function applyContentRules(l: ListingResult): ListingResult {
   return {
     ...l,
-    content_rules_version: 1,
+    content_rules_version: 2,
     title: cleanListingText(l.title),
     description: cleanListingText(l.description),
     condition_notes: FIXED_CONDITION_NOTES,
@@ -55,7 +55,7 @@ export function migrateContentGroup(g: ItemGroup): ItemGroup {
     g.status !== "done" ||
     g.postStatus === "posted" ||
     g.postStatus === "posting" ||
-    g.listing.content_rules_version === 1
+    g.listing.content_rules_version === 2
   )
     return g;
   const l = g.listing;
@@ -92,4 +92,4 @@ export function changeEyewearKind(
     classification_note: "Vom Verkäufer ausgewählt.",
   };
 }
-export const CLASSIFICATION_PROMPT = `\nClassify eyewear independently of style/brand/title: eyewear_kind optical for prescription frames or clear/demo lenses; sunglasses only with positive evidence of sun-protection lenses, not merely dark reflections, lighting, round shape or frame style. Tinted prescription/photochromic lenses alone do not establish sunglasses. If ambiguous, use uncertain and explain in German classification_note; never force a sunglasses category. Non-eyewear: not_eyewear. Do not use Pilot, Pilotenbrille, Aviator or variants anywhere in generated listing text or specifics: these are the seller's forbidden words. Do not assess condition from photographs. condition_notes must be exactly Ungetragen ohne Etui. Do not describe scratches, wear, cleanliness or condition inferred from images in the description, specifics, features or notes. The seller supplies condition information. Keep unclear inscriptions in separate review notes.`;
+export const CLASSIFICATION_PROMPT = `\nClassify eyewear independently of style/brand/title: eyewear_kind optical for prescription frames or clear/demo lenses; sunglasses only with positive evidence of sun-protection lenses, not merely dark reflections, lighting, round shape or frame style. Tinted prescription/photochromic lenses alone do not establish sunglasses. If ambiguous, use uncertain and explain in German classification_note; never force a sunglasses category. Non-eyewear: not_eyewear. Pilot and Pilotenbrille are explicitly allowed. Do not use Flieger, Fliegerbrille, Aviator or variants anywhere in generated listing text or specifics: these are the seller's forbidden words. Never translate Pilot into Aviator; keep Pilot in German. Do not assess condition from photographs. condition_notes must be exactly Ungetragen ohne Etui. Do not describe scratches, wear, cleanliness or condition inferred from images in the description, specifics, features or notes. The seller supplies condition information. Keep unclear inscriptions in separate review notes.`;

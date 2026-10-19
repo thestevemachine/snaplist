@@ -1000,3 +1000,18 @@ test('seller corrects optical frame and removes both sunglasses categories',asyn
  await expect.poll(()=>last?.eyewear_kind).toBe('optical');expect(['','180957']).toContain(last.category_id);expect(last.secondary_category_id).toBeUndefined();
  await expect(page.getByLabel('Kategorie-ID',{exact:true})).toHaveValue('180957');
 });
+test('reanalysis reuses existing photos and replaces draft content while keeping SKU',async({page})=>{
+ await setup(page);await draft(page);
+ const sku=await page.getByLabel('SKU',{exact:true}).inputValue();
+ await page.locator('.title-input').fill('Manuell bearbeiteter alter Titel');
+ let analysisCalls=0;
+ await page.route('**/api/analyze',r=>{
+  analysisCalls++;expect(r.request().postDataJSON().images).toHaveLength(2);
+  return r.fulfill({json:{ok:true,listing:{title:'Neu bewertete Brille Pilot',description:'Neu erstellter Text',brand:'Test',item_type:'Brille',eyewear_kind:'optical',glasses_rules_version:1,category_fields_version:1,content_rules_version:2,suggested_price:100,item_specifics:{Brand:'Test'}},usage:[]}});
+ });
+ await page.getByRole('button',{name:'Ausgewählte Fotos neu analysieren (ersetzt diesen Entwurf)',exact:true}).click();
+ await expect(page.locator('.title-input')).toHaveValue('Neu bewertete Brille Pilot');
+ await expect(page.getByLabel('SKU',{exact:true})).toHaveValue(sku);
+ await expect(page.getByLabel('Beschreibung',{exact:true})).toHaveValue('Neu erstellter Text');
+ expect(analysisCalls).toBe(1);
+});

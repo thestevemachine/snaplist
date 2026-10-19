@@ -375,6 +375,7 @@ export function ListingCard({
           <button type="button" onClick={() => onRetry(group.id)}>
             Ausgewählte Fotos neu analysieren (ersetzt diesen Entwurf)
           </button>
+          <p className="note">Verwendet die vorhandenen Fotos – kein erneutes Hochladen nötig. Erstellt Titel, Beschreibung und Merkmale neu; auch manuelle Änderungen daran werden ersetzt. SKU und ausgewählte Versandregeln bleiben erhalten.</p>
           <EyewearDetails
             listing={listing}
             meta={group.preparation?.aspects ?? []}
