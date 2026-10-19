@@ -734,6 +734,7 @@ test("restored sunglasses prepare automatically once, retain descriptions and ne
           ...listing,
           title: "Test Sonnenbrille Herren Damen Braun",
           glasses_rules_version: 1,
+          category_fields_version: 1,
           category_id: "11",
           secondary_category_id: "22",
         },
@@ -805,4 +806,101 @@ test("restored sunglasses prepare automatically once, retain descriptions and ne
   ).toHaveValue("Meine eigene deutsche Korrektur");
   expect(prepares).toBe(1);
   expect(publishes).toBe(0);
+});
+test("only category fields appear and material supports multiple reviewed choices", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.route("**/api/ebay/prepare", (route) => {
+    const listing = route.request().postDataJSON().listing;
+    return route.fulfill({
+      json: {
+        ok: true,
+        listing: {
+          ...listing,
+          category_id: "625",
+          ebay_condition: "USED_EXCELLENT",
+          item_specifics: {
+            Brand: "Canon",
+            "Hinge Type": "Invented",
+            "Nose Pad Type": "Invented",
+            "Temple Tip Material": "Invented",
+            "Lens Treatment": "Invented",
+            Fassungsmaterial: "Metall",
+          },
+        },
+        preparation: {
+          categoryId: "625",
+          categoryName: "Cameras",
+          aspects: [
+            {
+              name: "Brand",
+              required: true,
+              mode: "FREE_TEXT",
+              cardinality: "SINGLE",
+              values: [],
+            },
+            {
+              name: "Fassungsmaterial",
+              required: false,
+              mode: "SELECTION_ONLY",
+              cardinality: "MULTI",
+              values: ["Metall", "Kunststoff"],
+            },
+          ],
+          conditions: [{ value: "USED_EXCELLENT", label: "Gebraucht" }],
+          expiresAt: Date.now() + 3600000,
+          signature: "test",
+          issues: [],
+        },
+      },
+    });
+  });
+  await draft(page);
+  for (const name of [
+    "Hinge Type",
+    "Nose Pad Type",
+    "Temple Tip Material",
+    "Lens Treatment",
+  ])
+    await expect(page.getByText(name, { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Merkmal hinzufügen", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("checkbox", { name: "Kunststoff", exact: true }).check();
+  await expect(
+    page.getByRole("checkbox", { name: "Metall", exact: true }),
+  ).toBeChecked();
+  await expect(
+    page.getByRole("checkbox", { name: "Kunststoff", exact: true }),
+  ).toBeChecked();
+  await page.getByLabel("Versandregel", { exact: true }).selectOption("ship");
+  await page.getByLabel("Zahlungsregel", { exact: true }).selectOption("pay");
+  await page.getByLabel("Rückgaberegel", { exact: true }).selectOption("ret");
+  await page
+    .getByLabel("Artikelstandort", { exact: true })
+    .selectOption("home");
+  await page.route("**/api/ebay/upload-photos", (r) =>
+    r.fulfill({
+      json: {
+        ok: true,
+        urls: ["https://i.ebayimg.com/a.jpg", "https://i.ebayimg.com/b.jpg"],
+      },
+    }),
+  );
+  let verified = false;
+  await page.route("**/api/ebay/verify", (r) => {
+    expect(
+      r.request().postDataJSON().listing.item_specifics.Fassungsmaterial,
+    ).toBe("Metall | Kunststoff");
+    verified = true;
+    return r.fulfill({ json: { ok: true, verified: true } });
+  });
+  await page
+    .getByRole("button", {
+      name: "Bei eBay prüfen · nicht veröffentlichen",
+      exact: true,
+    })
+    .click();
+  await expect.poll(() => verified).toBe(true);
 });

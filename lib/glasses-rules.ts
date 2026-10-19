@@ -20,6 +20,9 @@ const aliases: Record<string, string[]> = {
   Form: ["Frame Shape", "Shape", "Style"],
   Stil: ["Frame Shape", "Shape", "Form", "Style"],
   Abteilung: ["Department", "Gender", "Geschlecht"],
+  Gläsermaterial: ["Lens Material"],
+  Glasmaterial: ["Lens Material"],
+  Linsenmaterial: ["Lens Material"],
   Glasbreite: ["Lens Width"],
   Gesamtbreite: ["Frame Width", "Total Frame Width"],
 };
@@ -44,6 +47,8 @@ const translations: Record<string, string> = {
   transparent: "Transparent",
   white: "Weiß",
   yellow: "Gelb",
+  polycarbonate: "Polycarbonat",
+  glass: "Glas",
   acetate: "Acetat",
   metal: "Metall",
   titanium: "Titan",
@@ -90,9 +95,9 @@ export function germanAspects(
       const fallback =
         m.name === "Marke"
           ? l.brand
-          : /farbe/i.test(m.name)
+          : /^(fassungsfarbe|rahmenfarbe|farbe)$/i.test(m.name)
             ? l.color
-            : /material/i.test(m.name)
+            : /^(fassungsmaterial|rahmenmaterial|material)$/i.test(m.name)
               ? l.material
               : undefined;
       if (source) {

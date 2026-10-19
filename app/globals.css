@@ -1299,3 +1299,12 @@ textarea {
 .batch-table-scroll {
   scroll-padding-inline: 1rem;
 }
+
+.sku-sequence { margin: 1rem 0; padding: 1rem; border: 1px solid var(--color-border, #c9d8d2); border-radius: 10px; }
+.sku-sequence input { display: block; max-width: 100%; padding: .5rem; }
+.sku-sequence p { font-size: .9rem; }
+.specific-edit { min-width: 0; border: 0; padding: .5rem 0; margin: 0; }
+.aspect-options { display: flex; flex-wrap: wrap; gap: .5rem 1rem; max-height: 15rem; overflow-y: auto; }
+.aspect-options label { display: inline-flex; align-items: center; gap: .4rem; }
+.aspect-options input[type=checkbox] { width: auto; margin: 0; }
+.aspect-options small { flex-basis: 100%; }

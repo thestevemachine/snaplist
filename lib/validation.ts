@@ -15,6 +15,7 @@ export const CONDITIONS = [
   "FOR_PARTS_OR_NOT_WORKING",
 ] as const;
 export const listingSchema = z.object({
+  category_fields_version: z.number().int().min(0).max(100).optional(),
   glasses_rules_version: z.number().int().min(0).max(100).optional(),
   title: z.string().trim().min(1).max(200),
   description: z.string().max(15000),

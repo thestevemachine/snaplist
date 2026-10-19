@@ -267,3 +267,57 @@ test("100 draft writes use three workers; failed items retry without rewriting s
   );
   expect(analyzeCalls).toBe(101);
 });
+test("first SKU assigns a persistent sequence to open items and skips published items", async ({
+  page,
+}) => {
+  await seed(page, 3);
+  await page.evaluate(async () => {
+    await new Promise<void>((resolve, reject) => {
+      const r = indexedDB.open("listing-writer-drafts");
+      r.onsuccess = () => {
+        const db = r.result,
+          tx = db.transaction("workspace", "readwrite"),
+          store = tx.objectStore("workspace"),
+          get = store.get("current");
+        get.onsuccess = () => {
+          const d = get.result;
+          d.groups[0].postStatus = "posted";
+          store.put(d, "current");
+        };
+        tx.oncomplete = () => {
+          db.close();
+          resolve();
+        };
+        tx.onerror = () => reject(tx.error);
+      };
+    });
+  });
+  await page.reload();
+  await page.getByLabel("Erste SKU", { exact: true }).fill("5-23001");
+  await expect(
+    page.getByText("5-23001 bis 5-23002 (2 offene Angebote)", { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "SKU fortlaufend übernehmen", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Titel BATCH-0", { exact: true }),
+  ).toBeDisabled();
+  await expect(page.getByLabel("Titel 5-23001", { exact: true })).toHaveValue(
+    "Item 1",
+  );
+  await expect(page.getByLabel("Titel 5-23002", { exact: true })).toHaveValue(
+    "Item 2",
+  );
+  await expect(
+    page.getByText("Auf diesem Gerät gespeichert", { exact: true }),
+  ).toBeVisible();
+  await page.waitForTimeout(800);
+  await page.reload();
+  await expect(page.getByLabel("Titel 5-23001", { exact: true })).toHaveValue(
+    "Item 1",
+  );
+  await expect(page.getByLabel("Titel 5-23002", { exact: true })).toHaveValue(
+    "Item 2",
+  );
+});

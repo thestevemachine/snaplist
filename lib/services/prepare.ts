@@ -1,4 +1,9 @@
 import {
+  categorySpecifics,
+  applySunglassesLensDefault,
+  CATEGORY_FIELDS_VERSION,
+} from "@/lib/ebay/category-fields";
+import {
   isGlasses,
   germanAspects,
   germanGlassesTitle,
@@ -136,6 +141,16 @@ export async function prepareListing(body: any, sealedConnection?: string) {
               images,
             );
           if (glasses) germanAspects(listing, aspects, meta);
+          if (
+            dual &&
+            listing.category_fields_version !== CATEGORY_FIELDS_VERSION
+          ) {
+            const defaulted = applySunglassesLensDefault(aspects, meta);
+            if (defaulted) {
+              if (listing.evidence) delete listing.evidence[defaulted];
+              if (listing.estimates) delete listing.estimates[defaulted];
+            }
+          }
           enforceCardinality(aspects, meta);
           sanitizeNumericAspects(aspects, meta);
           snapStandardSizes(aspects, meta);
@@ -180,6 +195,15 @@ export async function prepareListing(body: any, sealedConnection?: string) {
             listing.title = germanGlassesTitle(listing, meta);
             listing.glasses_rules_version = GLASSES_RULES_VERSION;
           }
+          listing.item_specifics = categorySpecifics(
+            listing.item_specifics ?? {},
+            meta,
+          );
+          listing.category_fields_version = CATEGORY_FIELDS_VERSION;
+          if (listing.evidence)
+            listing.evidence = categorySpecifics(listing.evidence, meta);
+          if (listing.estimates)
+            listing.estimates = categorySpecifics(listing.estimates, meta);
           // Preserve supported seller choices/defaults; never substitute another grade.
           if (!conditions.some((c) => c.value === listing.ebay_condition))
             listing.ebay_condition = "";

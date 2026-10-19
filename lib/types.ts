@@ -6,6 +6,7 @@ import type { ShippingSelection } from "./validation";
 
 export interface ListingResult {
   glasses_rules_version?: number;
+  category_fields_version?: number;
   title: string;
   category?: string;
   category_hint?: string;

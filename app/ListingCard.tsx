@@ -1,5 +1,6 @@
 "use client";
 
+import { isGlasses } from "@/lib/glasses-rules";
 import { DraftControls } from "./DraftControls";
 import { draftIssues } from "@/lib/client-review";
 import { useEffect, useMemo, useState } from "react";
@@ -311,23 +312,25 @@ export function ListingCard({
                 <div className="v">{listing.brand}</div>
               </div>
             )}
-            {(sizeRequired || listing.size) && (
-              <div
-                className={`stat editable${sizeMissing ? " needs-attention" : ""}`}
-              >
-                <label className="k" htmlFor={`size-${group.id}`}>
-                  Größe
-                </label>
-                <input
-                  id={`size-${group.id}`}
-                  type="text"
-                  className="size-input"
-                  value={listing.size ?? ""}
-                  placeholder={sizeRequired ? "e.g. M, 32x34, 10.5" : "—"}
-                  onChange={(e) => onEdit(group.id, { size: e.target.value })}
-                />
-              </div>
-            )}
+            {(sizeRequired || listing.size) &&
+              (!isGlasses(listing) ||
+                group.preparation?.aspects.some((a) => a.name === "Größe")) && (
+                <div
+                  className={`stat editable${sizeMissing ? " needs-attention" : ""}`}
+                >
+                  <label className="k" htmlFor={`size-${group.id}`}>
+                    Größe
+                  </label>
+                  <input
+                    id={`size-${group.id}`}
+                    type="text"
+                    className="size-input"
+                    value={listing.size ?? ""}
+                    placeholder={sizeRequired ? "e.g. M, 32x34, 10.5" : "—"}
+                    onChange={(e) => onEdit(group.id, { size: e.target.value })}
+                  />
+                </div>
+              )}
           </div>
 
           {sizeMissing && (

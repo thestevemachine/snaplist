@@ -158,7 +158,10 @@ describe("Trading listing flow", () => {
       InventoryTrackingMethod: "SKU",
       UUID: listingUuid(input().sku),
       BestOfferDetails: { BestOfferEnabled: "false" },
-      ProductListingDetails: { EAN: "Nicht zutreffend", IncludeeBayProductDetails: "false" },
+      ProductListingDetails: {
+        EAN: "Nicht zutreffend",
+        IncludeeBayProductDetails: "false",
+      },
     });
     expect(item.Description).toBe(
       "Deutsch &amp; English<br>&lt;script&gt;kein HTML&lt;/script&gt;",
@@ -178,7 +181,10 @@ describe("Trading listing flow", () => {
       calls.filter((c) => c.call && c.call !== "GetUser").map((c) => c.call),
     ).toEqual(["VerifyAddFixedPriceItem", "AddFixedPriceItem"]);
     expect(calls.some((c) => c.url.includes("/inventory/"))).toBe(false);
-    for (const call of calls.filter((c) => c.call === "VerifyAddFixedPriceItem" || c.call === "AddFixedPriceItem")) {
+    for (const call of calls.filter(
+      (c) =>
+        c.call === "VerifyAddFixedPriceItem" || c.call === "AddFixedPriceItem",
+    )) {
       expect(call.body).toContain("<EAN>Nicht zutreffend</EAN>");
     }
   });
@@ -186,44 +192,96 @@ describe("Trading listing flow", () => {
     const draft = input();
     draft.listing.item_specifics!.EAN = "4006381333931";
     await submitTradingListing("private-token", draft, "verify");
-    expect(calls.find((c) => c.call === "VerifyAddFixedPriceItem")!.body).toContain("<EAN>4006381333931</EAN>");
+    expect(
+      calls.find((c) => c.call === "VerifyAddFixedPriceItem")!.body,
+    ).toContain("<EAN>4006381333931</EAN>");
   });
   it("supplies the missing EAN before required-aspect validation", async () => {
-    vi.mocked(categoryAspects).mockResolvedValue([{ name: "EAN", required: true, mode: "FREE_TEXT", values: [], cardinality: "SINGLE" } as any]);
-    await expect(submitTradingListing("private-token", input(), "verify")).resolves.toMatchObject({ verified: true });
+    vi.mocked(categoryAspects).mockResolvedValue([
+      {
+        name: "EAN",
+        required: true,
+        mode: "FREE_TEXT",
+        values: [],
+        cardinality: "SINGLE",
+      } as any,
+    ]);
+    await expect(
+      submitTradingListing("private-token", input(), "verify"),
+    ).resolves.toMatchObject({ verified: true });
   });
   it("does not publish a legacy sunglasses draft in only one category", async () => {
-    const draft = input(); draft.listing.title = "Vintage Sunglasses";
-    await expect(submitTradingListing("private-token", draft, "publish")).rejects.toThrow("Herren und Damen");
+    const draft = input();
+    draft.listing.title = "Vintage Sunglasses";
+    await expect(
+      submitTradingListing("private-token", draft, "publish"),
+    ).rejects.toThrow("Herren und Damen");
     expect(calls).toHaveLength(0);
   });
   it("sends one listing in two signed categories to Verify and Add", async () => {
     const draft = input();
     draft.listing.secondary_category_id = "999";
     draft.review!.secondaryCategoryId = "999";
-    draft.review!.signature = signReview(draft.review!.categoryId, draft.review!.expiresAt, "999");
+    draft.review!.signature = signReview(
+      draft.review!.categoryId,
+      draft.review!.expiresAt,
+      "999",
+    );
     await submitTradingListing("private-token", draft, "publish");
-    const writes = calls.filter(c => c.call === "VerifyAddFixedPriceItem" || c.call === "AddFixedPriceItem");
-    expect(writes.map(c => c.call)).toEqual(["VerifyAddFixedPriceItem", "AddFixedPriceItem"]);
-    for (const c of writes) expect(c.body).toContain("<SecondaryCategory><CategoryID>999</CategoryID></SecondaryCategory>");
+    const writes = calls.filter(
+      (c) =>
+        c.call === "VerifyAddFixedPriceItem" || c.call === "AddFixedPriceItem",
+    );
+    expect(writes.map((c) => c.call)).toEqual([
+      "VerifyAddFixedPriceItem",
+      "AddFixedPriceItem",
+    ]);
+    for (const c of writes)
+      expect(c.body).toContain(
+        "<SecondaryCategory><CategoryID>999</CategoryID></SecondaryCategory>",
+      );
     expect(categoryAspects).toHaveBeenCalledWith("999");
   });
   it("rejects an added or changed second category without a matching signed review", async () => {
     const draft = input();
     draft.listing.secondary_category_id = "999";
-    await expect(submitTradingListing("private-token", draft, "publish")).rejects.toThrow("Kategorie erneut");
+    await expect(
+      submitTradingListing("private-token", draft, "publish"),
+    ).rejects.toThrow("Kategorie erneut");
     expect(calls).toHaveLength(0);
     draft.review!.secondaryCategoryId = "999";
-    await expect(submitTradingListing("private-token", draft, "publish")).rejects.toThrow("Kategorie erneut");
+    await expect(
+      submitTradingListing("private-token", draft, "publish"),
+    ).rejects.toThrow("Kategorie erneut");
   });
   it("validates required specifics from the second category before Verify or Add", async () => {
     const draft = input();
     draft.listing.secondary_category_id = "999";
     draft.review!.secondaryCategoryId = "999";
-    draft.review!.signature = signReview(draft.review!.categoryId, draft.review!.expiresAt, "999");
-    vi.mocked(categoryAspects).mockImplementation(async id => [{name: id === "999" ? "SecondRequired" : "Marke", required: true, mode: "FREE_TEXT", values: [], cardinality: "SINGLE"} as any]);
-    await expect(submitTradingListing("private-token", draft, "publish")).rejects.toThrow("SecondRequired");
-    expect(calls.some(c => c.call === "VerifyAddFixedPriceItem" || c.call === "AddFixedPriceItem")).toBe(false);
+    draft.review!.signature = signReview(
+      draft.review!.categoryId,
+      draft.review!.expiresAt,
+      "999",
+    );
+    vi.mocked(categoryAspects).mockImplementation(async (id) => [
+      {
+        name: id === "999" ? "SecondRequired" : "Marke",
+        required: true,
+        mode: "FREE_TEXT",
+        values: [],
+        cardinality: "SINGLE",
+      } as any,
+    ]);
+    await expect(
+      submitTradingListing("private-token", draft, "publish"),
+    ).rejects.toThrow("SecondRequired");
+    expect(
+      calls.some(
+        (c) =>
+          c.call === "VerifyAddFixedPriceItem" ||
+          c.call === "AddFixedPriceItem",
+      ),
+    ).toBe(false);
   });
   it("stops at failed verification without Add or automatic fact changes", async () => {
     verifyAck = "Failure";
@@ -340,4 +398,24 @@ it("publish endpoint uses Trading and returns the eBay item ID", async () => {
   expect(r.status).toBe(200);
   expect((await r.json()).listingId).toBe("123456789012");
   expect(calls.some((c) => c.url.includes("/inventory/"))).toBe(false);
+});
+it("never sends invented item-specific names to Trading", async () => {
+  const draft = input();
+  draft.listing.item_specifics = {
+    Marke: "A & B",
+    "Hinge Type": "Double",
+    "Nose Pad Type": "Saddle",
+    "Temple Tip Material": "Plastic",
+    "Lens Treatment": "None",
+  };
+  await submitTradingListing("private-token", draft, "verify");
+  const xml = calls.find((c) => c.call === "VerifyAddFixedPriceItem")!.body;
+  expect(xml).toContain("<Name>Marke</Name>");
+  for (const name of [
+    "Hinge Type",
+    "Nose Pad Type",
+    "Temple Tip Material",
+    "Lens Treatment",
+  ])
+    expect(xml).not.toContain(`<Name>${name}</Name>`);
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, Fragment } from "react";
+import { planBatchSkus } from "@/lib/batch-sku";
 import { draftIssues } from "@/lib/client-review";
 import { ListingCard } from "./ListingCard";
 import { downloadFile, listingsToCsv, listingsToJson } from "@/lib/export";
@@ -19,6 +20,7 @@ interface ListingsViewProps {
   onGroupEdit: (id: string, patch: Partial<ItemGroup>) => void;
   onEdit: (groupId: string, patch: Partial<ListingResult>) => void;
   onRenameSku: (groupId: string, sku: string) => void;
+  onNumberSkus: (first: string) => number;
   onRetry: (groupId: string) => void;
   onPost: (groupId: string, mode?: "verify" | "publish") => void;
   onSaveDraft: () => Promise<void>;
@@ -53,6 +55,17 @@ export function ListingsView(props: ListingsViewProps) {
     onBack,
     queue,
   } = props;
+  const [firstSku, setFirstSku] = useState("");
+  const [skuMessage, setSkuMessage] = useState("");
+  let skuPreview = "";
+  if (firstSku.trim()) {
+    try {
+      const rows = planBatchSkus(groups, firstSku);
+      skuPreview = `${rows[0].sku} bis ${rows[rows.length - 1].sku} (${rows.length} offene Angebote)`;
+    } catch (e) {
+      skuPreview = (e as Error).message;
+    }
+  }
   const [table, setTable] = useState(groups.length > 1);
   const [filter, setFilter] = useState("all");
   const [page, setPage] = useState(0);
@@ -157,6 +170,40 @@ export function ListingsView(props: ListingsViewProps) {
           {posted} veröffentlicht
         </span>
       </div>
+      <fieldset disabled={active} className="sku-sequence">
+        <legend>Fortlaufende SKU für diesen Stapel</legend>
+        <label htmlFor="first-batch-sku">Erste SKU</label>
+        <input
+          id="first-batch-sku"
+          value={firstSku}
+          placeholder="z. B. 5-23001"
+          onChange={(e) => {
+            setFirstSku(e.target.value);
+            setSkuMessage("");
+          }}
+        />
+        <p>
+          Die Zahl am Ende wird für jedes offene Angebot um 1 erhöht, in der
+          Reihenfolge des gesamten Stapels. Veröffentlichte oder bereits zur
+          Veröffentlichung gesendete Artikel bleiben unverändert.
+        </p>
+        {skuPreview && <p>{skuPreview}</p>}
+        <button
+          type="button"
+          disabled={!firstSku.trim()}
+          onClick={() => {
+            try {
+              const count = props.onNumberSkus(firstSku);
+              setSkuMessage(`SKU für ${count} offene Angebote übernommen.`);
+            } catch (e) {
+              setSkuMessage((e as Error).message);
+            }
+          }}
+        >
+          SKU fortlaufend übernehmen
+        </button>
+        {skuMessage && <p role="status">{skuMessage}</p>}
+      </fieldset>
       <div className="batch-toolbar">
         <button type="button" onClick={() => setTable(!table)}>
           {table ? "Detailkarten" : "Stapeltabelle"}

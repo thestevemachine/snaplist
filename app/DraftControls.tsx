@@ -4,7 +4,6 @@ import { isSunglasses } from "@/lib/category-selection";
 import { useState, useRef, useEffect } from "react";
 import type { ItemGroup, Photo } from "@/lib/types";
 import type { AccountOptions } from "@/lib/ebay/publish";
-import { requestText } from "@/lib/text-dialog";
 import { loadAccountOptions } from "@/lib/account-options-client";
 import { apiPost } from "@/lib/api-client";
 import { draftIssues } from "@/lib/client-review";
@@ -59,12 +58,7 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
   };
   const specifics = l.item_specifics ?? {};
   const names = [
-    ...new Set([
-      ...(g.preparation?.aspects ?? [])
-        .filter((a) => a.required || a.usage === "RECOMMENDED")
-        .map((a) => a.name),
-      ...Object.keys(specifics),
-    ]),
+    ...new Set([...(g.preparation?.aspects ?? []).map((a) => a.name), "EAN"]),
   ];
   async function prepare() {
     setBusy(true);
@@ -261,33 +255,82 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
           Artikelmerkmale bearbeiten – KI-Schätzungen bitte vor dem
           Veröffentlichen prüfen
         </summary>
+        {!g.preparation && (
+          <p>
+            Die Artikelmerkmale erscheinen nach dem Laden der eBay-Kategorie.
+          </p>
+        )}
         {names.map((name) => {
           const meta = g.preparation?.aspects.find((a) => a.name === name);
           return (
-            <label key={name} className="specific-edit">
-              {name}
-              {l.evidence?.[name]?.length
-                ? ` (KI verweist auf Foto ${l.evidence[name]
-                    .map((n) => {
-                      const id = g.evidencePhotoIds?.[n - 1];
-                      return id ? g.photoIds.indexOf(id) + 1 : n;
-                    })
-                    .join(", ")}; bitte prüfen)`
-                : ""}
-              {l.estimates?.[name] ? (
-                <span className="estimate-tag">
-                  {" "}
-                  KI-Schätzung · {l.estimates[name]}% sicher
-                </span>
-              ) : null}
-              {meta?.required ? " *" : ""}
-              {meta &&
-              (meta.mode === "SELECTION_ONLY" ||
-                isStandardSizeAspect(meta) ||
-                (isGlasses(l) &&
-                  controlledGlassesAspect(meta.name) &&
-                  meta.values.length > 0)) &&
-              meta.cardinality !== "MULTI" ? (
+            <fieldset key={name} className="specific-edit">
+              <legend>
+                {name}
+                {l.evidence?.[name]?.length
+                  ? ` (KI verweist auf Foto ${l.evidence[name]
+                      .map((n) => {
+                        const id = g.evidencePhotoIds?.[n - 1];
+                        return id ? g.photoIds.indexOf(id) + 1 : n;
+                      })
+                      .join(", ")}; bitte prüfen)`
+                  : ""}
+                {l.estimates?.[name] ? (
+                  <span className="estimate-tag">
+                    {" "}
+                    KI-Schätzung · {l.estimates[name]}% sicher
+                  </span>
+                ) : null}
+                {meta?.required ? " *" : ""}
+              </legend>
+              {isSunglasses(l) &&
+                /^(gläsermaterial|glasmaterial|linsenmaterial)$/i.test(
+                  name,
+                ) && (
+                  <p className="note">
+                    Vorgabe für Sonnenbrillen: Kunststoff. Bitte für diese
+                    Brille prüfen und bei Bedarf ändern.
+                  </p>
+                )}
+              {meta?.cardinality === "MULTI" && meta.values.length > 0 ? (
+                <div className="aspect-options" role="group" aria-label={name}>
+                  {meta.values.map((value) => {
+                    const selected = (specifics[name] ?? "")
+                      .split(" | ")
+                      .filter(Boolean);
+                    const checked = selected.includes(value);
+                    return (
+                      <label key={value}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={!checked && selected.length >= 5}
+                          onChange={(event) =>
+                            edit({
+                              item_specifics: {
+                                ...specifics,
+                                [name]: (event.target.checked
+                                  ? [...selected, value]
+                                  : selected.filter((v) => v !== value)
+                                ).join(" | "),
+                              },
+                            })
+                          }
+                        />
+                        {value}
+                      </label>
+                    );
+                  })}
+                  <small>
+                    Mehrere Werte können ausgewählt werden (höchstens 5).
+                  </small>
+                </div>
+              ) : meta &&
+                (meta.mode === "SELECTION_ONLY" ||
+                  isStandardSizeAspect(meta) ||
+                  (isGlasses(l) &&
+                    controlledGlassesAspect(meta.name) &&
+                    meta.values.length > 0)) &&
+                meta.cardinality !== "MULTI" ? (
                 <select
                   aria-label={name}
                   value={specifics[name] ?? ""}
@@ -318,21 +361,9 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
                   }
                 />
               )}
-            </label>
+            </fieldset>
           );
         })}
-        <button
-          type="button"
-          onClick={async () => {
-            const name = await requestText(
-              "Name des Merkmals, zum Beispiel Modell",
-            );
-            if (name?.trim())
-              edit({ item_specifics: { ...specifics, [name.trim()]: "" } });
-          }}
-        >
-          Merkmal hinzufügen
-        </button>
       </details>
       <details>
         <summary>Fotos und Analysebelege ({g.photoIds.length})</summary>

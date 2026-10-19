@@ -114,3 +114,54 @@ it("transfers the known Brand into Marke and preserves reviewed titles on anothe
   expect(second.listing.title).toBe("Meine eigene Korrektur");
   expect(second.listing.secondary_category_id).toBe("22");
 });
+it("removes invented fields and defaults only the official lens material", async () => {
+  vi.mocked(categoryAspects).mockResolvedValue([
+    {
+      name: "Marke",
+      required: true,
+      mode: "FREE_TEXT",
+      cardinality: "SINGLE",
+      values: [],
+    },
+    {
+      name: "Gläsermaterial",
+      required: false,
+      mode: "SELECTION_ONLY",
+      cardinality: "MULTI",
+      values: ["Glas", "Kunststoff"],
+    },
+  ]);
+  const body = await (
+    await prepareListing({
+      listing: {
+        title: "Test Sonnenbrille",
+        description: "Text",
+        brand: "Test",
+        material: "Metal",
+        item_specifics: {
+          "Hinge Type": "Special",
+          "Nose Pad Type": "Saddle",
+          "Temple Tip Material": "Plastic",
+          "Lens Treatment": "None",
+        },
+      },
+      enrich: false,
+    })
+  ).json();
+  expect(body.ok).toBe(true);
+  expect(body.listing.item_specifics).toEqual({
+    Marke: "Test",
+    Gläsermaterial: "Kunststoff",
+  });
+  expect(body.listing.category_fields_version).toBe(1);
+  const second = await (
+    await prepareListing({
+      listing: {
+        ...body.listing,
+        item_specifics: { Marke: "Test", Gläsermaterial: "" },
+      },
+      enrich: false,
+    })
+  ).json();
+  expect(second.listing.item_specifics.Gläsermaterial || "").toBe("");
+});

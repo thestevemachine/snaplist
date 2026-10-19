@@ -1,4 +1,6 @@
 "use client";
+import { CATEGORY_FIELDS_VERSION } from "@/lib/ebay/category-fields";
+import { applyBatchSkus } from "@/lib/batch-sku";
 
 import {
   useCallback,
@@ -277,7 +279,8 @@ export default function Home() {
         !automaticAttempts.current.has(g.id) &&
         (!g.preparation ||
           (isSunglasses(g.listing) && !g.preparation.secondaryCategoryId) ||
-          g.listing.glasses_rules_version !== GLASSES_RULES_VERSION),
+          g.listing.glasses_rules_version !== GLASSES_RULES_VERSION ||
+          g.listing.category_fields_version !== CATEGORY_FIELDS_VERSION),
     );
     if (!g?.listing) return;
     automaticAttempts.current.add(g.id);
@@ -1394,6 +1397,15 @@ export default function Home() {
               editGroup(id, patch);
           }}
           onRenameSku={renameSku}
+          onNumberSkus={(first) => {
+            if (readOnly || queueBusy.current || inFlight.current.size)
+              throw new Error("Bitte die laufende Verarbeitung abwarten.");
+            const current = groupsRef.current;
+            const next = applyBatchSkus(current, first);
+            groupsRef.current = next;
+            setGroups(next);
+            return next.filter((g, i) => g !== current[i]).length;
+          }}
           onRetry={writeGroup}
           onPost={postGroup}
           onSaveDraft={saveCurrentDraft}

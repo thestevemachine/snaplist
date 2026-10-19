@@ -1,3 +1,4 @@
+import { categorySpecifics } from "./category-fields";
 import { isSunglasses } from "../category-selection";
 import { mergeCategoryAspects } from "./secondary-category";
 import { createHash } from "node:crypto";
@@ -47,13 +48,20 @@ export async function submitTradingListing(
   const shipping = shippingSchema.parse(input.shipping);
   const category = listing.category_id || "";
   const secondary = listing.secondary_category_id || "";
-  if (isSunglasses(listing) && !secondary) throw new Error("Bitte Sonnenbrillen für Herren und Damen vorbereiten.");
-  if (secondary && secondary === category) throw new Error("Haupt- und Zweitkategorie müssen verschieden sein.");
+  if (isSunglasses(listing) && !secondary)
+    throw new Error("Bitte Sonnenbrillen für Herren und Damen vorbereiten.");
+  if (secondary && secondary === category)
+    throw new Error("Haupt- und Zweitkategorie müssen verschieden sein.");
   if (
     !input.review ||
     input.review.categoryId !== category ||
     (input.review.secondaryCategoryId || "") !== secondary ||
-    !verifyReview(category, input.review.expiresAt, input.review.signature, secondary)
+    !verifyReview(
+      category,
+      input.review.expiresAt,
+      input.review.signature,
+      secondary,
+    )
   )
     throw new Error("Bitte die Kategorie erneut vorbereiten.");
   const price = Number(listing.suggested_price);
@@ -83,10 +91,14 @@ export async function submitTradingListing(
   if (!meta.length || !accepted.size)
     throw new Error("Die Kategorie-Merkmale konnten nicht geprüft werden.");
   if (secondary) {
-    const [secondMeta, secondAccepted] = await Promise.all([categoryAspects(secondary), acceptedConditionIds(secondary, token)]);
-    if (!secondMeta.length || !secondAccepted.size) throw new Error("Die zweite Kategorie konnte nicht geprüft werden.");
+    const [secondMeta, secondAccepted] = await Promise.all([
+      categoryAspects(secondary),
+      acceptedConditionIds(secondary, token),
+    ]);
+    if (!secondMeta.length || !secondAccepted.size)
+      throw new Error("Die zweite Kategorie konnte nicht geprüft werden.");
     meta = mergeCategoryAspects(meta, secondMeta);
-    accepted = new Set([...accepted].filter(id => secondAccepted.has(id)));
+    accepted = new Set([...accepted].filter((id) => secondAccepted.has(id)));
   }
   for (const [rows, id] of [
     [options.fulfillment, shipping.fulfillmentPolicyId],
@@ -108,12 +120,14 @@ export async function submitTradingListing(
       "Bitte einen für diese Kategorie gültigen Zustand auswählen.",
     );
   const aspects = Object.fromEntries(
-    Object.entries(listing.item_specifics ?? {})
+    Object.entries(categorySpecifics(listing.item_specifics ?? {}, meta))
       .filter(([, v]) => v.trim())
       .map(([k, v]) => [k, v.split(" | ").map((s) => s.trim())]),
   );
   // Seller's default for stock without an EAN; preserve an entered identifier.
-  const eanKey = Object.keys(aspects).find((key) => key.trim().toUpperCase() === "EAN");
+  const eanKey = Object.keys(aspects).find(
+    (key) => key.trim().toUpperCase() === "EAN",
+  );
   const ean = eanKey ? aspects[eanKey][0] : "Nicht zutreffend";
   if (meta.some((aspect) => aspect.name === "EAN")) aspects.EAN = [ean];
   const issues = validateAspects(aspects, meta);
