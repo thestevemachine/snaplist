@@ -488,7 +488,7 @@ export function ListingCard({
                       </p>
                       <p>
                         Nur wenn dies eine andere Brille ist: Der offene Entwurf
-                        erhält eine freie SKU und bei alten Versuchen eine
+                        behält seine SKU und erhält bei alten Versuchen eine
                         eigene technische Kennung. Seine Inhalte und das
                         bestehende Angebot bleiben unverändert.
                       </p>

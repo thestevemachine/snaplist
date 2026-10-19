@@ -933,7 +933,7 @@ export default function Home() {
                 conflictItemId: original.publicationConflict!.listingId,
                 repairedAt: Date.now(),
               },
-              verificationMessage: `Entwurf repariert und gespeichert. Neue SKU: ${data.sku}. Fotos, Beschreibung, Merkmale und Preis bleiben erhalten. Noch nicht veröffentlicht.`,
+              verificationMessage: `Entwurf repariert und gespeichert. SKU: ${data.sku}. Fotos, Beschreibung, Merkmale und Preis bleiben erhalten. Noch nicht veröffentlicht.`,
             };
             if (data.listingId)
               patch = {
@@ -994,10 +994,7 @@ export default function Home() {
         return;
       }
       const issues = draftIssues(group);
-      if (
-        groupsRef.current.some((g) => g.id !== groupId && g.sku === group.sku)
-      )
-        issues.push("Another item in this batch has the same SKU.");
+
       if (issues.length) {
         editGroup(groupId, {
           postStatus: "error",

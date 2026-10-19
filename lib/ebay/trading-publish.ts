@@ -193,7 +193,7 @@ export async function submitTradingListing(
     <Location>${xml(origin.city)}</Location><PostalCode>${xml(origin.postalCode)}</PostalCode>
     <ListingType>FixedPriceItem</ListingType><ListingDuration>GTC</ListingDuration>
     <StartPrice currencyID="EUR">${price.toFixed(2)}</StartPrice><Quantity>1</Quantity>
-    <SKU>${xml(sku)}</SKU><InventoryTrackingMethod>SKU</InventoryTrackingMethod>
+    <SKU>${xml(sku)}</SKU><InventoryTrackingMethod>ItemID</InventoryTrackingMethod>
     <UUID>${uuid}</UUID><ApplicationData>${xml(applicationData(publicationId))}</ApplicationData><ConditionID>${conditionId}</ConditionID>
     <ProductListingDetails><EAN>${xml(ean)}</EAN><IncludeeBayProductDetails>false</IncludeeBayProductDetails></ProductListingDetails>
     ${conditionNotes ? `<ConditionDescription>${xml(conditionNotes)}</ConditionDescription>` : ""}

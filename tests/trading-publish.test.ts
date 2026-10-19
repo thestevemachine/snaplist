@@ -161,7 +161,7 @@ describe("Trading listing flow", () => {
       ConditionID: "1500",
       PostalCode: "01234",
       Title: input().listing.title,
-      InventoryTrackingMethod: "SKU",
+      InventoryTrackingMethod: "ItemID",
       UUID: listingUuid(input().publicationId!),
       VATDetails: { VATPercent: "19" },
       BestOfferDetails: { BestOfferEnabled: "true" },
@@ -452,7 +452,9 @@ describe("parallel employees and retries", () => {
         const tag = (name: string) =>
           xmlBody.match(new RegExp(`<${name}>(.*?)</${name}>`))?.[1] || "";
         if (call === "GetItem") {
-          const item = [...live.values()].find((i) => i.sku === tag("SKU"));
+          const item = tag("ItemID")
+            ? [...live.values()].find((i) => i.id === tag("ItemID"))
+            : undefined;
           return reply(
             call,
             item
@@ -468,11 +470,6 @@ describe("parallel employees and retries", () => {
             return reply(
               call,
               `<Ack>Failure</Ack><Errors><SeverityCode>Error</SeverityCode><ErrorCode>488</ErrorCode><LongMessage>Die UUID wurde bereits verwendet; Artikelnummer=${existing.id}.</LongMessage></Errors>`,
-            );
-          if ([...live.values()].some((i) => i.sku === sku))
-            return reply(
-              call,
-              "<Ack>Failure</Ack><Errors><SeverityCode>Error</SeverityCode><ErrorCode>21916271</ErrorCode><LongMessage>SKU bereits vorhanden</LongMessage></Errors>",
             );
           const item = {
             uuid,
@@ -509,23 +506,28 @@ describe("parallel employees and retries", () => {
     ]);
     expect(result[0].listingId).toBe(result[1].listingId);
     expect(ebay.count()).toBe(1);
-    expect((await submitTradingListing("token", a, "publish")).listingId).toBe(
-      result[0].listingId,
-    );
+    expect(
+      (
+        await submitTradingListing(
+          "token",
+          { ...a, sku: "EDITED-LABEL" },
+          "publish",
+        )
+      ).listingId,
+    ).toBe(result[0].listingId);
     expect(ebay.count()).toBe(1);
   });
   it("same SKU in two different drafts never overwrites or reports the wrong listing as success", async () => {
     const ebay = fakeEbay(),
       a = input();
     await submitTradingListing("token", a, "publish");
-    await expect(
-      submitTradingListing(
-        "token",
-        { ...a, publicationId: "draft:different-glasses" },
-        "publish",
-      ),
-    ).rejects.toThrow("SKU bereits belegt");
-    expect(ebay.count()).toBe(1);
+    const second = await submitTradingListing(
+      "token",
+      { ...a, publicationId: "draft:different-glasses" },
+      "publish",
+    );
+    expect(second.success).toBe(true);
+    expect(ebay.count()).toBe(2);
   });
   it("rejects stale clients without a publication identity before any eBay request", async () => {
     const a = input();

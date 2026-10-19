@@ -27,7 +27,7 @@ export async function findPublishedSku(
   const response = await tradingCall(
     token,
     "GetItem",
-    `<SKU>${xml(skuSchema.parse(sku))}</SKU>${itemId ? `<ItemID>${xml(itemId)}</ItemID>` : ""}<DetailLevel>ReturnAll</DetailLevel>`,
+    `${itemId ? `<ItemID>${xml(itemId)}</ItemID>` : `<SKU>${xml(skuSchema.parse(sku))}</SKU>`}<DetailLevel>ReturnAll</DetailLevel>`,
   );
   const errors = list(response.Errors).filter(
     (e) => e.SeverityCode === "Error",
@@ -36,13 +36,17 @@ export async function findPublishedSku(
     return null;
   assertTradingSuccess(response);
   const item = response.Item;
-  if (!item?.ItemID || !/^\d+$/.test(String(item.ItemID)) || item.SKU !== sku)
+  if (
+    !item?.ItemID ||
+    !/^\d+$/.test(String(item.ItemID)) ||
+    (itemId ? String(item.ItemID) !== itemId : item.SKU !== sku)
+  )
     throw new Error(
-      "eBay-Angebot konnte nicht eindeutig mit der SKU abgeglichen werden. Es wird nichts veröffentlicht.",
+      "eBay-Angebot konnte nicht eindeutig abgeglichen werden. Es wird nichts veröffentlicht.",
     );
   return {
     listingId: String(item.ItemID),
-    sku: item.SKU,
+    sku: item.SKU || "",
     title: item.Title || "",
     applicationData: item.ApplicationData || "",
   };
@@ -63,7 +67,9 @@ export async function inspectPublication(
     return {
       status: belongsToPublication(existing, publicationId)
         ? ("published" as const)
-        : ("conflict" as const),
+        : publicationId.startsWith("legacy:")
+          ? ("conflict" as const)
+          : ("available" as const),
       ...existing,
     };
   return {
@@ -96,17 +102,11 @@ export async function repairPublication(
   const publicationId = input.publicationId.startsWith("legacy:")
     ? `draft:${input.draftId}`
     : input.publicationId;
-  // Deterministic suffix: a repeated repair produces the SAME identity and SKU.
-  const sku = `${input.sku.slice(0, 37)}-${listingUuid(publicationId).slice(0, 12)}`;
-  const candidate = await inspectPublication(token, sku, publicationId);
-  if (candidate.status !== "available" && candidate.status !== "published")
-    throw new Error(
-      "Auch die vorgeschlagene SKU ist belegt. Bitte manuell prüfen.",
-    );
+  // SKU is a seller-editable label, not the publication identity.
+  const sku = input.sku;
   return {
     publicationId,
     sku,
-    listingId:
-      candidate.status === "published" ? candidate.listingId : undefined,
+    listingId: undefined,
   };
 }

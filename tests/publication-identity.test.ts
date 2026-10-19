@@ -74,7 +74,7 @@ it("does not mistake an unrelated live SKU for this draft", async () => {
   vi.mocked(tradingCall).mockResolvedValue(found());
   expect(
     (await inspectPublication("token", "65-23522", "draft:desktop")).status,
-  ).toBe("conflict");
+  ).toBe("available");
 });
 it("recovers a successful attempt only with matching publication metadata", async () => {
   vi.mocked(tradingCall).mockResolvedValue(found("draft:desktop"));
@@ -92,13 +92,11 @@ it("repair is stable, read-only, and refuses changed conflicts", async () => {
   };
   vi.mocked(tradingCall)
     .mockResolvedValueOnce(found())
-    .mockResolvedValueOnce(absent)
-    .mockResolvedValueOnce(found())
-    .mockResolvedValueOnce(absent);
+    .mockResolvedValueOnce(found());
   const a = await repairPublication("token", input),
     b = await repairPublication("token", input);
   expect(a).toEqual(b);
-  expect(a.sku).toMatch(/^65-23522-[A-F0-9]{12}$/);
+  expect(a.sku).toBe(input.sku);
   expect(a.publicationId).toBe("draft:desktop");
   expect(
     vi.mocked(tradingCall).mock.calls.every((c) => c[1] === "GetItem"),
@@ -125,4 +123,6 @@ it("fails closed on lookup failures and does not rotate uncertain legacy identit
   ).toBe("uncertain");
 });
 
-it("keeps eBay ApplicationData within its 32 character limit", () => { expect(applicationData("draft:example")).toMatch(/^[A-F0-9]{32}$/); });
+it("keeps eBay ApplicationData within its 32 character limit", () => {
+  expect(applicationData("draft:example")).toMatch(/^[A-F0-9]{32}$/);
+});
