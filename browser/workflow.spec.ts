@@ -1351,3 +1351,63 @@ test("repairs a legacy UUID collision without losing the draft or publishing, an
   expect(after.groups[0].publicationAttemptSku).toBeUndefined();
   expect(published).toBe(0);
 });
+
+test("manual SKU changes after a failed attempt persist without rotating identity and check the original SKU", async ({page}) => {
+  await setup(page);
+  await draft(page);
+  await shipping(page);
+  await page
+    .getByRole("button", { name: "Entwurf speichern", exact: true })
+    .click();
+  const before = await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const r = indexedDB.open("listing-writer-drafts", 3);
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+    });
+    const data: any = await new Promise((resolve, reject) => {
+      const r = db
+        .transaction("workspace")
+        .objectStore("workspace")
+        .get("current");
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+    });
+    const g = data.groups[0];
+    g.publicationId = `draft:${g.id}`;
+    g.publicationAttemptSku = g.sku;
+    g.postStatus = "error";
+    g.postError =
+      "eBay 488: UUID bereits verwendet; Artikelnummer=940025900611.";
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction("workspace", "readwrite");
+      tx.objectStore("workspace").put(data, "current");
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+    return data;
+  });
+
+  let lookups = 0;
+  let publishes = 0;
+  await page.route("**/api/ebay/publication-status", r => {
+    const b = r.request().postDataJSON();
+    expect(b.sku).toBe(before.groups[0].sku);
+    expect(b.publicationId).toBe(before.groups[0].publicationId);
+    lookups++;
+    return r.fulfill({json:{success:true,status:"published",listingId:"940025900611"}});
+  });
+  await page.route("**/api/ebay/publish", r => { publishes++; return r.abort(); });
+  await page.reload();
+  await page.getByLabel("SKU", {exact:true}).fill("65-99999");
+  await expect(page.getByLabel("SKU", {exact:true})).toHaveValue("65-99999");
+  await page.getByRole("button", {name:"Entwurf speichern",exact:true}).click();
+  await page.reload();
+  await expect(page.getByLabel("SKU", {exact:true})).toHaveValue("65-99999");
+  await page.getByRole("button", {name:"Bei eBay prüfen · nicht veröffentlichen",exact:true}).click();
+  await expect(page.getByLabel("SKU", {exact:true})).toHaveValue(before.groups[0].sku);
+  await expect(page.getByLabel("SKU", {exact:true})).toBeDisabled();
+  expect(lookups).toBe(1);
+  expect(publishes).toBe(0);
+});

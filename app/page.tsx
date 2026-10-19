@@ -527,9 +527,13 @@ export default function Home() {
       prev.map((g) =>
         g.id === groupId &&
         !inFlight.current.has(g.id) &&
-        !g.publicationAttemptSku &&
+        g.postStatus !== "posting" &&
         g.postStatus !== "posted"
-          ? { ...g, sku }
+          ? {
+              ...withPublicationIdentity(g),
+              sku,
+              verificationMessage: undefined,
+            }
           : g,
       ),
     );
@@ -1006,17 +1010,6 @@ export default function Home() {
         return;
       }
       group = withPublicationIdentity(group);
-      if (
-        group.publicationAttemptSku &&
-        group.publicationAttemptSku !== group.sku
-      ) {
-        editGroup(groupId, {
-          postStatus: "error",
-          postError:
-            "Die SKU eines begonnenen Veröffentlichungsversuchs darf erst nach einem Statusabgleich geändert werden.",
-        });
-        return;
-      }
       setPublicationConfirmation(null);
       inFlight.current.add(groupId);
       setGroups((prev) =>
@@ -1032,6 +1025,36 @@ export default function Home() {
         ),
       );
       try {
+        // A changed display SKU must not hide an earlier successful request.
+        // Resolve the original SKU first; never rotate the publication identity.
+        if (
+          group.publicationAttemptSku &&
+          group.publicationAttemptSku !== group.sku
+        ) {
+          const response = await apiPost("/api/ebay/publication-status", {
+            action: "inspect",
+            sku: group.publicationAttemptSku,
+            publicationId: group.publicationId,
+          });
+          const previous = await readJson(response);
+          if (!previous.success)
+            throw new Error(previous.error || "Statusabgleich fehlgeschlagen.");
+          if (previous.status === "published") {
+            editGroup(groupId, {
+              sku: group.publicationAttemptSku,
+              postStatus: "posted",
+              listingId: previous.listingId,
+              verificationMessage:
+                "Dieses Angebot wurde bereits veröffentlicht. Die SKU bitte direkt bei eBay ändern.",
+            });
+            return;
+          }
+          if (previous.status !== "available") {
+            throw new Error(
+              "Der frühere Veröffentlichungsversuch ist noch nicht geklärt. Bitte Veröffentlichungsstatus abgleichen und gegebenenfalls den Entwurf reparieren. Deine eingegebene SKU bleibt gespeichert.",
+            );
+          }
+        }
         const images = await Promise.all(
           group.photoIds.map(async (id) => {
             const p = (await loadPhoto(id)) ?? photoMap.get(id);

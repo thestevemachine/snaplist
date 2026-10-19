@@ -241,7 +241,10 @@ export function ListingCard({
                 type="text"
                 className="size-input"
                 value={group.sku}
-                disabled={group.postStatus === "posted"}
+                disabled={
+                  group.postStatus === "posted" ||
+                  group.postStatus === "posting"
+                }
                 onChange={(e) => onRenameSku(group.id, e.target.value)}
               />
             </div>
