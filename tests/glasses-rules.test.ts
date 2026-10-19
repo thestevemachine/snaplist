@@ -216,8 +216,56 @@ it("does not refill a deliberately cleared canonical color from an old alias", (
   ).not.toContain("Braun");
 });
 it("fits additional truthful category keywords without exceeding 80 characters", () => {
- const m=[aspect("Rahmenfarbe",["Braun"]),aspect("Charakter",["Klassisch","Elegant"]),aspect("Besonderheiten",["Vollrand"])];
- const title=germanGlassesTitle({title:"Brille",description:"",brand:"Test",item_specifics:{Rahmenfarbe:"Braun",Charakter:"Klassisch | Elegant",Besonderheiten:"Vollrand",Modell:"1234"}},m);
- expect(title).toBe("Test Brille Braun 1234 Vollrand Klassisch Elegant");
- expect(title.length).toBeLessThanOrEqual(80);
+  const m = [
+    aspect("Rahmenfarbe", ["Braun"]),
+    aspect("Charakter", ["Klassisch", "Elegant"]),
+    aspect("Besonderheiten", ["Vollrand"]),
+  ];
+  const title = germanGlassesTitle(
+    {
+      title: "Brille",
+      description: "",
+      brand: "Test",
+      item_specifics: {
+        Rahmenfarbe: "Braun",
+        Charakter: "Klassisch | Elegant",
+        Besonderheiten: "Vollrand",
+        Modell: "1234",
+      },
+    },
+    m,
+  );
+  expect(title).toBe("Test Brille Braun 1234 Vollrand");
+  expect(title.length).toBeLessThanOrEqual(80);
+});
+it("prioritizes printed identifiers and origin over filler words", () => {
+  const m = [
+    aspect("Rahmenfarbe", ["Schwarz"]),
+    aspect("Besonderheiten", ["Vollrand", "Leichtgewicht"]),
+    aspect("Herstellungsland", ["Dänemark"]),
+  ];
+  const l = {
+    title: "Brille",
+    description: "",
+    brand: "Lindberg",
+    item_specifics: {
+      Rahmenfarbe: "Schwarz",
+      Modellnummer: "1014",
+      Modellname: "Air",
+      Farbcode: "C02",
+      Herstellungsland: "Dänemark",
+      Besonderheiten: "Vollrand | Leichtgewicht",
+    },
+  };
+  const title = germanGlassesTitle(l, m);
+  expect(title).toBe(
+    "Lindberg Brille Schwarz 1014 Air C02 Dänemark Vollrand leicht",
+  );
+  expect(title).not.toContain("Leichtgewicht");
+  expect(
+    germanGlassesTitle(
+      { title: "Brille", description: "", brand: "Lindberg" },
+      m,
+    ),
+  ).not.toContain("Dänemark");
 });

@@ -104,7 +104,7 @@ it("transfers the known Brand into Marke and preserves reviewed titles on anothe
   expect(body.ok).toBe(true);
   expect(body.listing.item_specifics.Marke).toBe("Test");
   expect(body.listing.title).toBe("Test Sonnenbrille");
-  expect(body.listing.glasses_rules_version).toBe(3);
+  expect(body.listing.glasses_rules_version).toBe(4);
   const second = await (
     await prepareListing({
       listing: { ...body.listing, title: "Meine eigene Korrektur" },
