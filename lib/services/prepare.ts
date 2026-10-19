@@ -8,6 +8,7 @@ import {
   expandEyewearFeatures,
   applySunglassesLensDefault,
   CATEGORY_FIELDS_VERSION,
+  eyewearFeatureDefaultPatch,
 } from "@/lib/ebay/category-fields";
 import {
   isGlasses,
@@ -273,6 +274,16 @@ export async function prepareListing(body: any, sealedConnection?: string) {
             listing.item_specifics ?? {},
             meta,
           );
+          if (glasses) {
+            const patch = eyewearFeatureDefaultPatch(listing, meta);
+            if (patch) {
+              Object.assign(listing, patch);
+              for (const [name, value] of Object.entries(
+                patch.item_specifics ?? {},
+              ))
+                aspects[name] = value.split(" | ").filter(Boolean);
+            }
+          }
           if (glasses) listing = applyContentRules(listing, false);
           listing.category_fields_version = CATEGORY_FIELDS_VERSION;
           if (listing.evidence)

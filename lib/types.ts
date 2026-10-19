@@ -12,6 +12,7 @@ export interface ListingResult {
   eyewear?: import("./eyewear-inscriptions").EyewearData;
   glasses_rules_version?: number;
   category_fields_version?: number;
+  feature_defaults_version?: number;
   title: string;
   category?: string;
   category_hint?: string;

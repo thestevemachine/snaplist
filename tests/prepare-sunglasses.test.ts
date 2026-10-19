@@ -225,3 +225,36 @@ it("prepares optical frames without either sunglasses category", async () => {
   expect(body.listing.title).not.toContain("Sonnenbrille");
   expect(body.listing.condition_notes).toBe("Kratzer");
 });
+
+it("fills missing required Besonderheiten for an already prepared version-4 draft without KI enrichment", async () => {
+  vi.mocked(categoryAspects).mockResolvedValue([
+    {
+      name: "Besonderheiten",
+      required: true,
+      usage: "REQUIRED",
+      mode: "SELECTION_ONLY",
+      cardinality: "MULTI",
+      values: ["Wasserfest", "Randlos"],
+    },
+  ]);
+  const body = await (
+    await prepareListing({
+      listing: {
+        title: "Test Brille",
+        description: "Text",
+        eyewear_kind: "optical",
+        category_id: "180957",
+        category_fields_version: 4,
+        glasses_rules_version: 4,
+        item_specifics: {},
+      },
+      enrich: false,
+    })
+  ).json();
+  expect(body.ok).toBe(true);
+  expect(body.listing.item_specifics.Besonderheiten).toBe("Wasserfest");
+  expect(body.preparation.issues).not.toContainEqual(
+    expect.stringMatching(/Besonderheiten/),
+  );
+  expect(body.usage).toEqual([]);
+});
