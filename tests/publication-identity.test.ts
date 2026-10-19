@@ -124,3 +124,5 @@ it("fails closed on lookup failures and does not rotate uncertain legacy identit
     (await inspectPublication("token", "65-23522", "legacy:65-23522")).status,
   ).toBe("uncertain");
 });
+
+it("keeps eBay ApplicationData within its 32 character limit", () => { expect(applicationData("draft:example")).toMatch(/^[A-F0-9]{32}$/); });

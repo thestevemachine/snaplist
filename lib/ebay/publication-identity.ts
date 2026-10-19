@@ -17,7 +17,7 @@ export function listingUuid(publicationId: string) {
     .slice(0, 32)
     .toUpperCase();
 }
-export const applicationData = (id: string) => `snaplist:v2:${listingUuid(id)}`;
+export const applicationData = (id: string) => listingUuid(id);
 
 export async function findPublishedSku(
   token: string,
