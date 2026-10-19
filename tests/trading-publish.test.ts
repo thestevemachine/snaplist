@@ -158,6 +158,7 @@ describe("Trading listing flow", () => {
       InventoryTrackingMethod: "SKU",
       UUID: listingUuid(input().sku),
       BestOfferDetails: { BestOfferEnabled: "false" },
+      ProductListingDetails: { EAN: "Nicht zutreffend", IncludeeBayProductDetails: "false" },
     });
     expect(item.Description).toBe(
       "Deutsch &amp; English<br>&lt;script&gt;kein HTML&lt;/script&gt;",
@@ -177,6 +178,19 @@ describe("Trading listing flow", () => {
       calls.filter((c) => c.call && c.call !== "GetUser").map((c) => c.call),
     ).toEqual(["VerifyAddFixedPriceItem", "AddFixedPriceItem"]);
     expect(calls.some((c) => c.url.includes("/inventory/"))).toBe(false);
+    for (const call of calls.filter((c) => c.call === "VerifyAddFixedPriceItem" || c.call === "AddFixedPriceItem")) {
+      expect(call.body).toContain("<EAN>Nicht zutreffend</EAN>");
+    }
+  });
+  it("preserves an entered EAN instead of replacing it with the default", async () => {
+    const draft = input();
+    draft.listing.item_specifics!.EAN = "4006381333931";
+    await submitTradingListing("private-token", draft, "verify");
+    expect(calls.find((c) => c.call === "VerifyAddFixedPriceItem")!.body).toContain("<EAN>4006381333931</EAN>");
+  });
+  it("supplies the missing EAN before required-aspect validation", async () => {
+    vi.mocked(categoryAspects).mockResolvedValue([{ name: "EAN", required: true, mode: "FREE_TEXT", values: [], cardinality: "SINGLE" } as any]);
+    await expect(submitTradingListing("private-token", input(), "verify")).resolves.toMatchObject({ verified: true });
   });
   it("stops at failed verification without Add or automatic fact changes", async () => {
     verifyAck = "Failure";

@@ -100,6 +100,10 @@ export async function submitTradingListing(
       .filter(([, v]) => v.trim())
       .map(([k, v]) => [k, v.split(" | ").map((s) => s.trim())]),
   );
+  // Seller's default for stock without an EAN; preserve an entered identifier.
+  const eanKey = Object.keys(aspects).find((key) => key.trim().toUpperCase() === "EAN");
+  const ean = eanKey ? aspects[eanKey][0] : "Nicht zutreffend";
+  if (meta.some((aspect) => aspect.name === "EAN")) aspects.EAN = [ean];
   const issues = validateAspects(aspects, meta);
   if (issues.length) throw new Error(issues.join("; "));
   // Description is editable plain text. Escape HTML first, then XML; preserve lines.
@@ -121,6 +125,7 @@ export async function submitTradingListing(
     <StartPrice currencyID="EUR">${price.toFixed(2)}</StartPrice><Quantity>1</Quantity>
     <SKU>${xml(sku)}</SKU><InventoryTrackingMethod>SKU</InventoryTrackingMethod>
     <UUID>${listingUuid(sku)}</UUID><ConditionID>${conditionId}</ConditionID>
+    <ProductListingDetails><EAN>${xml(ean)}</EAN><IncludeeBayProductDetails>false</IncludeeBayProductDetails></ProductListingDetails>
     ${listing.condition_notes ? `<ConditionDescription>${xml(listing.condition_notes)}</ConditionDescription>` : ""}
     <PictureDetails>${photos.map((p) => `<PictureURL>${xml(p)}</PictureURL>`).join("")}</PictureDetails>
     <ItemSpecifics>${Object.entries(aspects)
