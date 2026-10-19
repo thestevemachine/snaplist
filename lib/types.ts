@@ -49,12 +49,14 @@ export interface AnalyzeRequestBody {
 }
 
 export interface AnalyzeResponse {
+  usage?: AiUsage[];
   ok: boolean;
   listing?: ListingResult;
   error?: string;
 }
 
 export interface SortResponse {
+  usage?: AiUsage[];
   ok: boolean;
   groups?: { name: string; photoIndices: number[] }[];
   orphanIndices?: number[];
@@ -106,6 +108,16 @@ export interface CompsSummary {
 }
 
 export interface ItemGroup {
+  analysisModel?: string;
+  comparisons?: {
+    id: string;
+    model: string;
+    createdAt: number;
+    photoIds: string[];
+    listing?: ListingResult;
+    usage: AiUsage[];
+    error?: string;
+  }[];
   shopBaseDescription?: string;
   cloudBatchId?: string;
   id: string;

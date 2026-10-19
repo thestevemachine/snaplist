@@ -8,6 +8,7 @@ test("queued drafts can be retried after delivery failure and reload without upl
   page,
   context,
 }) => {
+  page.on("dialog", (dialog) => dialog.accept());
   let groups: any[] = [];
   let status: string | undefined;
   const actions: string[] = [];
@@ -70,25 +71,27 @@ test("queued drafts can be retried after delivery failure and reload without upl
     return r.fulfill({ status: 200, body: "{}" });
   });
   await page.goto("/");
-  await expect(page.getByText("Gespeicherte Arbeit wird geladen…")).toBeHidden();
+  await expect(
+    page.getByText("Gespeicherte Arbeit wird geladen…"),
+  ).toBeHidden();
   await page
     .locator("input[type=file]")
     .setInputFiles({ name: "shirt.png", mimeType: "image/png", buffer: png });
-  await page.getByRole("button", { name: "Diese Fotos gehören zu einem Artikel" }).click();
+  await page
+    .getByRole("button", { name: "Diese Fotos gehören zu einem Artikel" })
+    .click();
   await page
     .getByRole("button", {
       name: "Write unfinished drafts in background",
       exact: true,
     })
     .click();
-  const panel = page
-    .locator("section")
-    .filter({
-      has: page.getByRole("heading", {
-        name: "Background drafts",
-        exact: true,
-      }),
-    });
+  const panel = page.locator("section").filter({
+    has: page.getByRole("heading", {
+      name: "Background drafts",
+      exact: true,
+    }),
+  });
   await expect(panel.getByRole("alert")).toContainText("Your photos are saved");
   await expect(
     panel.getByText("0/1 cloud drafts finished · 1 queued"),
@@ -97,7 +100,9 @@ test("queued drafts can be retried after delivery failure and reload without upl
   await expect(
     panel.getByRole("button", { name: "Retry 1 unfinished item", exact: true }),
   ).toBeEnabled();
-  await expect(page.getByRole("status")).toContainText("Auf diesem Gerät gespeichert");
+  await expect(page.getByRole("status")).toContainText(
+    "Auf diesem Gerät gespeichert",
+  );
 
   await page.reload();
   await panel
@@ -197,11 +202,15 @@ test("cloud drafts finish after closing the tab and preserve subsequent edits", 
     r.fulfill({ status: 200, body: "{}" }),
   );
   await page.goto("/");
-  await expect(page.getByText("Gespeicherte Arbeit wird geladen…")).toBeHidden();
+  await expect(
+    page.getByText("Gespeicherte Arbeit wird geladen…"),
+  ).toBeHidden();
   await page
     .locator("input[type=file]")
     .setInputFiles({ name: "shirt.png", mimeType: "image/png", buffer: png });
-  await page.getByRole("button", { name: "Diese Fotos gehören zu einem Artikel" }).click();
+  await page
+    .getByRole("button", { name: "Diese Fotos gehören zu einem Artikel" })
+    .click();
   await page
     .getByRole("button", {
       name: "Write unfinished drafts in background",
@@ -213,7 +222,9 @@ test("cloud drafts finish after closing the tab and preserve subsequent edits", 
       "Batch submitted. You can close this tab; return here to see the drafts.",
     ),
   ).toBeVisible();
-  await expect(page.getByRole("status")).toContainText("Auf diesem Gerät gespeichert");
+  await expect(page.getByRole("status")).toContainText(
+    "Auf diesem Gerät gespeichert",
+  );
   await page.close();
   finished = true;
   const reopened = await context.newPage();
@@ -297,7 +308,9 @@ test("resumes an interrupted photo batch after reload without uploading confirme
     });
   });
   await page.goto("/");
-  await expect(page.getByText("Gespeicherte Arbeit wird geladen…")).toBeHidden();
+  await expect(
+    page.getByText("Gespeicherte Arbeit wird geladen…"),
+  ).toBeHidden();
   await page.locator("input[type=file]").setInputFiles(
     Array.from({ length: 21 }, (_, i) => ({
       name: `shirt-${i}.png`,
@@ -305,7 +318,9 @@ test("resumes an interrupted photo batch after reload without uploading confirme
       buffer: png,
     })),
   );
-  await page.getByRole("button", { name: "Diese Fotos gehören zu einem Artikel" }).click();
+  await page
+    .getByRole("button", { name: "Diese Fotos gehören zu einem Artikel" })
+    .click();
   await page
     .getByRole("button", {
       name: "Write unfinished drafts in background",
@@ -320,7 +335,9 @@ test("resumes an interrupted photo batch after reload without uploading confirme
   );
   expect(uploaded.size).toBe(20);
   const confirmed = new Set(uploaded);
-  await expect(page.getByRole("status")).toContainText("Auf diesem Gerät gespeichert");
+  await expect(page.getByRole("status")).toContainText(
+    "Auf diesem Gerät gespeichert",
+  );
 
   failUpload = false;
   await page.reload();

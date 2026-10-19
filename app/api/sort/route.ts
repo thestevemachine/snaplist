@@ -5,6 +5,7 @@ import { guardApiRequest, safeErrorResponse } from "@/lib/api-guard";
 import { sortPhotos, SortUnavailableError } from "@/lib/sortPipeline";
 import { isAllowedModel } from "@/lib/models";
 import type { WireImage } from "@/lib/images";
+import { AiProviderError } from "@/lib/ai-providers";
 
 // Sorting makes several model calls across grouping/verify/merge stages. 300s
 // (already used by the publish route) gives slow Anthropic days room to finish;
@@ -37,6 +38,14 @@ async function handle(req: NextRequest) {
   const requestedSort =
     typeof body.sortModel === "string" ? body.sortModel.trim() : "";
   const sortModel = isAllowedModel(requestedSort) ? requestedSort : undefined;
+  if (requestedSort && !sortModel)
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Modell nicht freigegeben. Kein automatischer Wechsel.",
+      },
+      { status: 400 },
+    );
   if (images.length === 0) {
     return NextResponse.json(
       { ok: false, error: "Please add some photos first." },
@@ -46,8 +55,13 @@ async function handle(req: NextRequest) {
 
   let client;
   try {
-    client = getClient();
+    client = getClient(sortModel);
   } catch (e) {
+    if (e instanceof AiProviderError)
+      return NextResponse.json(
+        { ok: false, error: e.message },
+        { status: 502 },
+      );
     return NextResponse.json(
       { ok: false, error: (e as Error).message },
       { status: 500 },
@@ -68,6 +82,11 @@ async function handle(req: NextRequest) {
     }
     return NextResponse.json({ ok: true, usage: currentUsage(), ...result });
   } catch (e) {
+    if (e instanceof AiProviderError)
+      return NextResponse.json(
+        { ok: false, error: e.message },
+        { status: 502 },
+      );
     if (e instanceof AnthropicAuthError) {
       console.error("[sort] auth/billing failure:", e.message);
       return NextResponse.json(
@@ -87,5 +106,11 @@ async function handle(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  return (await collectUsage(() => handle(req))).result;
+  const { result, usage } = await collectUsage(() => handle(req));
+  if (!result.ok)
+    return NextResponse.json(
+      { ...(await result.json()), usage },
+      { status: result.status },
+    );
+  return result;
 }

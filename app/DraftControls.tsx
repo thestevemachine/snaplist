@@ -7,6 +7,8 @@ import { syncManualEyewear } from "@/lib/eyewear-inscriptions";
 import { isGlasses, controlledGlassesAspect } from "@/lib/glasses-rules";
 import { isSunglasses } from "@/lib/category-selection";
 import { useState, useRef, useEffect } from "react";
+import { ModelComparison } from "./ModelComparison";
+import { AiUsageSummary } from "./AiUsageSummary";
 import type { ItemGroup, Photo } from "@/lib/types";
 import type { AccountOptions } from "@/lib/ebay/publish";
 import { loadAccountOptions } from "@/lib/account-options-client";
@@ -71,6 +73,13 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
     ...new Set([...(g.preparation?.aspects ?? []).map((a) => a.name), "EAN"]),
   ];
   async function prepare() {
+    if (
+      !g.preparation &&
+      !window.confirm(
+        "Kategorie mit kostenpflichtiger KI-Merkmalsprüfung vorbereiten? Der ausgewählte Anbieter wird verwendet; keine automatische Wiederholung.",
+      )
+    )
+      return;
     setBusy(true);
     setError("");
     try {
@@ -80,11 +89,19 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
         .map((p) => ({ mediaType: p.mediaType, data: p.data }));
       const r = await apiPost("/api/ebay/prepare", {
         listing: l,
+        analysisModel:
+          g.analysisModel ??
+          g.usage?.filter((u) => u.stage === "analysis").at(-1)?.requestedModel,
         images,
         enrich: !g.preparation,
       });
       const d = await r.json();
-      if (!d.ok) throw new Error(d.error);
+      if (!d.ok) {
+        onGroupEdit(g.id, {
+          usage: [...(latest.current.usage ?? []), ...(d.usage ?? [])],
+        });
+        throw new Error(d.error);
+      }
       if (latest.current.listing !== l)
         throw new Error(
           "Der Entwurf wurde während der Vorbereitung geändert. Bitte erneut vorbereiten; deine Änderungen bleiben erhalten.",
@@ -611,26 +628,18 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
             ))}
           </details>
         )}
-        {g.usage?.some((u) => u.stage === "analysis") && (
-          <p className="note">
-            Verwendetes Analysemodell:{" "}
-            {g.usage.filter((u) => u.stage === "analysis").at(-1)?.model}
-          </p>
-        )}
-        {!!g.usage?.length && (
-          <p>
-            Bisherige KI-Nutzung:{" "}
-            {g.usage
-              .reduce((n, u) => n + u.input + u.cacheRead + u.cacheWrite, 0)
-              .toLocaleString()}{" "}
-            Eingabe-Token ·{" "}
-            {g.usage.reduce((n, u) => n + u.output, 0).toLocaleString()} Ausgabe
-            · geschätzt $
-            {g.usage.reduce((n, u) => n + (u.estimatedUsd ?? 0), 0).toFixed(4)}{" "}
-            (erfasste Aufrufe; Sortierung separat).
-          </p>
-        )}
       </details>
+      {g.usage?.some((u) => u.stage === "analysis") && (
+        <p className="note">
+          Verwendetes Analysemodell:{" "}
+          {g.usage.filter((u) => u.stage === "analysis").at(-1)?.model}
+        </p>
+      )}
+      <AiUsageSummary
+        rows={g.usage ?? []}
+        label="Diese Brille · Listing und Vorbereitung (ohne gemeinsame Sortierung)"
+      />
+      <ModelComparison group={g} onEdit={onGroupEdit} />
       {draftIssues(g).length > 0 && (
         <ul aria-label="Noch zu prüfen">
           {draftIssues(g).map((i) => (

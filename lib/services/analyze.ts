@@ -38,6 +38,8 @@ import { toImageBlock, type ImageBlock } from "@/lib/images";
 import { optimizeTitle } from "@/lib/titleOptimizer";
 import { applyPriceMarkup, priceMarkupPercent } from "@/lib/pricing";
 import { resolveModel } from "@/lib/models";
+import { AiProviderError, isAiTerminal } from "@/lib/ai-providers";
+import { providerFor } from "@/lib/ai-catalog";
 import type { AnalyzeRequestBody, ListingResult } from "@/lib/types";
 
 // Analysis takes 20-40s for a multi-photo item on a good day — and far longer
@@ -109,6 +111,7 @@ async function routeProfile(
     const routed = normalizeItemProfile(data?.profile ?? "auto");
     return routed !== "auto" ? routed : "hard_goods";
   } catch (e) {
+    if (isAiTerminal(e)) throw e;
     // Auth/billing failures must surface, not silently fall back to a profile.
     const fatal = anthropicAuthError(e);
     if (fatal) throw fatal;
@@ -136,8 +139,19 @@ async function handle(input: unknown) {
   // Validate client-supplied models against the server allowlist; fall back to
   // the trusted default on anything unknown (prevents billing an arbitrary or
   // premium model to the owner's key).
-  const analysisModel = resolveModel(body.analysisModel, ANALYSIS_MODEL);
-  const routerModel = resolveModel(body.routerModel, ROUTER_MODEL);
+  let analysisModel: string, routerModel: string;
+  try {
+    analysisModel = resolveModel(body.analysisModel, ANALYSIS_MODEL);
+    routerModel = resolveModel(
+      body.routerModel,
+      providerFor(analysisModel) === "anthropic" ? ROUTER_MODEL : analysisModel,
+    );
+  } catch {
+    return NextResponse.json(
+      { ok: false, error: "Modell nicht freigegeben. Bitte erneut auswählen." },
+      { status: 400 },
+    );
+  }
 
   if (!Array.isArray(body.images) || body.images.length === 0) {
     return NextResponse.json(
@@ -156,7 +170,7 @@ async function handle(input: unknown) {
 
   let client: Anthropic;
   try {
-    client = getClient();
+    client = getClient(analysisModel);
   } catch (e) {
     return NextResponse.json(
       { ok: false, error: (e as Error).message },
@@ -167,7 +181,7 @@ async function handle(input: unknown) {
   try {
     const deadline = Date.now() + ANALYZE_TIME_BUDGET_MS;
     const profile = await routeProfile(
-      client,
+      getClient(routerModel),
       imageBlocks,
       body.profile,
       routerModel,
@@ -179,10 +193,9 @@ async function handle(input: unknown) {
         ? GERMAN_LISTING_PROMPT + INSCRIPTION_PROMPT + CLASSIFICATION_PROMPT
         : "");
 
-    // Retry up to 3 times, mirroring the Python analyze_photos() loop — but
-    // never start an attempt the time budget can't cover.
+    // One paid analysis attempt; never retry or upgrade models automatically.
     let lastErr: unknown = null;
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < 1; attempt++) {
       const remaining = deadline - Date.now();
       if (remaining < MIN_CALL_MS) {
         lastErr =
@@ -377,16 +390,19 @@ async function handle(input: unknown) {
         );
         return NextResponse.json({ ok: true, listing, usage: currentUsage() });
       } catch (err) {
+        if (isAiTerminal(err)) throw err;
         const fatal = anthropicAuthError(err);
         if (fatal) throw fatal; // auth/billing won't fix itself on retry
         lastErr = err;
-        if (attempt < 2) {
-          await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
-        }
       }
     }
     throw lastErr;
   } catch (e) {
+    if (e instanceof AiProviderError)
+      return NextResponse.json(
+        { ok: false, error: e.message, usage: currentUsage() },
+        { status: e.status >= 400 && e.status <= 599 ? e.status : 502 },
+      );
     if (e instanceof AnthropicAuthError) {
       console.error("[analyze] auth/billing failure:", e.message);
       return NextResponse.json(
@@ -403,5 +419,10 @@ async function handle(input: unknown) {
 }
 
 export async function analyzePhotos(input: unknown) {
-  return (await collectUsage(() => handle(input))).result;
+  const { result, usage } = await collectUsage(() => handle(input));
+  if (!result.ok) {
+    const data = await result.json();
+    return NextResponse.json({ ...data, usage }, { status: result.status });
+  }
+  return result;
 }

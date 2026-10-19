@@ -73,22 +73,44 @@ async function runStage(jobId: string, stage: "analysis" | "prepared") {
           images: photos,
           profile: "auto",
           ...batch.settings,
+          ...(item.draft.analysisModel
+            ? {
+                analysisModel: item.draft.analysisModel,
+              }
+            : {}),
         })
       : await prepareListing(
           {
             listing: job.result.analysis.listing,
+            analysisModel:
+              item.draft.analysisModel ?? batch.settings?.analysisModel,
             images: photos,
             enrich: true,
           },
           batch.sealed_connection ?? undefined,
         );
   const result = await response.json();
-  if (!response.ok || !result.ok)
+  if (!response.ok || !result.ok) {
+    checked(
+      await db()
+        .from("lister_jobs")
+        .update({
+          result: {
+            ...job.result,
+            failedUsage: [
+              ...(job.result?.failedUsage ?? []),
+              ...(result.usage ?? []),
+            ],
+          },
+        })
+        .eq("id", jobId),
+    );
     throw new Error(
       stage === "analysis"
         ? "Analysis failed. Retry this item."
         : "Category preparation failed. Reconnect eBay if needed, then retry.",
     );
+  }
   // Persist before completing the Inngest step; a redelivery reuses this output.
   checked(
     await db()
@@ -104,7 +126,7 @@ export const generateDraft = inngest.createFunction(
   {
     id: "generate-cloud-draft",
     triggers: { event: "lister/draft.requested" },
-    retries: 2,
+    retries: 0,
     concurrency: [{ limit: 3 }, { limit: 1, key: "event.data.jobId" }],
     onFailure: async ({ event }) => {
       const id = event.data.event.data.jobId;

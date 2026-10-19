@@ -124,7 +124,9 @@ for (const count of [10, 25, 100])
     await expect(page.locator(".batch-table tbody > tr")).toHaveCount(
       Math.min(count, 25),
     );
-    expect(optionsCalls()).toBe(1);
+    // The seed visits once before a reload; each document loads its own seller
+    // cache. This also guards against one request per item in large batches.
+    expect(optionsCalls()).toBe(2);
     await expect(
       page.getByRole("button", { name: /Post all|Post selected/ }),
     ).toHaveCount(0);
@@ -180,6 +182,7 @@ test("batch table fits a phone and exposes missing fields through attention filt
 test("100 draft writes use three workers; failed items retry without rewriting successes", async ({
   page,
 }) => {
+  page.on("dialog", (dialog) => dialog.accept());
   await seed(page, 100, true);
   let analyzeCalls = 0,
     active = 0,
