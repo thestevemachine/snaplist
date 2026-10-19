@@ -232,3 +232,12 @@ it("keeps printed Optyl and maps it to plastic, never acetate", () => {
   ]);
   expect(aspects.Fassungsmaterial).toEqual(["Kunststoff"]);
 });
+
+it("extracts Bogner box dimensions from the bridge without temple markings", () => {
+  const data = extractEyewear([fact("Brückenaufdruck", "53-18")]);
+  expect(data.fields.lensWidth).toMatchObject({ value: "53", source: "label", quote: "53-18", photos: [1] });
+  expect(data.fields.bridgeWidth?.value).toBe("18");
+  expect(data.fields.templeLength).toBeUndefined();
+  expect(data.fields.modelNumber).toBeUndefined();
+  expect(data.fields.totalWidth).toBeUndefined();
+});
