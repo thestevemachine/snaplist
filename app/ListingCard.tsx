@@ -154,7 +154,7 @@ export function ListingCard({
               ) : (
                 <>
                   {formatPrice(listing?.suggested_price)} ·{" "}
-                  {draftIssues(group).length ? "needs review" : "ready"}
+                  {group.postStatus === "posted" ? "Bei eBay veröffentlicht" : draftIssues(group).length ? "needs review" : "ready"}
                 </>
               ))}
             {group.status === "error" && (
@@ -341,6 +341,7 @@ export function ListingCard({
             </p>
           )}
 
+          {group.postStatus === "posted" && <p className="note">Dieses Angebot wurde bereits veröffentlicht. Änderungen jetzt direkt bei eBay vornehmen; Shop-Vorgaben ändern dieses Angebot nicht.</p>}
           <div className="result-field">
             <label htmlFor={`description-${group.id}`}>Description</label>
             <textarea

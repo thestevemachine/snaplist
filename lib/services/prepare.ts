@@ -1,5 +1,6 @@
+import { EBAY_MARKETPLACE_ID } from "@/lib/ebay/config";
 import { applyListingDefaults } from "@/lib/listing-defaults";
-import { categoryMatches, expectedDepartment } from "@/lib/category-selection";
+import { categoryMatches, expectedDepartment, categorySearchQuery } from "@/lib/category-selection";
 import { NextRequest, NextResponse } from "next/server";
 import { guardApiRequest } from "@/lib/api-guard";
 import {
@@ -40,7 +41,7 @@ export async function prepareListing(body: any, sealedConnection?: string) {
           const suggestions = listing.category_id
             ? []
             : await suggestLeafCategories(
-                `${expectedDepartment(listing)} ${listing.category_hint || ""} ${listing.title}`,
+                categorySearchQuery(listing, EBAY_MARKETPLACE_ID === "EBAY_DE"),
                 10,
               );
           const compatible = suggestions.filter((c) =>
