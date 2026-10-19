@@ -72,8 +72,10 @@ async function setup(page: Page) {
   );
   await page.goto("/");
   await expect(
-    page.getByText("Gespeicherte Arbeit wird geladen…"),
-  ).toBeHidden();
+    page
+      .getByRole("status")
+      .filter({ hasText: "Auf diesem Gerät gespeichert" }),
+  ).toBeVisible();
 }
 async function draft(page: Page) {
   await page.locator("input[type=file]").setInputFiles([
@@ -491,8 +493,10 @@ test("start new batch warns about unposted drafts, then clears saved work across
   );
   await page.reload();
   await expect(
-    page.getByText("Gespeicherte Arbeit wird geladen…"),
-  ).toBeHidden();
+    page
+      .getByRole("status")
+      .filter({ hasText: "Auf diesem Gerät gespeichert" }),
+  ).toBeVisible();
   await expect(page.locator(".thumb")).toHaveCount(0);
   await expect(page.locator(".title-input")).toHaveCount(0);
 });
@@ -522,6 +526,16 @@ test("SNAPLIST saves an incomplete draft locally without an eBay connection", as
   await page
     .getByRole("button", { name: "Entwurf speichern", exact: true })
     .click();
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Entwurf auf diesem Gerät gespeichert." }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Auf diesem Gerät gespeichert" }),
+  ).toBeVisible();
   await expect(
     page.getByText(
       "Entwurf auf diesem Gerät gespeichert. Nicht an eBay übertragen.",
@@ -994,6 +1008,16 @@ test("inscription data remains editable, persists, and only explicitly rebuilds 
     .getByRole("button", { name: "Entwurf speichern", exact: true })
     .click();
   await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Entwurf auf diesem Gerät gespeichert." }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Auf diesem Gerät gespeichert" }),
+  ).toBeVisible();
+  await expect(
     page.getByText(
       "Entwurf auf diesem Gerät gespeichert. Nicht an eBay übertragen.",
       { exact: true },
@@ -1255,6 +1279,16 @@ test("eyewear condition notes can be edited and survive reload", async ({
   await page
     .getByRole("button", { name: "Entwurf speichern", exact: true })
     .click();
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Entwurf auf diesem Gerät gespeichert." }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Auf diesem Gerät gespeichert" }),
+  ).toBeVisible();
   await page.reload();
   await expect(
     page.getByRole("textbox", { name: "Zustand und Hinweise", exact: true }),
@@ -1269,6 +1303,16 @@ test("repairs a legacy UUID collision without losing the draft or publishing, an
   await page
     .getByRole("button", { name: "Entwurf speichern", exact: true })
     .click();
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Entwurf auf diesem Gerät gespeichert." }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Auf diesem Gerät gespeichert" }),
+  ).toBeVisible();
   const before = await page.evaluate(async () => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
       const r = indexedDB.open("listing-writer-drafts", 3);
@@ -1375,6 +1419,16 @@ test("manual SKU changes after a failed attempt persist without rotating identit
   await page
     .getByRole("button", { name: "Entwurf speichern", exact: true })
     .click();
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Entwurf auf diesem Gerät gespeichert." }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Auf diesem Gerät gespeichert" }),
+  ).toBeVisible();
   const before = await page.evaluate(async () => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
       const r = indexedDB.open("listing-writer-drafts", 3);
@@ -1426,6 +1480,16 @@ test("manual SKU changes after a failed attempt persist without rotating identit
   await page
     .getByRole("button", { name: "Entwurf speichern", exact: true })
     .click();
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Entwurf auf diesem Gerät gespeichert." }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Auf diesem Gerät gespeichert" }),
+  ).toBeVisible();
   await page.reload();
   await expect(page.getByLabel("SKU", { exact: true })).toHaveValue("65-99999");
   await page

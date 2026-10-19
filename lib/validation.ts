@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { frontMeasurementSchema } from "./front-measurements";
 import type { ListingResult } from "./types";
 
 const text = z.string().max(500);
@@ -71,6 +72,7 @@ export const listingSchema = z.object({
   condition: z.enum(CONDITIONS).optional(),
   condition_notes: z.string().max(3000).optional(),
   measurements: text.optional(),
+  frontMeasurement: frontMeasurementSchema.optional(),
   best_offer_enabled: z.boolean().optional(),
   suggested_price: z
     .union([

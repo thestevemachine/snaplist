@@ -149,19 +149,17 @@ it("keeps missing provider usage unknown instead of claiming zero cost", async (
   expect(usageTotals(usage).unknown).toBe(true);
 });
 it("retains Claude's SDK request and reported cache accounting", async () => {
-  const create = vi
-    .fn()
-    .mockResolvedValue({
-      model: "claude-sonnet-4-6",
-      stop_reason: "end_turn",
-      content: [{ type: "text", text: "{}" }],
-      usage: {
-        input_tokens: 100,
-        output_tokens: 10,
-        cache_read_input_tokens: 20,
-        cache_creation_input_tokens: 30,
-      },
-    });
+  const create = vi.fn().mockResolvedValue({
+    model: "claude-sonnet-4-6",
+    stop_reason: "end_turn",
+    content: [{ type: "text", text: "{}" }],
+    usage: {
+      input_tokens: 100,
+      output_tokens: 10,
+      cache_read_input_tokens: 20,
+      cache_creation_input_tokens: 30,
+    },
+  });
   const request = params("claude-sonnet-4-6");
   const client = { messages: { create } } as unknown as Anthropic;
   const { usage } = await collectUsage(() =>
@@ -291,4 +289,74 @@ it("does not repeat a billable malformed analysis and returns the failed run's u
   expect(response.ok).toBe(false);
   expect(data.usage).toHaveLength(1);
   expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+
+it("calculates front-photo dimensions in the same paid analysis, preserves inscription facts and never generates eBay measurements", async () => {
+  const contour = (left: number, right: number) => ({
+    left: { x: left, y: 0.4 },
+    right: { x: right, y: 0.4 },
+    top: { x: (left + right) / 2, y: 0.2 },
+    bottom: { x: (left + right) / 2, y: 0.6 },
+  });
+  const raw = {
+    title: "Test Brille",
+    description: "",
+    eyewear_kind: "optical",
+    category_hint: "Brille",
+    item_type: "Brille",
+    suggested_price: 25,
+    measurements: "",
+    specifics: [
+      {
+        name: "Bügelaufdruck",
+        value: "50□18 140",
+        quote: "50□18 140",
+        basis: "label",
+        photoIndices: [2],
+        confidence: 99,
+      },
+    ],
+    front_geometry: {
+      photoIndex: 1,
+      leftLens: contour(0.15, 0.4),
+      rightLens: contour(0.6, 0.85),
+      outerLeft: { x: 0.05, y: 0.4 },
+      outerRight: { x: 0.95, y: 0.4 },
+      frontal: true,
+      groovesVisible: true,
+      complete: true,
+      samePlane: true,
+      confidence: 95,
+      note: "",
+    },
+  };
+  fetchMock.mockResolvedValue(openai(JSON.stringify(raw)));
+  const image = Buffer.alloc(24);
+  Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).copy(image);
+  image.write("IHDR", 12);
+  image.writeUInt32BE(1000, 16);
+  image.writeUInt32BE(500, 20);
+  const response = await analyzePhotos({
+    profile: "hard_goods",
+    analysisModel: "gpt-6-luna",
+    images: [
+      { mediaType: "image/png", data: image.toString("base64") },
+      { mediaType: "image/jpeg", data: "AAAA" },
+    ],
+  });
+  const data = await response.json();
+  expect(data.ok).toBe(true);
+  expect(data.listing.frontMeasurement).toMatchObject({
+    status: "estimated",
+    lensHeightMm: 40,
+    totalWidthMm: 180,
+    referencePhotos: [2],
+  });
+  expect(data.listing.measurements).toContain("Pixelberechnung");
+  expect(data.listing.item_specifics.Gesamtbreite).toBeUndefined();
+  expect(data.listing.eyewear.fields.lensWidth.value).toBe("50");
+  expect(data.usage).toHaveLength(1);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  const request = JSON.parse(fetchMock.mock.calls[0][1].body);
+  expect(request.messages[0].content).toContain("front_geometry");
 });

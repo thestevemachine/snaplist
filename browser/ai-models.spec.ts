@@ -237,3 +237,143 @@ test("comparison keeps draft, SKU and manual changes and persists the separate v
   ).toHaveCount(1);
   expect(calls).toBe(1);
 });
+
+test("front-photo estimates remain visible and persisted without overwriting manual dimensions", async ({
+  page,
+}) => {
+  let calls = 0;
+  await page.route("**/api/analyze", (r) => {
+    calls++;
+    return r.fulfill({ json: { ok: false } });
+  });
+  await setup(page);
+  await page.evaluate(async (picture) => {
+    const db = await new Promise<IDBDatabase>((resolve) => {
+      const r = indexedDB.open("listing-writer-drafts");
+      r.onsuccess = () => resolve(r.result);
+    });
+    const tx = db.transaction("workspace", "readwrite");
+    tx.objectStore("workspace").put(
+      {
+        version: 1,
+        photos: [
+          {
+            id: "p1",
+            mediaType: "image/png",
+            previewUrl: picture,
+            data: picture.split(",")[1],
+          },
+        ],
+        groups: [
+          {
+            id: "g1",
+            sku: "MAß-TEST",
+            name: "Brille",
+            photoIds: ["p1"],
+            evidencePhotoIds: ["p1"],
+            status: "done",
+            listing: {
+              title: "Mein Brillentitel",
+              description: "Mein Text",
+              eyewear_kind: "optical",
+              category_id: "123",
+              suggested_price: 30,
+              content_rules_version: 3,
+              item_specifics: { Gesamtbreite: "141 mm" },
+              eyewear: {
+                fields: {
+                  lensWidth: {
+                    value: "50",
+                    source: "label",
+                    quote: "50□18 140",
+                    photos: [1],
+                  },
+                },
+                warnings: [],
+              },
+              measurements:
+                "Scheibenhöhe: ca. 40 mm; Gesamtbreite: ca. 180 mm (unsicher)",
+              frontMeasurement: {
+                method: "front-photo-ratio-v1",
+                status: "uncertain",
+                photoIndex: 1,
+                referenceMm: 50,
+                referenceQuote: "50□18 140",
+                referencePhotos: [1],
+                lensWidthPx: 250,
+                lensHeightPx: 200,
+                totalWidthPx: 900,
+                lensHeightMm: 40,
+                totalWidthMm: 180,
+                reasons: ["Bügel liegen außerhalb der Messebene."],
+              },
+            },
+          },
+        ],
+        orphanIds: [],
+        binPrefix: "",
+        skuStart: 0,
+        step: "listings",
+        updatedAt: Date.now(),
+      },
+      "current",
+    );
+    await new Promise<void>((resolve) => {
+      tx.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+    });
+  }, picture);
+  await page.reload();
+  const open = async () => {
+    await page
+      .getByText("Erkannte Bügelaufdrucke und Maße", { exact: true })
+      .click();
+    const section = page.getByRole("region", {
+      name: "Pixelmaße aus Frontfoto",
+    });
+    await expect(section).toContainText("unsicher / nicht verfügbar");
+    await expect(section).toContainText("Scheibenhöhe: ca. 40 mm");
+    await expect(section).toContainText(
+      "Bügel liegen außerhalb der Messebene.",
+    );
+    await expect(section).toContainText("Referenz: Scheibenbreite 50 mm");
+  };
+  await open();
+  await page
+    .getByLabel("Geschätzte Maße", { exact: true })
+    .fill("Meine geprüfte Messnotiz");
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Auf diesem Gerät gespeichert" }),
+  ).toBeVisible();
+  await page.waitForTimeout(450);
+  await page.reload();
+  await open();
+  await expect(page.getByLabel("Geschätzte Maße", { exact: true })).toHaveValue(
+    "Meine geprüfte Messnotiz",
+  );
+  const stored = await page.evaluate(
+    () =>
+      new Promise<any>((resolve) => {
+        const r = indexedDB.open("listing-writer-drafts");
+        r.onsuccess = () => {
+          const db = r.result;
+          const q = db
+            .transaction("workspace")
+            .objectStore("workspace")
+            .get("current");
+          q.onsuccess = () => {
+            resolve(q.result.groups[0]);
+            db.close();
+          };
+        };
+      }),
+  );
+  expect(stored.listing.item_specifics.Gesamtbreite).toBe("141 mm");
+  expect(stored.listing.title).toBe("Mein Brillentitel");
+  expect(stored.listing.frontMeasurement.status).toBe("uncertain");
+  expect(calls).toBe(0);
+});
