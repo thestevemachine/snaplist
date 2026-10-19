@@ -86,6 +86,12 @@ async function readJson(
 }
 
 export default function Home() {
+  const [publicationConfirmation, setPublicationConfirmation] = useState<ItemGroup | null>(null);
+  const publicationDialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (publicationConfirmation) publicationDialog.current?.showModal();
+    else publicationDialog.current?.close();
+  }, [publicationConfirmation]);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [binPrefix, setBinPrefix] = useState("");
   const [step, setStep] = useState<Step>("upload");
@@ -707,7 +713,7 @@ export default function Home() {
     );
 
   const postGroup = useCallback(
-    async (groupId: string, mode: "verify" | "publish" = "publish") => {
+    async (groupId: string, mode: "verify" | "publish" = "publish", confirmedSnapshot?: string) => {
       const group = groupsRef.current.find((g) => g.id === groupId);
       if (
         !group ||
@@ -728,13 +734,11 @@ export default function Home() {
         });
         return;
       }
-      if (
-        mode === "publish" &&
-        !window.confirm(
-          `Dieses Angebot jetzt auf eBay.de VERÖFFENTLICHEN?\n\n${group.listing.title}\nSKU: ${group.sku}\nPreis: ${Number(group.listing.suggested_price).toFixed(2)} EUR\nMenge: 1\n\nEs ist danach öffentlich und kann gekauft werden, auch bei hohem Preis. Es ist kein Entwurf.`,
-        )
-      )
+      if (mode === "publish" && confirmedSnapshot !== JSON.stringify(group)) {
+        setPublicationConfirmation(group);
         return;
+      }
+      setPublicationConfirmation(null);
       inFlight.current.add(groupId);
       setGroups((prev) =>
         prev.map((g) =>
@@ -1247,6 +1251,20 @@ export default function Home() {
           onBack={() => setStep("review")}
         />
       )}
+
+      <dialog ref={publicationDialog} aria-labelledby="publication-heading"
+        onCancel={() => setPublicationConfirmation(null)}
+        style={{ maxWidth: "36rem", padding: "2rem", borderRadius: "1rem" }}>
+        {publicationConfirmation && <>
+          <h2 id="publication-heading">Veröffentlichung bestätigen</h2>
+          <p>{publicationConfirmation.listing?.title}</p>
+          <p>SKU: {publicationConfirmation.sku}</p>
+          <p><strong>Preis: {Number(publicationConfirmation.listing?.suggested_price).toFixed(2)} EUR</strong> · Menge: 1</p>
+          <p>Das Angebot ist danach öffentlich und kann gekauft werden, auch bei hohem Preis. Es ist kein Entwurf.</p>
+          <button type="button" autoFocus onClick={() => setPublicationConfirmation(null)}>Abbrechen</button>{" "}
+          <button type="button" className="btn-primary" onClick={() => void postGroup(publicationConfirmation.id, "publish", JSON.stringify(publicationConfirmation))}>Jetzt verbindlich auf eBay veröffentlichen</button>
+        </>}
+      </dialog>
 
       <p className="footnote">
         Drafts and photos are saved on this device. Keep this tab open while a

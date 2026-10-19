@@ -151,7 +151,6 @@ test("partial image upload stops publication; retry preserves reviewed fields", 
 }) => {
   let calls = 0;
   let fail = true;
-  page.on("dialog", (d) => d.accept());
   await setup(page);
   await page.route("**/api/ebay/upload-photos", (r) =>
     r.fulfill({
@@ -176,6 +175,7 @@ test("partial image upload stops publication; retry preserves reviewed fields", 
   await page
     .getByRole("button", { name: "Auf eBay.de veröffentlichen…" })
     .click();
+  await page.getByRole("button", { name: "Jetzt verbindlich auf eBay veröffentlichen" }).click();
   await expect(
     page.getByText(/Some selected photos failed to upload/),
   ).toBeVisible();
@@ -184,6 +184,7 @@ test("partial image upload stops publication; retry preserves reviewed fields", 
   await page
     .getByRole("button", { name: "Auf eBay.de veröffentlichen…" })
     .click();
+  await page.getByRole("button", { name: "Jetzt verbindlich auf eBay veröffentlichen" }).click();
   await expect(
     page.getByText("Posted to eBay", { exact: false }),
   ).toBeVisible();
@@ -236,21 +237,17 @@ test("verification never publishes; a single publication requires confirmation w
   await expect(
     page.getByText(/Geschätzte Gebühren: InsertionFee: 0.35 EUR/),
   ).toBeVisible();
-  page.once("dialog", (d) => {
-    expect(d.message()).toContain("9999.00 EUR");
-    void d.dismiss();
-  });
-  await page
-    .getByRole("button", { name: "Auf eBay.de veröffentlichen…" })
-    .click();
+  await page.getByRole("button", { name: "Auf eBay.de veröffentlichen…" }).click();
+  const confirmation = page.getByRole("dialog", { name: "Veröffentlichung bestätigen" });
+  await expect(confirmation).toBeVisible();
+  await expect(confirmation).toContainText("9999.00 EUR");
+  await expect(confirmation).toContainText("kein Entwurf");
   expect(published).toBe(0);
-  page.once("dialog", (d) => {
-    expect(d.message()).toContain("kein Entwurf");
-    void d.accept();
-  });
-  await page
-    .getByRole("button", { name: "Auf eBay.de veröffentlichen…" })
-    .click();
+  await confirmation.getByRole("button", { name: "Abbrechen" }).click();
+  await expect(confirmation).not.toBeVisible();
+  expect(published).toBe(0);
+  await page.getByRole("button", { name: "Auf eBay.de veröffentlichen…" }).click();
+  await confirmation.getByRole("button", { name: "Jetzt verbindlich auf eBay veröffentlichen" }).click();
   await expect(
     page.getByRole("link", { name: "Angebot bei eBay öffnen" }),
   ).toHaveAttribute("href", "https://www.ebay.de/itm/123456789012");
