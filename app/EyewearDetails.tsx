@@ -27,6 +27,57 @@ export function EyewearDetails({
         die eBay kein eigenes Merkmal anbietet. Nur passende eBay-Felder werden
         übertragen.
       </p>
+      {listing.frontMeasurement && (
+        <section aria-label="Pixelmaße aus Frontfoto">
+          <strong>
+            Maße aus Frontfoto ·{" "}
+            {listing.frontMeasurement.status === "estimated"
+              ? "Schätzung"
+              : "unsicher / nicht verfügbar"}
+          </strong>
+          <p>
+            Frontfoto {listing.frontMeasurement.photoIndex || "nicht erkannt"}.
+            Scheibenhöhe und Gesamtbreite sind aus Pixelverhältnissen berechnet
+            und keine geprüften Messwerte. Sie werden nicht automatisch in
+            eBay-Merkmale übernommen.
+          </p>
+          {listing.frontMeasurement.referenceMm && (
+            <p>
+              Referenz: Scheibenbreite {listing.frontMeasurement.referenceMm} mm
+              · Aufdruck: {listing.frontMeasurement.referenceQuote} · Foto{" "}
+              {listing.frontMeasurement.referencePhotos?.join(", ")}
+            </p>
+          )}
+          {listing.frontMeasurement.lensWidthPx && (
+            <p>
+              Pixel: Scheibenbreite{" "}
+              {listing.frontMeasurement.lensWidthPx.toFixed(1)}, Scheibenhöhe{" "}
+              {listing.frontMeasurement.lensHeightPx?.toFixed(1)}, Gesamtbreite{" "}
+              {listing.frontMeasurement.totalWidthPx?.toFixed(1)}. Umrechnung:
+              Pixelmaß × Referenz-mm ÷ Scheibenbreite-Pixel.
+            </p>
+          )}
+          {listing.frontMeasurement.lensHeightMm && (
+            <p>
+              Scheibenhöhe: ca. {listing.frontMeasurement.lensHeightMm} mm ·
+              Gesamtbreite: ca. {listing.frontMeasurement.totalWidthMm} mm
+            </p>
+          )}
+          {!!listing.frontMeasurement.reasons.length && (
+            <ul>
+              {listing.frontMeasurement.reasons.map((reason, i) => (
+                <li key={i}>{reason}</li>
+              ))}
+            </ul>
+          )}
+          <small>
+            Nut zu Nut ohne Fassungsrand; Gesamtbreite einschließlich
+            Scharnieren und sichtbaren Bügelteilen. Änderungen am
+            Referenzaufdruck nach der Analyse ändern diese gespeicherte
+            Berechnung nicht.
+          </small>
+        </section>
+      )}
       {listing.measurements && (
         <label style={{ display: "block" }}>
           Geschätzte Maße – bitte prüfen

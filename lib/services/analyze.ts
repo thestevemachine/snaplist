@@ -1,4 +1,9 @@
 import {
+  attachFrontMeasurement,
+  FRONT_MEASUREMENT_PROMPT,
+} from "@/lib/front-measurements";
+import { imageSize } from "@/lib/image-size";
+import {
   applyContentRules,
   CLASSIFICATION_PROMPT,
 } from "@/lib/listing-content-rules";
@@ -187,11 +192,15 @@ async function handle(input: unknown) {
       routerModel,
       deadline,
     );
+    const imageSizes = imageBlocks.map((b) =>
+      b.source.type === "base64" ? imageSize(b.source.data) : undefined,
+    );
     const systemPrompt =
       buildProfiledAnalysisPrompt(profile) +
       (EBAY_MARKETPLACE_ID === "EBAY_DE"
         ? GERMAN_LISTING_PROMPT + INSCRIPTION_PROMPT + CLASSIFICATION_PROMPT
-        : "");
+        : "") +
+      FRONT_MEASUREMENT_PROMPT;
 
     // One paid analysis attempt; never retry or upgrade models automatically.
     let lastErr: unknown = null;
@@ -382,6 +391,8 @@ async function handle(input: unknown) {
           )
             listing.condition_notes = "Ungetragen ohne Etui ohne Demoscheiben";
         }
+        if (isGlasses(listing))
+          attachFrontMeasurement(listing, raw.front_geometry, imageSizes);
         // Same principle for the optional storewide markup: applied pre-review,
         // so the price on the card is exactly the price that publishes.
         listing.suggested_price = applyPriceMarkup(
