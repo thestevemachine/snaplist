@@ -269,3 +269,27 @@ it("prioritizes printed identifiers and origin over filler words", () => {
     ),
   ).not.toContain("Dänemark");
 });
+
+it("uses two frame colors as separate title words and more than two as Mehrfarbig", () => {
+  const colors = [
+    aspect("Rahmenfarbe", ["Grün", "Gold", "Schwarz", "Mehrfarbig"]),
+  ];
+  const l = {
+    title: "Brille",
+    description: "",
+    brand: "Test",
+    item_type: "Brille",
+    color: ["Grün", "Gold"],
+    item_specifics: { Rahmenfarbe: "Grün | Gold" },
+  };
+  expect(germanGlassesTitle(l, colors)).toContain("Grün Gold");
+  const a = { Rahmenfarbe: ["Grün", "Gold", "Schwarz"] };
+  germanAspects(l, a, colors);
+  expect(a.Rahmenfarbe).toEqual(["Mehrfarbig"]);
+  expect(
+    germanGlassesTitle(
+      { ...l, item_specifics: { Rahmenfarbe: "Mehrfarbig" } },
+      colors,
+    ),
+  ).toContain("Mehrfarbig");
+});

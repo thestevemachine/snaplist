@@ -132,3 +132,18 @@ it("preserves seller condition notes during preparation, including deliberate cl
     applyContentRules({ ...l, condition_notes: "" }, false).condition_notes,
   ).toBe("");
 });
+
+it("prepends current condition notes once without rewriting the shop template", async () => {
+  const { descriptionWithCondition } =
+    await import("@/lib/listing-content-rules");
+  expect(
+    descriptionWithCondition(
+      "Meine Vorlage",
+      "Ungetragen ohne Etui ohne Demoscheiben",
+    ),
+  ).toBe("Ungetragen ohne Etui ohne Demoscheiben\n\nMeine Vorlage");
+  expect(descriptionWithCondition("Ungetragen\n\nVorlage", "Ungetragen")).toBe(
+    "Ungetragen\n\nVorlage",
+  );
+  expect(descriptionWithCondition("Vorlage", "")).toBe("Vorlage");
+});

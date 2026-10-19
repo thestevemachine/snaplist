@@ -1382,3 +1382,15 @@ textarea {
   margin: 0;
   overflow-wrap: anywhere;
 }
+
+.aspect-choices > summary {
+  cursor: pointer;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border, #d8d5cd);
+  border-radius: 6px;
+  background: #f5f4ef;
+  line-height: 1.4;
+}
+.aspect-choices[open] > summary {
+  margin-bottom: 0.5rem;
+}

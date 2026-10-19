@@ -279,11 +279,16 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
       <label>
         Zustand und Hinweise
         <textarea
+          aria-label="Zustand und Hinweise"
           value={
             l.condition_notes ?? (isGlasses(l) ? FIXED_CONDITION_NOTES : "")
           }
           onChange={(e) => edit({ condition_notes: e.target.value })}
         />
+        <small>
+          Dieser Text steht beim Übertragen automatisch als erste Zeile der
+          Artikelbeschreibung.
+        </small>
       </label>
       <details open>
         <summary>
@@ -349,38 +354,51 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
                 </p>
               )}
               {meta?.cardinality === "MULTI" && meta.values.length > 0 ? (
-                <div className="aspect-options" role="group" aria-label={name}>
-                  {meta.values.map((value) => {
-                    const selected = (specifics[name] ?? "")
+                <details className="aspect-choices">
+                  <summary aria-label={`${name}: Auswahl bearbeiten`}>
+                    {(specifics[name] ?? "")
                       .split(" | ")
-                      .filter(Boolean);
-                    const checked = selected.includes(value);
-                    return (
-                      <label key={value}>
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          disabled={!checked && selected.length >= 5}
-                          onChange={(event) =>
-                            edit({
-                              item_specifics: {
-                                ...specifics,
-                                [name]: (event.target.checked
-                                  ? [...selected, value]
-                                  : selected.filter((v) => v !== value)
-                                ).join(" | "),
-                              },
-                            })
-                          }
-                        />
-                        {value}
-                      </label>
-                    );
-                  })}
-                  <small>
-                    Mehrere Werte können ausgewählt werden (höchstens 5).
-                  </small>
-                </div>
+                      .filter(Boolean)
+                      .map((v) => `✓ ${v}`)
+                      .join(" · ") || "Keine Auswahl"}
+                  </summary>
+                  <div
+                    className="aspect-options"
+                    role="group"
+                    aria-label={name}
+                  >
+                    {meta.values.map((value) => {
+                      const selected = (specifics[name] ?? "")
+                        .split(" | ")
+                        .filter(Boolean);
+                      const checked = selected.includes(value);
+                      return (
+                        <label key={value}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={!checked && selected.length >= 5}
+                            onChange={(event) =>
+                              edit({
+                                item_specifics: {
+                                  ...specifics,
+                                  [name]: (event.target.checked
+                                    ? [...selected, value]
+                                    : selected.filter((v) => v !== value)
+                                  ).join(" | "),
+                                },
+                              })
+                            }
+                          />
+                          {value}
+                        </label>
+                      );
+                    })}
+                    <small>
+                      Mehrere Werte können ausgewählt werden (höchstens 5).
+                    </small>
+                  </div>
+                </details>
               ) : meta &&
                 (meta.mode === "SELECTION_ONLY" ||
                   isStandardSizeAspect(meta) ||

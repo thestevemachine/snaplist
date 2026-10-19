@@ -58,8 +58,8 @@ export function applyEyewearSellerDefaults(
   };
   set(/^Vintage$/i, "Nein");
   set(/^Abteilung$/i, "Unisex Erwachsene");
+  set(/^Produktart$/i, sunglasses ? "Sonnenbrille" : "Brille", false);
   if (sunglasses) {
-    set(/^Produktart$/i, "Sonnenbrille", false);
     set(/^UV[- ]?Schutz$/i, "UV400");
     const lens = meta.find((a) =>
       /^(Gläsertechnologie|Glastechnologie|Linsentechnologie)$/i.test(a.name),

@@ -488,7 +488,26 @@ export function ListingCard({
                 )}
               </button>
               {group.postStatus === "error" && group.postError && (
-                <p className="post-result err">⚠️ {group.postError}</p>
+                <div className="post-result err">
+                  <p>⚠️ {group.postError}</p>
+                  {/eBay 488\b/.test(group.postError) && (
+                    <p>
+                      Diese Übertragungskennung wurde bereits verwendet. Bitte
+                      zuerst das vorhandene Angebot prüfen; nicht mit einer
+                      neuen SKU erneut veröffentlichen.
+                    </p>
+                  )}
+                  {/eBay 488\b/.test(group.postError) &&
+                    /(?:Artikelnummer|ItemID)=(\d+)/i.test(group.postError) && (
+                      <a
+                        href={`https://www.ebay.de/itm/${group.postError.match(/(?:Artikelnummer|ItemID)=(\d+)/i)![1]}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Vorhandenes eBay-Angebot öffnen
+                      </a>
+                    )}
+                </div>
               )}
             </div>
           ) : (

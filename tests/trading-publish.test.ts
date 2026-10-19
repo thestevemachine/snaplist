@@ -165,7 +165,7 @@ describe("Trading listing flow", () => {
       },
     });
     expect(item.Description).toBe(
-      "Deutsch &amp; English<br>&lt;script&gt;kein HTML&lt;/script&gt;",
+      "Ungetragen ohne Etui<br><br>Deutsch &amp; English<br>&lt;script&gt;kein HTML&lt;/script&gt;",
     );
     expect(item.SellerProfiles.SellerShippingProfile.ShippingProfileID).toBe(
       "11",
@@ -421,10 +421,11 @@ it("never sends invented item-specific names to Trading", async () => {
     expect(xml).not.toContain(`<Name>${name}</Name>`);
 });
 it("honors disabled best offers while retaining seller VAT", async () => {
- const draft=input();draft.listing.best_offer_enabled=false;
- await submitTradingListing("private-token",draft,"verify");
- const body=calls.find(c=>c.call==="VerifyAddFixedPriceItem")!.body;
- expect(body).toContain("<BestOfferEnabled>false</BestOfferEnabled>");
- expect(body).toContain("<VATPercent>19</VATPercent>");
- expect(body).not.toContain("BestOfferAutoAcceptPrice");
+  const draft = input();
+  draft.listing.best_offer_enabled = false;
+  await submitTradingListing("private-token", draft, "verify");
+  const body = calls.find((c) => c.call === "VerifyAddFixedPriceItem")!.body;
+  expect(body).toContain("<BestOfferEnabled>false</BestOfferEnabled>");
+  expect(body).toContain("<VATPercent>19</VATPercent>");
+  expect(body).not.toContain("BestOfferAutoAcceptPrice");
 });

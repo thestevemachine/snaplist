@@ -173,6 +173,14 @@ export function germanAspects(
         .filter(Boolean);
     }
   }
+  for (const m of meta.filter((m) =>
+    /^(Rahmenfarbe|Fassungsfarbe|Farbe)$/i.test(m.name),
+  )) {
+    if (new Set(aspects[m.name] ?? []).size > 2) {
+      const multi = m.values.find((v) => /^mehrfarbig$/i.test(v));
+      if (multi) aspects[m.name] = [multi];
+    }
+  }
   for (const [german, english] of Object.entries(aliases)) {
     if (
       meta.some((m) => m.name === german || english.includes(m.name)) ||
@@ -347,11 +355,39 @@ export function germanGlassesTitle(l: ListingResult, meta: AspectMeta[]) {
       : /herren|\bmen\b|\bmale\b/i.test(gender)
         ? "Herren"
         : "";
-  const color = categoryTitleValue(l, meta, [
+  let color = categoryTitleValue(l, meta, [
     "Rahmenfarbe",
     "Fassungsfarbe",
     "Farbe",
   ]);
+  const colorField = meta.find((m) =>
+    /^(Rahmenfarbe|Fassungsfarbe|Farbe)$/i.test(m.name),
+  );
+  const rawColors = Array.isArray(l.color)
+    ? l.color
+    : (l.color ?? "").split(/\s*[|;,]\s*/);
+  const knownColors = [
+    ...new Set(
+      rawColors
+        .map((v) =>
+          matchAllowed(
+            translations[v.toLowerCase()] ?? v,
+            colorField?.values ?? [],
+          ),
+        )
+        .filter(Boolean),
+    ),
+  ];
+  const selectedColors = colorField
+    ? (l.item_specifics?.[colorField.name] ?? "").split(" | ").filter(Boolean)
+    : [];
+  if (
+    selectedColors.length > 2 ||
+    selectedColors.some((v) => /^mehrfarbig$/i.test(v))
+  )
+    color = "Mehrfarbig";
+  else if (knownColors.length === 2) color = knownColors.join(" ");
+  else if (knownColors.length > 2) color = "Mehrfarbig";
   const shapeRaw =
     fact(l, [
       "Brillenform",
@@ -432,4 +468,4 @@ export function germanGlassesTitle(l: ListingResult, meta: AspectMeta[]) {
   }
   return cleanListingText(parts.join(" ").replace(/\s+/g, " ")).slice(0, 80);
 }
-export const GERMAN_LISTING_PROMPT = `\n For eyewear: MPN/Herstellernummer is not the model number; leave it empty unless explicitly identified as a manufacturer part number. Default Abteilung to Unisex Erwachsene when unclear; Vintage to Nein when uncertain. Sonnenbrillen have Produktart Sonnenbrille. Determine shape from the LENS outline: round lenses mean Rund even in a rectangular outer frame. Temple length includes mm. When calipers appear, the FIRST caliper photo measures maximum lens height, the SECOND total frame width. Read the scale or estimate conservatively from it, round down to whole mm, return Glashöhe and Gesamtbreite as estimate facts with confidence and photoIndices. The quote must mention Messschieber and the measured scale/span. Never substitute lens width for height. For eBay.de write title, description, condition_notes, search terms, keywords, and item-specific names and values in German. Keep JSON keys and enum values unchanged. For eyewear use Marke, Modellnummer, Fassungsfarbe, Fassungsmaterial, Form, Abteilung, Glasbreite, Gesamtbreite. Brand/model identifiers and dimensions must be read from a label with an exact quote, never inferred. A lens width is not total frame width. Use Herren, Damen or Herren Damen in the title, never unisex, never xy. Title order: Marke Brille (or Sonnenbrille) Geschlecht Farbe Form Material (if supported) Modellnummer/model name keywords; round frames use Rund Panto before Farbe. Maximum 80 characters, prioritize brand and model. Prioritize exact model number, model name and manufacturer color code/name over generic adjectives. Read country of manufacture from inscriptions; never infer it from brand nationality. Prefer concise useful search terms shared across German and English when accurate (Pilot, Oval, Panto); no invented translations or arbitrary extra shapes. Avoid filler adjectives; use leicht only as a last-priority replacement for Leichtgewicht. For Besonderheiten supply every matching visible feature and at least one when supported. Randlos is not Halbrand: nylon-mounted semi-rimless frames may use Halbrand/Halbrahmen; do not label rimless frames Vollrand or Halbrand. Rectangular frames may also be Eckig. For Thema suggest at least five genuinely relevant style themes when possible; decade themes (70er, 80er, 90er) describe style only, never the production year. Do not add incompatible themes just to reach five. Inspect especially the last photo: the seller places the front of the glasses face down on millimeter paper and photographs from above. Report Scheibenhöhe and Gesamtbreite in the photo facts, not only in prose. When clearly visible calibrated millimeter paper is in the same plane as the frame, estimate Scheibenhöhe (maximum vertical groove-to-groove lens height), Gesamtbreite and Lichte Breite separately. Use basis estimate, confidence and photoIndices; quote must describe the visible millimeter grid calibration and the measured span. Round down to the nearest whole mm rather than overestimating. If perspective/scale is unclear leave unknown. These visual estimates do not establish lens width or bridge width from inscriptions. Extract visible rim construction (Randlos, Halbrand, Vollrand) and all genuinely matching style/character values. Use multiple relevant values when supported; never invent character associations or fill space with unsupported keywords. Standard colors (Tortoise becomes Braun). Only add kleine Gläser for a proven lens width below 47 mm; groß L XL only for proven total width above 139 mm. Seller default: unworn without case, in German Ungetragen ohne Etui. Do not infer or describe condition from photos; use only the seller-provided condition. Do not add a generic sales template; that is supplied by the seller settings.`;
+export const GERMAN_LISTING_PROMPT = `\n For eyewear: MPN/Herstellernummer is not the model number; leave it empty unless explicitly identified as a manufacturer part number. Default Abteilung to Unisex Erwachsene when unclear; Vintage to Nein when uncertain. Sonnenbrillen have Produktart Sonnenbrille. Determine shape from the LENS outline: round lenses mean Rund even in a rectangular outer frame. Temple length includes mm. When calipers appear, the FIRST caliper photo measures maximum lens height, the SECOND total frame width. Read the scale or estimate conservatively from it, round down to whole mm, return Glashöhe and Gesamtbreite as estimate facts with confidence and photoIndices. The quote must mention Messschieber and the measured scale/span. Never substitute lens width for height. For eBay.de write title, description, condition_notes, search terms, keywords, and item-specific names and values in German. Keep JSON keys and enum values unchanged. For eyewear use Marke, Modellnummer, Fassungsfarbe, Fassungsmaterial, Form, Abteilung, Glasbreite, Gesamtbreite. Brand/model identifiers and dimensions must be read from a label with an exact quote, never inferred. A lens width is not total frame width. Use Herren, Damen or Herren Damen in the title, never unisex, never xy. Title order: Marke Brille (or Sonnenbrille) Geschlecht Farbe Form Material (if supported) Modellnummer/model name keywords; round frames use Rund Panto before Farbe. Maximum 80 characters, prioritize brand and model. Prioritize exact model number, model name and manufacturer color code/name over generic adjectives. Read country of manufacture from inscriptions; never infer it from brand nationality. Prefer concise useful search terms shared across German and English when accurate (Pilot, Oval, Panto); no invented translations or arbitrary extra shapes. Avoid filler adjectives; use leicht only as a last-priority replacement for Leichtgewicht. For Besonderheiten supply every matching visible feature and at least one when supported. Randlos is not Halbrand: nylon-mounted semi-rimless frames may use Halbrand/Halbrahmen; do not label rimless frames Vollrand or Halbrand. Rectangular frames may also be Eckig. For Thema suggest at least five genuinely relevant style themes when possible; decade themes (70er, 80er, 90er) describe style only, never the production year. Do not add incompatible themes just to reach five. Inspect especially the last photo: the seller places the front of the glasses face down on millimeter paper and photographs from above. Report Scheibenhöhe and Gesamtbreite in the photo facts, not only in prose. When clearly visible calibrated millimeter paper is in the same plane as the frame, estimate Scheibenhöhe (maximum vertical groove-to-groove lens height), Gesamtbreite and Lichte Breite separately. Use basis estimate, confidence and photoIndices; quote must describe the visible millimeter grid calibration and the measured span. Round down to the nearest whole mm rather than overestimating. If perspective/scale is unclear leave unknown. These visual estimates do not establish lens width or bridge width from inscriptions. Extract visible rim construction (Randlos, Halbrand, Vollrand) and all genuinely matching style/character values. Use multiple relevant values when supported; never invent character associations or fill space with unsupported keywords. Standard colors (Tortoise becomes Braun). Inspect the colors of both front and temples, even when one is metal and another acetate: two colors must be two separate standard words/values, e.g. Grün | Gold, not Grün-Gold. More than two distinct frame colors become Mehrfarbig. Do not count lens color as frame color. Only add kleine Gläser for a proven lens width below 47 mm; groß L XL only for proven total width above 139 mm. Seller default: unworn without case, in German Ungetragen ohne Etui. Do not infer or describe condition from photos; use only the seller-provided condition. Do not add a generic sales template; that is supplied by the seller settings.`;

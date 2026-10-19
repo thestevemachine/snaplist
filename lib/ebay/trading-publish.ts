@@ -1,6 +1,7 @@
 import { isGlasses } from "@/lib/glasses-rules";
 import {
   FIXED_CONDITION_NOTES,
+  descriptionWithCondition,
   contentIssues,
 } from "@/lib/listing-content-rules";
 import { materialTitleIssues } from "../eyewear-inscriptions";
@@ -156,7 +157,11 @@ export async function submitTradingListing(
   const conditionNotes = isGlasses(listing)
     ? (listing.condition_notes ?? FIXED_CONDITION_NOTES)
     : listing.condition_notes;
-  const description = xml(listing.description).replace(/\r?\n/g, "<br>");
+  const description = xml(
+    isGlasses(listing)
+      ? descriptionWithCondition(listing.description, conditionNotes)
+      : listing.description,
+  ).replace(/\r?\n/g, "<br>");
   const grams =
     shipping.weightOz === undefined
       ? undefined

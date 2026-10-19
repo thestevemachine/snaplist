@@ -98,4 +98,15 @@ export function changeEyewearKind(
     classification_note: "Vom Verkäufer ausgewählt.",
   };
 }
-export const CLASSIFICATION_PROMPT = `\nClassify eyewear independently of style/brand/title: eyewear_kind optical for prescription frames or clear/demo lenses; sunglasses only with positive evidence of sun-protection lenses, not merely dark reflections, lighting, round shape or frame style. Tinted prescription/photochromic lenses alone do not establish sunglasses. If ambiguous, use uncertain and explain in German classification_note; never force a sunglasses category. Non-eyewear: not_eyewear. Pilot and Pilotenbrille are explicitly allowed. Do not use Flieger, Fliegerbrille, Aviator or variants anywhere in generated listing text or specifics: these are the seller's forbidden words. Never translate Pilot into Aviator; keep Pilot in German. Do not assess condition from photographs. condition_notes must be exactly Ungetragen ohne Etui. Do not describe scratches, wear, cleanliness or condition inferred from images in the description, specifics, features or notes. The seller supplies condition information. Keep unclear inscriptions in separate review notes.`;
+export const CLASSIFICATION_PROMPT = `\nClassify eyewear independently of style/brand/title: eyewear_kind optical for prescription frames or clear/demo lenses; sunglasses only with positive evidence of sun-protection lenses, not merely dark reflections, lighting, round shape or frame style. Tinted prescription/photochromic lenses alone do not establish sunglasses. If ambiguous, use uncertain and explain in German classification_note; never force a sunglasses category. Non-eyewear: not_eyewear. Pilot and Pilotenbrille are explicitly allowed. Do not use Flieger, Fliegerbrille, Aviator or variants anywhere in generated listing text or specifics: these are the seller's forbidden words. Never translate Pilot into Aviator; keep Pilot in German. Do not assess condition from photographs. condition_notes defaults to Ungetragen ohne Etui. Exception: if an optical frame clearly has NO demo lenses fitted, report a visible_feature specific Demoscheiben with value Nicht vorhanden, photoIndices and confidence; do not confuse transparent lenses with absent lenses. Do not describe scratches, wear, cleanliness or condition inferred from images in the description, specifics, features or notes. The seller supplies condition information. Keep unclear inscriptions in separate review notes.`;
+
+export function descriptionWithCondition(
+  description: string,
+  notes: string | undefined,
+): string {
+  const condition = (notes ?? FIXED_CONDITION_NOTES).trim();
+  if (!condition) return description;
+  const body = description.trimStart();
+  if (body === condition || body.startsWith(condition + "\n")) return body;
+  return condition + "\n\n" + body;
+}

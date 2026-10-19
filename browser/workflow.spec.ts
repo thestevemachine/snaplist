@@ -872,6 +872,12 @@ test("only category fields appear and material supports multiple reviewed choice
   await expect(
     page.getByRole("button", { name: "Merkmal hinzufügen", exact: true }),
   ).toHaveCount(0);
+  await expect(
+    page.getByRole("checkbox", { name: "Kunststoff", exact: true }),
+  ).not.toBeVisible();
+  await page
+    .getByLabel("Fassungsmaterial: Auswahl bearbeiten", { exact: true })
+    .click();
   await page.getByRole("checkbox", { name: "Kunststoff", exact: true }).check();
   await expect(
     page.getByRole("checkbox", { name: "Metall", exact: true }),

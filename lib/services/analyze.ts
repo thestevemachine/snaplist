@@ -358,6 +358,16 @@ async function handle(input: unknown) {
           listing.description = ["Ungetragen ohne Etui", ...facts].join("\n");
           listing.key_features = [];
           listing = applyContentRules(listing);
+          if (
+            listing.eyewear_kind === "optical" &&
+            supported.some(
+              (f) =>
+                /^Demoscheiben$/i.test(f.name) &&
+                /^(nicht vorhanden|ohne|keine)$/i.test(f.value) &&
+                (f.confidence ?? 0) >= 85,
+            )
+          )
+            listing.condition_notes = "Ungetragen ohne Etui ohne Demoscheiben";
         }
         // Same principle for the optional storewide markup: applied pre-review,
         // so the price on the card is exactly the price that publishes.
