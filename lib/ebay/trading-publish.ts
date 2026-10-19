@@ -106,6 +106,7 @@ export async function submitTradingListing(
     meta = mergeCategoryAspects(meta, secondMeta);
     accepted = new Set([...accepted].filter((id) => secondAccepted.has(id)));
   }
+  if (isGlasses(listing)) meta = meta.map(m => ({...m, required:m.required || /^Besonderheiten$/i.test(m.name)}));
   for (const [rows, id] of [
     [options.fulfillment, shipping.fulfillmentPolicyId],
     [options.payment, shipping.paymentPolicyId],

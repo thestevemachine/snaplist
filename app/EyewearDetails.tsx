@@ -27,6 +27,20 @@ export function EyewearDetails({
         die eBay kein eigenes Merkmal anbietet. Nur passende eBay-Felder werden
         übertragen.
       </p>
+      {listing.measurements && (
+        <label style={{ display: "block" }}>
+          Geschätzte Maße – bitte prüfen
+          <textarea
+            aria-label="Geschätzte Maße"
+            value={listing.measurements}
+            onChange={(e) => onEdit({ measurements: e.target.value })}
+          />
+          <small>
+            Die Notiz bleibt erhalten, auch wenn eBay kein passendes Merkmal
+            anbietet. Änderungen hier ändern die eBay-Merkmale nicht.
+          </small>
+        </label>
+      )}
       {Object.entries(eyewearLabels).map(([rawKey, label]) => {
         const key = rawKey as EyewearKey;
         const field = listing.eyewear!.fields[key];

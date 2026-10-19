@@ -72,3 +72,10 @@ it("always accepts a best guess for Upper Material, whatever the confidence", ()
   expect(acceptedPhotoFact(fact({ confidence: undefined }), 2)).toBe(false);
   expect(acceptedPhotoFact(fact({ name: "Lining Material", confidence: 20 }), 2)).toBe(false);
 });
+it("accepts only documented grid estimates for eyewear height and widths", () => {
+ for (const name of ["Scheibenhöhe","Gesamtbreite","Lichte Breite"]) {
+  expect(acceptedPhotoFact(fact({name,value:"42 mm",quote:"Millimeterpapier: Raster 1 mm, 42 Kästchen",confidence:85}),1)).toBe(true);
+  expect(acceptedPhotoFact(fact({name,value:"42 mm",quote:"geschätzt",confidence:99}),1)).toBe(false);
+ }
+ expect(acceptedPhotoFact(fact({name:"Glasbreite",value:"52 mm",quote:"Millimeterpapier",confidence:99}),1)).toBe(false);
+});

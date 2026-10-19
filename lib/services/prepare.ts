@@ -4,6 +4,7 @@ import {
   categorySpecifics,
   applyFrameMaterialDefault,
   applyEyewearSellerDefaults,
+  expandEyewearFeatures,
   applySunglassesLensDefault,
   CATEGORY_FIELDS_VERSION,
 } from "@/lib/ebay/category-fields";
@@ -125,6 +126,7 @@ export async function prepareListing(body: any, sealedConnection?: string) {
           }
           meta = meta.map((m) => ({
             ...m,
+            required: m.required || (isGlasses(listing) && /^Besonderheiten$/i.test(m.name)),
             values: m.values.filter(
               (v) => !/flieger|aviator|clubmaster|klappmaster/i.test(v),
             ),
@@ -186,6 +188,11 @@ export async function prepareListing(body: any, sealedConnection?: string) {
               dual,
               listing.brand || aspects.Marke?.join(" ") || "",
             );
+          if (
+            glasses &&
+            listing.category_fields_version !== CATEGORY_FIELDS_VERSION
+          )
+            expandEyewearFeatures(aspects, meta);
           enforceCardinality(aspects, meta);
           sanitizeNumericAspects(aspects, meta);
           snapStandardSizes(aspects, meta);

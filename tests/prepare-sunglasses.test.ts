@@ -155,7 +155,7 @@ it("removes invented fields and defaults only the official lens material", async
     Marke: "Test",
     Gläsermaterial: "Kunststoff",
   });
-  expect(body.listing.category_fields_version).toBe(3);
+  expect(body.listing.category_fields_version).toBe(4);
   const second = await (
     await prepareListing({
       listing: {

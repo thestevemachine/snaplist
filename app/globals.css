@@ -1365,3 +1365,20 @@ textarea {
   padding: 0.7rem 1.1rem;
   background: #ecece8;
 }
+
+.saved-shop-summary dl {
+  margin: 0.5rem 0;
+}
+.saved-shop-summary dl div {
+  display: grid;
+  grid-template-columns: 8rem minmax(0, 1fr);
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+}
+.saved-shop-summary dt {
+  font-weight: 600;
+}
+.saved-shop-summary dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}

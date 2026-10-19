@@ -737,7 +737,7 @@ test("restored sunglasses prepare automatically once, retain descriptions and ne
           ...listing,
           title: "Test Sonnenbrille Herren Damen Braun",
           glasses_rules_version: 4,
-          category_fields_version: 3,
+          category_fields_version: 4,
           category_id: "11",
           secondary_category_id: "22",
         },
@@ -922,7 +922,7 @@ test("inscription data remains editable, persists, and only explicitly rebuilds 
           item_type: "Brille",
           suggested_price: 200,
           glasses_rules_version: 4,
-          category_fields_version: 3,
+          category_fields_version: 4,
           item_specifics: { Brand: "Lindberg" },
           eyewear: {
             fields: {
@@ -1033,7 +1033,7 @@ test("seller corrects optical frame and removes both sunglasses categories", asy
           category_id: optical ? "180957" : "79720",
           secondary_category_id: optical ? undefined : "45246",
           glasses_rules_version: 4,
-          category_fields_version: 3,
+          category_fields_version: 4,
         },
         preparation: {
           categoryId: optical ? "180957" : "79720",
@@ -1090,7 +1090,7 @@ test("reanalysis reuses existing photos and replaces draft content while keeping
           item_type: "Brille",
           eyewear_kind: "optical",
           glasses_rules_version: 4,
-          category_fields_version: 3,
+          category_fields_version: 4,
           content_rules_version: 3,
           suggested_price: 100,
           item_specifics: { Brand: "Test" },
@@ -1113,4 +1113,18 @@ test("reanalysis reuses existing photos and replaces draft content while keeping
     "Neu erstellter Text",
   );
   expect(analysisCalls).toBe(1);
+});
+test("shows the current seller and saved policies without opening settings after reload", async ({page}) => {
+ await setup(page);
+ await page.route("**/api/ebay/status",r=>r.fulfill({json:{configured:true,connected:true,sharedConfigured:true}}));
+ await page.route("**/api/ebay/options",r=>r.fulfill({json:{ok:true,options:{sellerKey:"summary-seller",sellerName:"AktuellesKonto",fulfillment:[{id:"s",name:"DHL Standard"}],payment:[{id:"p",name:"eBay Zahlung"}],returns:[{id:"r",name:"60 Tage"}],locations:[{id:"l",name:"Berlin"}]}}}));
+ await page.evaluate(()=>localStorage.setItem("snaplist-shop-v1:summary-seller",JSON.stringify({version:1,shipping:{fulfillmentPolicyId:"s",paymentPolicyId:"p",returnPolicyId:"r",locationKey:"l"},descriptionTemplate:"Meine Vorlage"})));
+ await page.reload();
+ const summary=page.getByRole("region",{name:"Gespeicherte Shop-Vorgaben"});
+ await expect(summary).toContainText("AktuellesKonto");
+ await expect(summary).toContainText("DHL Standard");
+ await expect(summary).toContainText("60 Tage");
+ await expect(summary).toContainText("Gespeichert");
+ await expect(page.locator(".ebay-bar")).toContainText("AktuellesKonto");
+ await expect(page.locator(".shop-settings")).not.toHaveAttribute("open","");
 });

@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { clearAccountOptions } from "@/lib/account-options-client";
+import {
+  loadAccountOptions,
+  clearAccountOptions,
+} from "@/lib/account-options-client";
 import { apiPost } from "@/lib/api-client";
 
 interface Status {
@@ -15,6 +18,7 @@ export function EbayConnect() {
   const [notice, setNotice] = useState<{ ok: boolean; msg: string } | null>(
     null,
   );
+  const [sellerName, setSellerName] = useState("");
   const [busy, setBusy] = useState(false);
   const [authorizeUrl, setAuthorizeUrl] = useState("");
   const [pasteValue, setPasteValue] = useState("");
@@ -44,6 +48,27 @@ export function EbayConnect() {
       });
     if (e) window.history.replaceState({}, "", window.location.pathname);
   }, [refresh]);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      setSellerName("");
+      if (!status?.connected) return;
+      try {
+        const account = await loadAccountOptions();
+        if (active)
+          setSellerName(account.sellerName || "Kontoname nicht verfügbar");
+      } catch {
+        if (active) setSellerName("Konto nicht bestätigt – Zugang prüfen");
+      }
+    };
+    void load();
+    window.addEventListener("ebay-connection-changed", load);
+    return () => {
+      active = false;
+      window.removeEventListener("ebay-connection-changed", load);
+    };
+  }, [status?.connected]);
 
   const disconnect = async () => {
     setBusy(true);
@@ -128,7 +153,8 @@ export function EbayConnect() {
     return (
       <div className="ebay-bar">
         <span className="ebay-label">
-          Gespeicherter eBay-Zugang · eBay.de · EUR
+          Gespeicherter eBay-Zugang: {sellerName || "Konto wird geladen…"} ·
+          eBay.de · EUR
         </span>
         <button
           type="button"
@@ -158,7 +184,9 @@ export function EbayConnect() {
       <span className="ebay-dot" aria-hidden="true" />
       {status.connected ? (
         <>
-          <span className="ebay-label">eBay account connected</span>
+          <span className="ebay-label">
+            eBay-Konto: {sellerName || "Konto wird geladen…"}
+          </span>
           <button
             type="button"
             className="btn-ghost"

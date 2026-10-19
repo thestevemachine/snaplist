@@ -232,6 +232,10 @@ async function handle(input: unknown) {
         const supported = specifics.filter((s) =>
           acceptedPhotoFact(s, imageBlocks.length),
         );
+        for(const f of supported) {
+          if(f.basis==="estimate" && /^(Scheibenhöhe|Glashöhe|Gläserhöhe|Gesamtbreite|Lichte Breite)$/i.test(f.name))
+            f.value=String(Math.floor(Number(f.value.replace(/\s*mm$/i,"").replace(",","."))))+" mm";
+        }
         let listing = parseListing({
           ...raw,
           item_specifics: Object.fromEntries(
@@ -240,6 +244,25 @@ async function handle(input: unknown) {
         });
         if (isGlasses(listing)) {
           listing.eyewear = extractEyewear(supported);
+          const grid = supported.filter(
+            (f) =>
+              f.basis === "estimate" &&
+              /^(Scheibenhöhe|Glashöhe|Gläserhöhe|Gesamtbreite|Lichte Breite)$/i.test(
+                f.name,
+              ),
+          );
+          if (grid.length)
+            listing.measurements = grid
+              .map(
+                (f) =>
+                  f.name +
+                  ": ca. " +
+                  f.value.replace(/\s*mm$/i, "") +
+                  " mm (Millimeterpapier, Foto " +
+                  f.photoIndices.join(", ") +
+                  ")",
+              )
+              .join("\n");
           for (const f of supported) {
             if (
               /^(Modellnummer|Model Number)$/i.test(f.name) &&

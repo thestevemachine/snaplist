@@ -100,3 +100,13 @@ it("applies category-backed sun defaults and retains multiple lens technologies"
   expect(b.Gläsertechnologie).toEqual(["Verlaufsgetönt"]);
   expect(b.Vintage).toBeUndefined();
 });
+it("expands physical features without misclassifying rimless frames", async () => {
+ const {expandEyewearFeatures}=await import("@/lib/ebay/category-fields");
+ const m={...material,name:"Besonderheiten",values:["Randlos","Halbrand","Halbrahmen","Vollrand","Eckig","Rechteckig","Rund"]};
+ const a:Record<string,string[]>={Stil:["Randlos"],Form:["Rechteckig"]};
+ expandEyewearFeatures(a,[m]);
+ expect(a.Besonderheiten).toEqual(["Randlos","Rechteckig","Eckig"]);
+ const b:Record<string,string[]>={Stil:["Nylon"],Form:["Rund"]};
+ expandEyewearFeatures(b,[m]);
+ expect(b.Besonderheiten).toEqual(["Halbrand","Halbrahmen","Rund"]);
+});

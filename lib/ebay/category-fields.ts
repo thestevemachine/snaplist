@@ -1,6 +1,6 @@
 import type { AspectMeta } from "./taxonomy";
 
-export const CATEGORY_FIELDS_VERSION = 3;
+export const CATEGORY_FIELDS_VERSION = 4;
 // EAN is also a Trading ProductListingDetails field, even if not listed by Taxonomy.
 export function categorySpecifics<T>(
   specifics: Record<string, T>,
@@ -86,7 +86,7 @@ export function applyEyewearSellerDefaults(
     else {
       const shapes = Object.entries(aspects)
         .filter(([key]) =>
-          /^(Form|Brillenform|Rahmenform|Fassungsform)$/i.test(key),
+          /^(Form|Brillenform|Rahmenform|Fassungsform|Besonderheiten|Rahmentyp)$/i.test(key),
         )
         .flatMap(([, v]) => v);
       const match = style.values.find(
@@ -94,8 +94,43 @@ export function applyEyewearSellerDefaults(
           shapes.some((s) => s.toLowerCase() === v.toLowerCase()) &&
           !/flieger|aviator|clubmaster|klappmaster/i.test(v),
       );
-      const fallback = style.values.find((v) => /^vollrand$/i.test(v));
+      const fallback = shapes.some(v=>/randlos|halbrand|halbrahmen|nylon/i.test(v)) ? undefined : style.values.find((v) => /^vollrand$/i.test(v));
       aspects[style.name] = match ? [match] : fallback ? [fallback] : [];
     }
   }
+}
+
+export function expandEyewearFeatures(
+  aspects: Record<string, string[]>,
+  meta: AspectMeta[],
+) {
+  const field = meta.find((m) => /^Besonderheiten$/i.test(m.name));
+  if (!field) return;
+  const physical = Object.entries(aspects)
+    .filter(([k]) =>
+      /^(Besonderheiten|Stil|Form|Brillenform|Rahmenform|Fassungsart|Rahmentyp)$/i.test(
+        k,
+      ),
+    )
+    .flatMap(([, v]) => v)
+    .join(" ");
+  const candidates: string[] = [];
+  if (/randlos/i.test(physical)) candidates.push("Randlos");
+  else if (/halbrand|halbrahmen|nylon/i.test(physical))
+    candidates.push("Halbrand", "Halbrahmen");
+  else if (/vollrand/i.test(physical)) candidates.push("Vollrand");
+  if (/rechteckig|rectangular/i.test(physical))
+    candidates.push("Rechteckig", "Eckig");
+  else if (/quadratisch|eckig|square/i.test(physical))
+    candidates.push("Eckig", "Quadratisch");
+  if (/rund|round|panto/i.test(physical)) candidates.push("Rund");
+  const current = aspects[field.name] ?? [];
+  const valid = candidates.flatMap((c) =>
+    field.values.filter((v) => v.toLowerCase() === c.toLowerCase()),
+  );
+  const combined = [...new Set([...current, ...valid])];
+  aspects[field.name] = combined.slice(
+    0,
+    field.cardinality === "MULTI" ? 5 : 1,
+  );
 }

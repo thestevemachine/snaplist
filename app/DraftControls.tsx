@@ -296,6 +296,22 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
             Die Artikelmerkmale erscheinen nach dem Laden der eBay-Kategorie.
           </p>
         )}
+        {g.preparation?.aspects.some((a) => /^Besonderheiten$/i.test(a.name)) &&
+          !l.item_specifics?.Besonderheiten?.trim() && (
+            <p className="note-error">
+              Besonderheiten fehlen: bitte mindestens ein zutreffendes Merkmal
+              auswählen.
+            </p>
+          )}
+        {g.preparation?.aspects.some((a) => /^Thema$/i.test(a.name)) &&
+          (l.item_specifics?.Thema ?? "").split(" | ").filter(Boolean).length <
+            5 && (
+            <p className="note">
+              Thema: möglichst fünf passende Stilthemen auswählen, soweit eBay
+              dies zulässt. Jahrzehnte bezeichnen hier den Stil, nicht das
+              Herstellungsjahr.
+            </p>
+          )}
         {names.map((name) => {
           const meta = g.preparation?.aspects.find((a) => a.name === name);
           return (

@@ -68,6 +68,21 @@ export function acceptedPhotoFact(
       .every((v) => normalize(s.quote).includes(normalize(v)));
   }
   if (s.basis !== "visible_feature" && s.basis !== "estimate") return false;
+  if (
+    /^(Scheibenhöhe|Glashöhe|Gläserhöhe|Gesamtbreite|Lichte Breite)$/i.test(
+      s.name,
+    )
+  ) {
+    return (
+      s.basis === "estimate" &&
+      typeof s.quote === "string" &&
+      /millimeterpapier|millimeterraster|1\s*mm.*raster/i.test(s.quote) &&
+      /^\d+(?:[.,]\d+)?(?:\s*mm)?$/i.test(s.value) &&
+      Number(s.value.replace(/\s*mm$/i, "").replace(",", ".")) > 0 &&
+      Number.isFinite(s.confidence) &&
+      s.confidence! >= MIN_ESTIMATE_CONFIDENCE
+    );
+  }
   if (labelOnly.test(s.name)) return false;
   if (typeof s.confidence === "number")
     return (
