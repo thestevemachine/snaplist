@@ -5,6 +5,11 @@ export const AI_LISTING_SCHEMA = {
   type: "object",
   additionalProperties: false,
   properties: {
+    eyewear_kind: {
+      type: "string",
+      enum: ["optical", "sunglasses", "uncertain", "not_eyewear"],
+    },
+    classification_note: string,
     title: string,
     description: string,
     category: string,
@@ -36,6 +41,8 @@ export const AI_LISTING_SCHEMA = {
     },
   },
   required: [
+    "eyewear_kind",
+    "classification_note",
     "title",
     "description",
     "category",

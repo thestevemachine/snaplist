@@ -1,3 +1,4 @@
+import { cleanListingText } from "./listing-content-rules";
 import type { ListingResult } from "./types";
 import type { AspectMeta } from "./ebay/taxonomy";
 import { isSunglasses } from "./category-selection";
@@ -6,6 +7,7 @@ import { matchAllowed } from "./ebay/aspects";
 export const GLASSES_RULES_VERSION = 1;
 export function isGlasses(l: ListingResult) {
   return (
+    (l.eyewear_kind !== undefined && l.eyewear_kind !== "not_eyewear") ||
     isSunglasses(l) ||
     /\b(brille[n]?|brillenfassung(?:en)?|eyeglasses|eyeglass|spectacles)\b/i.test(
       [l.title, l.item_type, l.category_hint].join(" "),
@@ -60,7 +62,7 @@ const translations: Record<string, string> = {
   square: "Eckig",
   rectangular: "Rechteckig",
   oval: "Oval",
-  aviator: "Pilotenbrille",
+  aviator: "",
   men: "Herren",
   women: "Damen",
   male: "Herren",
@@ -209,7 +211,8 @@ export function germanGlassesTitle(l: ListingResult, meta: AspectMeta[]) {
       "Fassungsbreite",
       "Total Frame Width",
       "Frame Width",
-    ]) ?? Number(l.eyewear?.fields.totalWidth?.value.replace(/\s*mm$/i, "") || NaN);
+    ]) ??
+    Number(l.eyewear?.fields.totalWidth?.value.replace(/\s*mm$/i, "") || NaN);
   const extras = [
     width !== undefined && width > 0 && width < 47 ? "kleine Gläser" : "",
     total !== undefined && total > 139 ? "groß L XL" : "",
@@ -231,6 +234,6 @@ export function germanGlassesTitle(l: ListingResult, meta: AspectMeta[]) {
     if (index <= 1) break;
     parts.splice(index, 1);
   }
-  return parts.join(" ").replace(/\s+/g, " ").trim().slice(0, 80);
+  return cleanListingText(parts.join(" ").replace(/\s+/g, " ")).slice(0, 80);
 }
-export const GERMAN_LISTING_PROMPT = `\nFor eBay.de write title, description, condition_notes, search terms, keywords, and item-specific names and values in German. Keep JSON keys and enum values unchanged. For eyewear use Marke, Modellnummer, Fassungsfarbe, Fassungsmaterial, Form, Abteilung, Glasbreite, Gesamtbreite. Brand/model identifiers and dimensions must be read from a label with an exact quote, never inferred. A lens width is not total frame width. Use Herren, Damen or Herren Damen in the title, never unisex, never xy. Title order: Marke Brille (or Sonnenbrille) Geschlecht Farbe Form Modellnummer keywords; round frames use Rund Panto before Farbe. Maximum 80 characters, prioritize brand and model. Standard colors (Tortoise becomes Braun). Only add kleine Gläser for a proven lens width below 47 mm; groß L XL only for proven total width above 139 mm. Seller default: unworn without case, in German Ungetragen ohne Etui. Describe visible storage marks or defects separately; do not invent wear history. Do not add a generic sales template; that is supplied by the seller settings.`;
+export const GERMAN_LISTING_PROMPT = `\nFor eBay.de write title, description, condition_notes, search terms, keywords, and item-specific names and values in German. Keep JSON keys and enum values unchanged. For eyewear use Marke, Modellnummer, Fassungsfarbe, Fassungsmaterial, Form, Abteilung, Glasbreite, Gesamtbreite. Brand/model identifiers and dimensions must be read from a label with an exact quote, never inferred. A lens width is not total frame width. Use Herren, Damen or Herren Damen in the title, never unisex, never xy. Title order: Marke Brille (or Sonnenbrille) Geschlecht Farbe Form Modellnummer keywords; round frames use Rund Panto before Farbe. Maximum 80 characters, prioritize brand and model. Standard colors (Tortoise becomes Braun). Only add kleine Gläser for a proven lens width below 47 mm; groß L XL only for proven total width above 139 mm. Seller default: unworn without case, in German Ungetragen ohne Etui. Do not infer or describe condition from photos; use only the seller-provided condition. Do not add a generic sales template; that is supplied by the seller settings.`;

@@ -1,4 +1,5 @@
 "use client";
+import { migrateContentGroup } from "@/lib/listing-content-rules";
 import { CATEGORY_FIELDS_VERSION } from "@/lib/ebay/category-fields";
 import { applyBatchSkus } from "@/lib/batch-sku";
 
@@ -262,6 +263,13 @@ export default function Home() {
     groupsRef.current = groups;
   }, [groups]);
 
+  useEffect(() => {
+    if (!restored || readOnly) return;
+    setGroups((prev) => {
+      const next = prev.map(migrateContentGroup);
+      return next.some((g, i) => g !== prev[i]) ? next : prev;
+    });
+  }, [restored, readOnly]);
   const automaticAttempts = useRef(new Set<string>());
   const automaticBusy = useRef(false);
   const [automaticPreparing, setAutomaticPreparing] = useState("");

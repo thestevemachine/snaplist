@@ -1,3 +1,4 @@
+import { applyContentRules } from "@/lib/listing-content-rules";
 import { mapEyewear } from "@/lib/eyewear-inscriptions";
 import {
   categorySpecifics,
@@ -56,7 +57,11 @@ export async function prepareListing(body: any, sealedConnection?: string) {
     await collectUsage(() =>
       withDeadline(150_000, async () => {
         try {
-          const listing = parseListing(body.listing);
+          let listing = parseListing(body.listing);
+          if (listing.eyewear_kind === "uncertain")
+            throw new Error(
+              "Brillenart unklar. Bitte Korrektionsfassung oder Sonnenbrille auswählen.",
+            );
           const images =
             body.enrich === true ? imagesSchema.parse(body.images) : [];
           const dual =
@@ -207,6 +212,7 @@ export async function prepareListing(body: any, sealedConnection?: string) {
             listing.item_specifics ?? {},
             meta,
           );
+          if (glasses) listing = applyContentRules(listing);
           listing.category_fields_version = CATEGORY_FIELDS_VERSION;
           if (listing.evidence)
             listing.evidence = categorySpecifics(listing.evidence, meta);

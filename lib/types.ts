@@ -5,6 +5,9 @@ import type { ShippingSelection } from "./validation";
 // Python script's analyze_photos(), plus the routed profile.
 
 export interface ListingResult {
+  eyewear_kind?: "optical" | "sunglasses" | "uncertain" | "not_eyewear";
+  classification_note?: string;
+  content_rules_version?: number;
   title_manually_edited?: boolean;
   eyewear?: import("./eyewear-inscriptions").EyewearData;
   glasses_rules_version?: number;

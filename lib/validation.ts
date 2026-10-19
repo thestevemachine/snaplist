@@ -15,6 +15,11 @@ export const CONDITIONS = [
   "FOR_PARTS_OR_NOT_WORKING",
 ] as const;
 export const listingSchema = z.object({
+  eyewear_kind: z
+    .enum(["optical", "sunglasses", "uncertain", "not_eyewear"])
+    .optional(),
+  classification_note: z.string().max(1000).optional(),
+  content_rules_version: z.number().int().min(0).max(100).optional(),
   title_manually_edited: z.boolean().optional(),
   eyewear: z
     .object({

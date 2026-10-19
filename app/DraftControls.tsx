@@ -1,4 +1,8 @@
 "use client";
+import {
+  changeEyewearKind,
+  FIXED_CONDITION_NOTES,
+} from "@/lib/listing-content-rules";
 import { syncManualEyewear } from "@/lib/eyewear-inscriptions";
 import { isGlasses, controlledGlassesAspect } from "@/lib/glasses-rules";
 import { isSunglasses } from "@/lib/category-selection";
@@ -133,6 +137,33 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
       className="draft-controls"
     >
       <legend>eBay-Details prüfen</legend>
+      {isGlasses(l) && (
+        <label>
+          Brillenart
+          <select
+            aria-label="Brillenart"
+            value={
+              l.eyewear_kind ?? (isSunglasses(l) ? "sunglasses" : "optical")
+            }
+            onChange={(e) =>
+              onGroupEdit(g.id, {
+                listing: changeEyewearKind(
+                  l,
+                  e.target.value as "optical" | "sunglasses" | "uncertain",
+                ),
+                preparation: undefined,
+                preparationError: undefined,
+                verificationMessage: undefined,
+              })
+            }
+          >
+            <option value="optical">Korrektionsfassung / Brille</option>
+            <option value="sunglasses">Sonnenbrille</option>
+            <option value="uncertain">Unklar – bitte prüfen</option>
+          </select>
+          {l.classification_note && <small>{l.classification_note}</small>}
+        </label>
+      )}
       {!isGlasses(l) && (
         <label>
           Bekleidungsabteilung
@@ -248,7 +279,10 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
       <label>
         Zustand und Hinweise
         <textarea
-          value={l.condition_notes ?? ""}
+          value={
+            isGlasses(l) ? FIXED_CONDITION_NOTES : (l.condition_notes ?? "")
+          }
+          readOnly={isGlasses(l)}
           onChange={(e) => edit({ condition_notes: e.target.value })}
         />
       </label>
@@ -502,6 +536,12 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
             </p>
           ))}
         </details>
+      )}
+      {g.usage?.some((u) => u.stage === "analysis") && (
+        <p className="note">
+          Verwendetes Analysemodell:{" "}
+          {g.usage.filter((u) => u.stage === "analysis").at(-1)?.model}
+        </p>
       )}
       {!!g.usage?.length && (
         <p>

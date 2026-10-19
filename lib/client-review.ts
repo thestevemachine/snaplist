@@ -1,3 +1,4 @@
+import { contentIssues } from "@/lib/listing-content-rules";
 import { materialTitleIssues } from "./eyewear-inscriptions";
 import { isSunglasses } from "./category-selection";
 import type { ItemGroup } from "./types";
@@ -6,7 +7,7 @@ import { validateAspects } from "./ebay/draft";
 export function draftIssues(g: ItemGroup): string[] {
   const l = g.listing;
   if (!l) return ["Bitte zuerst einen Entwurf erstellen."];
-  const issues: string[] = materialTitleIssues(l);
+  const issues: string[] = [...materialTitleIssues(l), ...contentIssues(l)];
   if (isSunglasses(l) && !l.secondary_category_id)
     issues.push("Bitte Sonnenbrillen für Herren und Damen vorbereiten.");
   if (!skuSchema.safeParse(g.sku).success)

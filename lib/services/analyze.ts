@@ -1,4 +1,8 @@
 import {
+  applyContentRules,
+  CLASSIFICATION_PROMPT,
+} from "@/lib/listing-content-rules";
+import {
   extractEyewear,
   parseBoxDimensions,
   INSCRIPTION_PROMPT,
@@ -172,7 +176,7 @@ async function handle(input: unknown) {
     const systemPrompt =
       buildProfiledAnalysisPrompt(profile) +
       (EBAY_MARKETPLACE_ID === "EBAY_DE"
-        ? GERMAN_LISTING_PROMPT + INSCRIPTION_PROMPT
+        ? GERMAN_LISTING_PROMPT + INSCRIPTION_PROMPT + CLASSIFICATION_PROMPT
         : "");
 
     // Retry up to 3 times, mirroring the Python analyze_photos() loop — but
@@ -228,7 +232,7 @@ async function handle(input: unknown) {
         const supported = specifics.filter((s) =>
           acceptedPhotoFact(s, imageBlocks.length),
         );
-        const listing = parseListing({
+        let listing = parseListing({
           ...raw,
           item_specifics: Object.fromEntries(
             supported.map((s: any) => [s.name, s.value]),
@@ -270,6 +274,30 @@ async function handle(input: unknown) {
         // Deterministic title cleanup happens HERE, before the seller reviews —
         // the title on the card is exactly the title that publishes.
         listing.title = optimizeTitle(listing);
+        if (isGlasses(listing)) {
+          listing = applyContentRules(listing);
+          // Seller owns condition statements; free-form image prose must not invent wear.
+          const facts = Object.entries(listing.eyewear?.fields ?? {})
+            .filter(
+              ([key, field]) =>
+                field?.value &&
+                [
+                  "brand",
+                  "modelNumber",
+                  "modelName",
+                  "lensWidth",
+                  "bridgeWidth",
+                  "templeLength",
+                ].includes(key),
+            )
+            .map(
+              ([key, field]) =>
+                `${({ brand: "Marke", modelNumber: "Modellnummer", modelName: "Modellname", lensWidth: "Glasbreite", bridgeWidth: "Stegbreite", templeLength: "Bügellänge" } as Record<string, string>)[key]}: ${field!.value}`,
+            );
+          listing.description = ["Ungetragen ohne Etui", ...facts].join("\n");
+          listing.key_features = [];
+          listing = applyContentRules(listing);
+        }
         // Same principle for the optional storewide markup: applied pre-review,
         // so the price on the card is exactly the price that publishes.
         listing.suggested_price = applyPriceMarkup(

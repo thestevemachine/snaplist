@@ -1,3 +1,8 @@
+import { isGlasses } from "@/lib/glasses-rules";
+import {
+  FIXED_CONDITION_NOTES,
+  contentIssues,
+} from "@/lib/listing-content-rules";
 import { materialTitleIssues } from "../eyewear-inscriptions";
 import { categorySpecifics } from "./category-fields";
 import { isSunglasses } from "../category-selection";
@@ -133,6 +138,7 @@ export async function submitTradingListing(
   if (meta.some((aspect) => aspect.name === "EAN")) aspects.EAN = [ean];
   const issues = [
     ...validateAspects(aspects, meta),
+    ...contentIssues(listing),
     ...materialTitleIssues({
       ...listing,
       item_specifics: Object.fromEntries(
@@ -142,6 +148,7 @@ export async function submitTradingListing(
   ];
   if (issues.length) throw new Error(issues.join("; "));
   // Description is editable plain text. Escape HTML first, then XML; preserve lines.
+  const conditionNotes = isGlasses(listing) ? FIXED_CONDITION_NOTES : listing.condition_notes;
   const description = xml(listing.description).replace(/\r?\n/g, "<br>");
   const grams =
     shipping.weightOz === undefined
@@ -162,7 +169,7 @@ export async function submitTradingListing(
     <SKU>${xml(sku)}</SKU><InventoryTrackingMethod>SKU</InventoryTrackingMethod>
     <UUID>${listingUuid(sku)}</UUID><ConditionID>${conditionId}</ConditionID>
     <ProductListingDetails><EAN>${xml(ean)}</EAN><IncludeeBayProductDetails>false</IncludeeBayProductDetails></ProductListingDetails>
-    ${listing.condition_notes ? `<ConditionDescription>${xml(listing.condition_notes)}</ConditionDescription>` : ""}
+    ${conditionNotes ? `<ConditionDescription>${xml(conditionNotes)}</ConditionDescription>` : ""}
     <PictureDetails>${photos.map((p) => `<PictureURL>${xml(p)}</PictureURL>`).join("")}</PictureDetails>
     <ItemSpecifics>${Object.entries(aspects)
       .map(
