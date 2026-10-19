@@ -258,3 +258,41 @@ it("fills missing required Besonderheiten for an already prepared version-4 draf
   );
   expect(body.usage).toEqual([]);
 });
+
+it("maps stored front-photo height into the actual category Glashöhe field", async () => {
+  vi.mocked(categoryAspects).mockResolvedValue([
+    {
+      name: "Glashöhe",
+      mode: "FREE_TEXT",
+      values: [],
+      cardinality: "SINGLE",
+      usage: "OPTIONAL",
+    },
+  ]);
+  const data = await (
+    await prepareListing({
+      listing: {
+        title: "Test Brille",
+        description: "Text",
+        eyewear_kind: "optical",
+        category_id: "180957",
+        category_fields_version: 4,
+        glasses_rules_version: 4,
+        item_specifics: { Glashöhe: "" },
+        frontMeasurement: {
+          method: "front-photo-ratio-v1",
+          status: "uncertain",
+          photoIndex: 1,
+          reasons: ["Perspektive"],
+          lensHeightMm: 40,
+          totalWidthMm: 138,
+        },
+      },
+      enrich: false,
+    })
+  ).json();
+  expect(data.ok).toBe(true);
+  expect(data.listing.item_specifics.Glashöhe).toBe("40 mm");
+  expect(data.listing.estimates.Glashöhe).toBe(59);
+  expect(data.usage).toEqual([]);
+});

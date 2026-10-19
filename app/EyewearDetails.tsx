@@ -38,8 +38,8 @@ export function EyewearDetails({
           <p>
             Frontfoto {listing.frontMeasurement.photoIndex || "nicht erkannt"}.
             Scheibenhöhe und Gesamtbreite sind aus Pixelverhältnissen berechnet
-            und keine geprüften Messwerte. Sie werden nicht automatisch in
-            eBay-Merkmale übernommen.
+            und keine geprüften Messwerte. Leere passende Maßfelder werden als
+            Schätzung ergänzt; manuelle Werte bleiben erhalten.
           </p>
           {listing.frontMeasurement.referenceMm && (
             <p>

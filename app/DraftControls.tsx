@@ -1,4 +1,5 @@
 "use client";
+import { frontMeasurementFields } from "@/lib/front-measurement-fields";
 import {
   changeEyewearKind,
   FIXED_CONDITION_NOTES,
@@ -47,14 +48,33 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
       g.postStatus === "posting"
     )
       return;
-    const patch = eyewearFeatureDefaultPatch(g.listing, g.preparation.aspects);
-    if (patch) onGroupEdit(g.id, { listing: { ...g.listing, ...patch } });
+    const featurePatch = eyewearFeatureDefaultPatch(
+      g.listing,
+      g.preparation.aspects,
+    );
+    const updated = { ...g.listing, ...featurePatch };
+    const measurementPatch = frontMeasurementFields(
+      updated,
+      g.preparation.aspects,
+    );
+    if (featurePatch || measurementPatch)
+      onGroupEdit(g.id, { listing: { ...updated, ...measurementPatch } });
   }, [g.id, g.listing, g.preparation, g.postStatus, onGroupEdit]);
   if (!g.listing) return null;
   const l = g.listing;
   const edit = (patch: Partial<typeof l>) => {
     const next = { ...l, ...patch };
     if (patch.item_specifics) {
+      next.manual_measurement_fields = [
+        ...new Set([
+          ...(l.manual_measurement_fields ?? []),
+          ...Object.keys(patch.item_specifics).filter(
+            (name) =>
+              isMeasurement(name) &&
+              patch.item_specifics![name] !== l.item_specifics?.[name],
+          ),
+        ]),
+      ];
       for (const [key, field] of [
         ["Brand", "brand"],
         ["Marke", "brand"],

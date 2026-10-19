@@ -4,7 +4,10 @@ const strings = { type: "array", items: string };
 const point = {
   type: "object",
   additionalProperties: false,
-  properties: { x: { type: "number" }, y: { type: "number" } },
+  properties: {
+    x: { type: "number", minimum: 0, maximum: 1 },
+    y: { type: "number", minimum: 0, maximum: 1 },
+  },
   required: ["x", "y"],
 };
 const contour = {
