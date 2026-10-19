@@ -194,7 +194,7 @@ export function eyewearWarnings(l: ListingResult) {
     .filter(([k]) => names.material.includes(k))
     .map(([, v]) => v)
     .join(" | ");
-  for (const word of ["Titan", "Acetat"]) {
+  for (const word of ["Titan", "Acetat", "Metall", "Kunststoff", "Stahl"]) {
     if (
       new RegExp(`\\b${word}(?:ium)?\\b`, "i").test(l.title) &&
       !new RegExp(`\\b${word}\\b`, "i").test(material)

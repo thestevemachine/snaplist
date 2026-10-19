@@ -172,3 +172,8 @@ it("builds material before model with dimensions and never computes total", () =
     }).length,
   ).toBe(1);
 });
+it.each(['Titan','Acetat','Metall','Kunststoff','Stahl'])('checks title consistency for material %s', material => {
+ const listing: ListingResult = {title:`Brille ${material}`,description:'',eyewear:{fields:{},warnings:[]},item_specifics:{Fassungsmaterial:material}};
+ expect(materialTitleIssues(listing)).toEqual([]);
+ expect(materialTitleIssues({...listing,item_specifics:{}})).toHaveLength(1);
+});
