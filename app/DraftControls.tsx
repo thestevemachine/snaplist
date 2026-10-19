@@ -2,7 +2,6 @@
 import { useState, useRef, useEffect } from "react";
 import type { ItemGroup, Photo } from "@/lib/types";
 import type { AccountOptions } from "@/lib/ebay/publish";
-import { applyShippingDefaults } from "@/lib/shipping-defaults";
 import { requestText } from "@/lib/text-dialog";
 import { loadAccountOptions } from "@/lib/account-options-client";
 import { apiPost } from "@/lib/api-client";
@@ -102,10 +101,6 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
     try {
       const options = await loadAccountOptions(refresh);
       setOptions(options);
-      const current = latest.current;
-      const shipping = applyShippingDefaults(current.shipping ?? {}, options);
-      if (JSON.stringify(shipping) !== JSON.stringify(current.shipping ?? {}))
-        onGroupEdit(g.id, { shipping });
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -212,7 +207,9 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
             onChange={(e) =>
               edit({
                 ebay_condition: e.target.value,
-                condition: e.target.value.startsWith("NEW")
+                condition: e.target.value === "NEW_OTHER"
+                  ? "NEW_NO_TAGS"
+                  : e.target.value.startsWith("NEW")
                   ? "NEW_WITH_TAGS"
                   : e.target.value === "FOR_PARTS_OR_NOT_WORKING"
                     ? "FOR_PARTS_OR_NOT_WORKING"
@@ -355,18 +352,7 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
       </details>
       <details open>
         <summary>Shipping and returns</summary>
-        <p className="note">
-          USPS Ground Advantage · flat buyer charge · 2 business days handling.
-          Usually $7.95 for tees, shirts, blouses, lightweight pants, sandals
-          and light shoes without boxes; $9.95 for heavier shoes, sweaters,
-          jackets and jeans. Select the existing eBay policy you want for this
-          item.
-        </p>
-        <p className="note">
-          Your usual $7.95 shipping, Managed Payments, returns-accepted policy
-          and shipping origin are selected automatically when available. Change
-          any selection for this item.
-        </p>
+        <p className="note">Gespeicherte Shop-Vorgaben werden für neue Angebote verwendet. Hier kannst du sie für diese Brille ändern.</p>
         {options && options.returns.length === 0 && (
           <p className="note-error">
             No returns-accepted policy was found. Check your eBay return policy,

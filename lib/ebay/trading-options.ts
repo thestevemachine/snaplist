@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { boundedFetch } from "@/lib/network";
 import type { AccountOptions } from "./publish";
 import { EBAY_ACC_BASE } from "./config";
@@ -58,7 +59,10 @@ export async function fetchTradingOptions(
   const country = address?.Country || "",
     postalCode = address?.PostalCode || "",
     city = address?.CityName || "";
+  const sellerName = String(user.User?.UserID || "");
   return {
+    sellerKey: sellerName ? createHash("sha256").update(`EBAY_DE:${sellerName}`).digest("hex") : undefined,
+    sellerName,
     fulfillment,
     payment,
     returns,

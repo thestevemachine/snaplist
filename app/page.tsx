@@ -24,6 +24,9 @@ import { getAnalysisModel, getSortModel } from "@/lib/model-preferences";
 import { resizeImage } from "@/lib/resize";
 import { buildSku } from "@/lib/sku";
 import { chunkImagesForUpload } from "@/lib/uploadBatches";
+import { ShopSettings } from "./ShopSettings";
+import { loadAccountOptions } from "@/lib/account-options-client";
+import { applyShopListing, applyShopGroup, readShopPreferences, validPolicyDefaults } from "@/lib/shop-preferences";
 import { EbayConnect } from "./EbayConnect";
 import { ModelSelector } from "./ModelSelector";
 import { ReviewBoard } from "./ReviewBoard";
@@ -548,12 +551,18 @@ export default function Home() {
         if (!data.ok || !data.listing) {
           throw new Error(data.error || "Could not write this listing.");
         }
+        const shopOptions = await loadAccountOptions().catch(() => undefined);
+        const shop = readShopPreferences(shopOptions?.sellerKey);
+        const baseDescription = data.listing.description;
+        data.listing = applyShopListing(data.listing, shop);
         setGroups((prev) =>
           prev.map((g) =>
             g.id === groupId
               ? {
                   ...g,
                   status: "writing",
+                  shopBaseDescription: baseDescription,
+                  shipping: { ...(shopOptions ? validPolicyDefaults(shop, shopOptions) : {}), ...g.shipping },
                   listing: data.listing,
                   evidencePhotoIds: [
                     ...(group.analysisPhotoIds ?? group.photoIds),
@@ -1018,6 +1027,14 @@ export default function Home() {
       </header>
 
       <EbayConnect />
+      <ShopSettings groups={groups} disabled={readOnly || !restored || queueBusy.current || inFlight.current.size > 0}
+        onApply={(settings, options) => {
+          if (readOnly || queueBusy.current || inFlight.current.size) throw new Error("Bitte laufende Verarbeitung abwarten.");
+          const current = groupsRef.current;
+          const next = current.map(g => applyShopGroup(g, settings, options));
+          setGroups(next);
+          return next.filter((g, i) => g !== current[i]).length;
+        }} />
 
       {step === "upload" && (
         <>
@@ -1197,7 +1214,17 @@ export default function Home() {
         <CloudBatch
           groups={usableGroups}
           photos={photos}
-          onResult={editGroup}
+          onResult={(id, patch) => {
+            if (!patch.listing) { editGroup(id, patch); return; }
+            void (async () => {
+              try {
+                const options = await loadAccountOptions();
+                const current = groupsRef.current.find(g => g.id === id);
+                if (!current || current.postStatus === "posted" || current.postStatus === "posting") return;
+                editGroup(id, applyShopGroup({ ...current, ...patch, shopBaseDescription: patch.listing!.description }, readShopPreferences(options.sellerKey), options));
+              } catch (e) { editGroup(id, { ...patch, preparationError: `Vorgaben nicht übernommen: ${(e as Error).message}` }); }
+            })();
+          }}
           onOpen={() => setStep("listings")}
         />
       )}

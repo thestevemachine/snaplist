@@ -898,6 +898,8 @@ export interface AccountSetup {
 }
 
 export interface AccountOptions {
+  sellerKey?: string;
+  sellerName?: string;
   fulfillment: { id: string; name: string }[];
   payment: { id: string; name: string }[];
   returns: { id: string; name: string }[];

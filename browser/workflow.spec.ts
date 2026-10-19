@@ -396,6 +396,7 @@ test("defaults the seller policies and allows review without package measurement
       json: {
         ok: true,
         options: {
+          sellerKey: "test-seller", sellerName: "Test",
           fulfillment: [
             {
               id: "usual",
@@ -414,6 +415,7 @@ test("defaults the seller policies and allows review without package measurement
       },
     }),
   );
+  await page.evaluate(() => localStorage.setItem("snaplist-shop-v1:test-seller", JSON.stringify({version:1, shipping:{fulfillmentPolicyId:"usual",paymentPolicyId:"pay",returnPolicyId:"ret",locationKey:"home"},descriptionTemplate:""})));
   await draft(page);
   await expect(page.getByLabel("Shipping policy", { exact: true })).toHaveValue(
     "usual",
@@ -500,4 +502,45 @@ test("SNAPLIST saves an incomplete draft locally without an eBay connection", as
     "Mein unvollständiger Brillenentwurf",
   );
   await expect(page.getByLabel("Price", { exact: true })).toHaveValue("");
+});
+
+test("shop preferences persist, fill future drafts and keep card overrides for eBay", async ({ page }) => {
+  await setup(page);
+  await page.route("**/api/ebay/options", r => r.fulfill({ json: { ok: true, options: {
+    sellerKey: "seller-one", sellerName: "StefanTest",
+    fulfillment: [{ id: "ship", name: "DHL" }], payment: [{ id: "pay", name: "Zahlung" }],
+    returns: [{ id: "ret", name: "Rückgabe" }], locations: [{ id: "home", name: "Berlin" }]
+  } } }));
+  await page.getByText("Shop- und Batch-Vorgaben", { exact: true }).click();
+  await page.getByRole("button", { name: "eBay-Konto und Vorgaben laden" }).click();
+  await expect(page.getByText("StefanTest", { exact: true })).toBeVisible();
+  await page.getByLabel("Versand als Standard", { exact: true }).selectOption("ship");
+  await page.getByLabel("Zahlung als Standard", { exact: true }).selectOption("pay");
+  await page.getByLabel("Rückgabe als Standard", { exact: true }).selectOption("ret");
+  await page.getByLabel("Artikelstandort als Standard", { exact: true }).selectOption("home");
+  await page.getByLabel("Beschreibungsvorlage", { exact: true }).fill("DE: Meine geprüfte Brille\nEN: My glasses\n{{beschreibung}}");
+  await page.getByRole("button", { name: "Als Standard für künftige Batches speichern" }).click();
+  await expect(page.getByText(/Vorgaben für künftige Batches auf diesem Gerät gespeichert/)).toBeVisible();
+  await page.reload();
+  await draft(page);
+  await expect(page.getByLabel("Shipping policy", { exact: true })).toHaveValue("ship");
+  await expect(page.getByLabel("Condition", { exact: true })).toHaveValue("NEW_NO_TAGS");
+  const description = page.getByLabel("Description", { exact: true });
+  await expect(description).toHaveValue("DE: Meine geprüfte Brille\nEN: My glasses\nVisible scuff. Untested.");
+  await description.fill("Individuell geändert");
+  await page.getByLabel("eBay condition", { exact: true }).selectOption("USED_EXCELLENT");
+  await page.route("**/api/ebay/upload-photos", r => r.fulfill({ json: { ok: true, urls: ["https://i.ebayimg.com/1.jpg", "https://i.ebayimg.com/2.jpg"] } }));
+  let verified = false;
+  await page.route("**/api/ebay/verify", r => {
+    const b = r.request().postDataJSON();
+    expect(b.listing.description).toBe("Individuell geändert");
+    expect(b.listing.ebay_condition).toBe("USED_EXCELLENT");
+    expect(b.listing.item_specifics.EAN).toBe("Nicht zutreffend");
+    expect(b.shipping.fulfillmentPolicyId).toBe("ship");
+    verified = true;
+    return r.fulfill({ json: { success: true, verified: true } });
+  });
+  await page.getByRole("button", { name: "Bei eBay prüfen · nicht veröffentlichen" }).click();
+  await expect(page.getByText(/eBay-Prüfung erfolgreich/)).toBeVisible();
+  expect(verified).toBe(true);
 });

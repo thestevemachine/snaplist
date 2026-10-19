@@ -89,7 +89,9 @@ export async function prepareListing(body: any, sealedConnection?: string) {
             .map((id) => ({
               value: CONDITION_ID_ENUM[id],
               label:
-                id === 2990
+                id === 1500
+                  ? "Neu ohne Etikett / neu: Sonstige (1500)"
+                  : id === 2990
                   ? "Pre-owned Excellent (2990)"
                   : `${CONDITION_ID_ENUM[id].replace(/_/g, " ")} (${id})`,
             }));

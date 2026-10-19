@@ -11,7 +11,7 @@ const TITLE_LIMIT = 80;
 // eBay's pre-owned condition tiers, matching the values the model returns.
 const CONDITIONS: { value: string; label: string }[] = [
   { value: "NEW_WITH_TAGS", label: "New with tags" },
-  { value: "NEW_NO_TAGS", label: "New without tags" },
+  { value: "NEW_NO_TAGS", label: "Neu ohne Etikett" },
   { value: "EXCELLENT", label: "Pre-owned · Excellent" },
   { value: "VERY_GOOD", label: "Pre-owned · Very good" },
   { value: "GOOD", label: "Pre-owned · Good" },
@@ -342,8 +342,9 @@ export function ListingCard({
           )}
 
           <div className="result-field">
-            <label>Description</label>
+            <label htmlFor={`description-${group.id}`}>Description</label>
             <textarea
+              id={`description-${group.id}`}
               value={listing.description}
               onChange={(e) =>
                 onEdit(group.id, { description: e.target.value })

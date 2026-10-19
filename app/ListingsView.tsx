@@ -8,7 +8,6 @@ import {
   loadAccountOptions,
   clearAccountOptions,
 } from "@/lib/account-options-client";
-import { applyShippingDefaults } from "@/lib/shipping-defaults";
 import type { AccountOptions } from "@/lib/ebay/publish";
 import type { QueueProgress } from "@/lib/batch-queue";
 import type { ItemGroup, ListingResult, Photo } from "@/lib/types";
@@ -92,15 +91,6 @@ export function ListingsView(props: ListingsViewProps) {
       window.removeEventListener("ebay-connection-changed", changed);
     };
   }, [ebayConnected]);
-  useEffect(() => {
-    if (!options) return;
-    for (const g of groups) {
-      if (!editable(g)) continue;
-      const shipping = applyShippingDefaults(g.shipping ?? {}, options);
-      if (JSON.stringify(shipping) !== JSON.stringify(g.shipping ?? {}))
-        latest.current.onGroupEdit(g.id, { shipping });
-    }
-  }, [groups, options]);
   const issues = (g: ItemGroup) => {
     const result = draftIssues(g);
     if (groups.some((other) => other.id !== g.id && other.sku === g.sku))

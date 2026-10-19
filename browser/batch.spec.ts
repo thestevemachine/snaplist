@@ -51,6 +51,7 @@ async function seed(page: Page, count: number, unfinished = false) {
         name: `Item ${i}`,
         photoIds: photos.slice(i * 5, i * 5 + 5).map((p) => p.id),
         status: unfinished ? "idle" : "done",
+        shipping: { fulfillmentPolicyId: "usual", paymentPolicyId: "pay", returnPolicyId: "ret", locationKey: "home" },
         listing: {
           title: `Item ${i}`,
           description: "Seller description",

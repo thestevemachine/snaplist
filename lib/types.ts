@@ -97,6 +97,7 @@ export interface CompsSummary {
 }
 
 export interface ItemGroup {
+  shopBaseDescription?: string;
   cloudBatchId?: string;
   id: string;
   sku: string; // bin reference, e.g. "K75-A"

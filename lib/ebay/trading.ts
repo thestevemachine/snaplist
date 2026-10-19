@@ -41,6 +41,7 @@ export interface TradingResponse {
     SeverityCode?: string;
   }[];
   User?: {
+    UserID?: string;
     RegistrationAddress?: {
       Country?: string;
       PostalCode?: string;
