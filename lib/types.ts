@@ -5,10 +5,18 @@ import type { ShippingSelection } from "./validation";
 // Python script's analyze_photos(), plus the routed profile.
 
 export interface ListingResult {
+  eyewear_kind?: "optical" | "sunglasses" | "uncertain" | "not_eyewear";
+  classification_note?: string;
+  content_rules_version?: number;
+  title_manually_edited?: boolean;
+  eyewear?: import("./eyewear-inscriptions").EyewearData;
+  glasses_rules_version?: number;
+  category_fields_version?: number;
   title: string;
   category?: string;
   category_hint?: string;
   category_id?: string;
+  secondary_category_id?: string;
   ebay_condition?: string;
   evidence?: Record<string, number[]>;
   // Confidence (60–100) for specifics the AI estimated rather than read off a label.
@@ -22,6 +30,7 @@ export interface ListingResult {
   condition_notes?: string;
   measurements?: string;
   description: string;
+  best_offer_enabled?: boolean;
   suggested_price?: number | string;
   search_terms?: string[];
   seo_keywords?: string[];
@@ -97,6 +106,7 @@ export interface CompsSummary {
 }
 
 export interface ItemGroup {
+  shopBaseDescription?: string;
   cloudBatchId?: string;
   id: string;
   sku: string; // bin reference, e.g. "K75-A"
@@ -114,6 +124,14 @@ export interface ItemGroup {
   imageUrls?: string[];
   uploadedPhotoIds?: string[];
   publicationAttemptSku?: string;
+  publicationId?: string;
+  publicationConflict?: { listingId: string; sku: string; title: string };
+  publicationRepair?: {
+    previousId: string;
+    previousSku: string;
+    conflictItemId: string;
+    repairedAt: number;
+  };
   evidencePhotoIds?: string[];
   // Market price check (fetched right after the listing is written)
   comps?: CompsSummary;
@@ -123,9 +141,12 @@ export interface ItemGroup {
   postError?: string;
   // Non-fatal quality warnings from the last publish (e.g. schema unavailable)
   postWarnings?: string[];
+  verificationMessage?: string;
 }
 
 export interface PreparedCategory {
+  secondaryCategoryId?: string;
+  secondaryCategoryName?: string;
   suggestions?: import("./ebay/taxonomy").CategorySuggestion[];
   categoryId: string;
   categoryName: string;

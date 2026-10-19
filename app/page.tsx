@@ -1,4 +1,8 @@
 "use client";
+import { withPublicationIdentity } from "@/lib/publication-identity";
+import { migrateContentGroup } from "@/lib/listing-content-rules";
+import { CATEGORY_FIELDS_VERSION } from "@/lib/ebay/category-fields";
+import { applyBatchSkus } from "@/lib/batch-sku";
 
 import {
   useCallback,
@@ -8,6 +12,8 @@ import {
   useRef,
   useState,
 } from "react";
+import { isGlasses, GLASSES_RULES_VERSION } from "@/lib/glasses-rules";
+import { isSunglasses } from "@/lib/category-selection";
 import { runBatch, type QueueProgress } from "@/lib/batch-queue";
 import {
   loadDraft,
@@ -24,6 +30,14 @@ import { getAnalysisModel, getSortModel } from "@/lib/model-preferences";
 import { resizeImage } from "@/lib/resize";
 import { buildSku } from "@/lib/sku";
 import { chunkImagesForUpload } from "@/lib/uploadBatches";
+import { ShopSettings } from "./ShopSettings";
+import { loadAccountOptions } from "@/lib/account-options-client";
+import {
+  applyShopListing,
+  applyShopGroup,
+  readShopPreferences,
+  validPolicyDefaults,
+} from "@/lib/shop-preferences";
 import { EbayConnect } from "./EbayConnect";
 import { ModelSelector } from "./ModelSelector";
 import { ReviewBoard } from "./ReviewBoard";
@@ -86,6 +100,13 @@ async function readJson(
 }
 
 export default function Home() {
+  const [publicationConfirmation, setPublicationConfirmation] =
+    useState<ItemGroup | null>(null);
+  const publicationDialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (publicationConfirmation) publicationDialog.current?.showModal();
+    else publicationDialog.current?.close();
+  }, [publicationConfirmation]);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [binPrefix, setBinPrefix] = useState("");
   const [step, setStep] = useState<Step>("upload");
@@ -200,7 +221,7 @@ export default function Home() {
   useLayoutEffect(() => {
     if (!restored || readOnly) return;
     let current = true;
-    setSaveStatus("Saving…");
+    setSaveStatus("Wird gespeichert…");
     const timer = setTimeout(() => {
       void saveDraft({
         version: 1,
@@ -213,7 +234,7 @@ export default function Home() {
         updatedAt: Date.now(),
       })
         .then(() => {
-          if (current) setSaveStatus("Saved on this device");
+          if (current) setSaveStatus("Auf diesem Gerät gespeichert");
         })
         .catch(() => {
           if (current)
@@ -243,6 +264,89 @@ export default function Home() {
     groupsRef.current = groups;
   }, [groups]);
 
+  useEffect(() => {
+    if (!restored || readOnly) return;
+    setGroups((prev) => {
+      const next = prev.map(migrateContentGroup);
+      return next.some((g, i) => g !== prev[i]) ? next : prev;
+    });
+  }, [restored, readOnly]);
+  const automaticAttempts = useRef(new Set<string>());
+  const automaticBusy = useRef(false);
+  const [automaticPreparing, setAutomaticPreparing] = useState("");
+  useEffect(() => {
+    if (!restored || readOnly || !ebayConnected || automaticBusy.current)
+      return;
+    const g = groups.find(
+      (g) =>
+        g.listing &&
+        isGlasses(g.listing) &&
+        g.status === "done" &&
+        g.postStatus !== "posted" &&
+        g.postStatus !== "posting" &&
+        !inFlight.current.has(g.id) &&
+        !automaticAttempts.current.has(g.id) &&
+        (!g.preparation ||
+          (isSunglasses(g.listing) && !g.preparation.secondaryCategoryId) ||
+          g.listing.glasses_rules_version !== GLASSES_RULES_VERSION ||
+          g.listing.category_fields_version !== CATEGORY_FIELDS_VERSION),
+    );
+    if (!g?.listing) return;
+    automaticAttempts.current.add(g.id);
+    automaticBusy.current = true;
+    setAutomaticPreparing(g.sku);
+    const snapshot = g.listing;
+    void (async () => {
+      try {
+        const response = await apiPost("/api/ebay/prepare", {
+          listing: snapshot,
+          enrich: false,
+        });
+        const result = await readJson(response);
+        if (!result.ok)
+          throw new Error(
+            result.error || "Kategorie konnte nicht vorbereitet werden.",
+          );
+        setGroups((previous) =>
+          previous.map((current) =>
+            current.id !== g.id ||
+            current.status !== "done" ||
+            current.postStatus === "posted" ||
+            current.postStatus === "posting"
+              ? current
+              : current.listing !== snapshot
+                ? {
+                    ...current,
+                    preparationError:
+                      "Deine Änderungen bleiben erhalten. Bitte die Kategorie in der Detailkarte erneut vorbereiten.",
+                  }
+                : {
+                    ...current,
+                    listing: result.listing,
+                    preparation: result.preparation,
+                    preparationError: undefined,
+                    verificationMessage: undefined,
+                  },
+          ),
+        );
+      } catch (error) {
+        setGroups((previous) =>
+          previous.map((current) =>
+            current.id === g.id &&
+            current.listing === snapshot &&
+            current.postStatus !== "posted" &&
+            current.postStatus !== "posting"
+              ? { ...current, preparationError: (error as Error).message }
+              : current,
+          ),
+        );
+      } finally {
+        automaticBusy.current = false;
+        setAutomaticPreparing("");
+      }
+    })();
+  }, [groups, restored, readOnly, ebayConnected, automaticPreparing]);
+
   // Keep eBay connection status in sync (also after the connect bar updates).
   useEffect(() => {
     const check = () =>
@@ -265,9 +369,9 @@ export default function Home() {
     async (fileList: FileList | null) => {
       if (!fileList || fileList.length === 0 || importing.current) return;
       setError(null);
-      const files = Array.from(fileList).filter((f) =>
-        f.type.startsWith("image/"),
-      );
+      const files = Array.from(fileList)
+        .filter((f) => f.type.startsWith("image/"))
+        .sort((a, b) => a.name.localeCompare(b.name, "de", { numeric: true }));
       if (files.length === 0) {
         setError("Those didn't look like photos. Use JPG, PNG, or WebP.");
         return;
@@ -393,7 +497,11 @@ export default function Home() {
         id: newId(),
         sku: `${buildSku(binPrefix, skuOffset + i).slice(0, 37)}-${newId().replace(/-/g, "").slice(0, 12)}`,
         name: g.name,
-        photoIds: g.photoIds,
+        photoIds: [...g.photoIds].sort(
+          (a, b) =>
+            photos.findIndex((p) => p.id === a) -
+            photos.findIndex((p) => p.id === b),
+        ),
         status: "idle",
       }));
       setSkuStart(skuOffset);
@@ -419,9 +527,13 @@ export default function Home() {
       prev.map((g) =>
         g.id === groupId &&
         !inFlight.current.has(g.id) &&
-        !g.publicationAttemptSku &&
+        g.postStatus !== "posting" &&
         g.postStatus !== "posted"
-          ? { ...g, sku }
+          ? {
+              ...withPublicationIdentity(g),
+              sku,
+              verificationMessage: undefined,
+            }
           : g,
       ),
     );
@@ -519,16 +631,46 @@ export default function Home() {
   const writeGroup = useCallback(
     async (groupId: string) => {
       // Snapshot this group's photos from the latest state (no stale closure).
-      const group = groupsRef.current.find((g) => g.id === groupId);
-      if (!group || group.cloudBatchId || inFlight.current.has(groupId)) return;
+      let group = groupsRef.current.find((g) => g.id === groupId);
+      if (
+        !group ||
+        group.cloudBatchId ||
+        group.postStatus === "posted" ||
+        group.postStatus === "posting" ||
+        group.publicationAttemptSku ||
+        inFlight.current.has(groupId)
+      )
+        return;
       inFlight.current.add(groupId);
-      const imgs = (group.analysisPhotoIds ?? group.photoIds)
+      const selectedPhotos = (group.analysisPhotoIds ?? group.photoIds)
         .map((id) => photoMap.get(id))
-        .filter((p): p is Photo => Boolean(p) && p!.analysisSelected !== false)
-        .map((p) => ({ mediaType: p.mediaType, data: p.data }));
+        .filter((p): p is Photo => Boolean(p) && p!.analysisSelected !== false);
+      const imgs = selectedPhotos.map((p) => ({
+        mediaType: p.mediaType,
+        data: p.data,
+      }));
+      const last = selectedPhotos.at(-1);
+      if (
+        last?.uploadData &&
+        imgs.slice(0, -1).reduce((n, p) => n + p.data.length, 0) +
+          last.uploadData.length <
+          4_000_000
+      )
+        imgs[imgs.length - 1] = {
+          mediaType: "image/jpeg",
+          data: last.uploadData,
+        };
       setGroups((prev) =>
         prev.map((g) =>
-          g.id === groupId ? { ...g, status: "writing", error: undefined } : g,
+          g.id === groupId
+            ? {
+                ...g,
+                status: "writing",
+                error: undefined,
+                verificationMessage: undefined,
+                preparationError: undefined,
+              }
+            : g,
         ),
       );
       try {
@@ -542,12 +684,23 @@ export default function Home() {
         if (!data.ok || !data.listing) {
           throw new Error(data.error || "Could not write this listing.");
         }
+        const shopOptions = await loadAccountOptions().catch(() => undefined);
+        const shop = readShopPreferences(shopOptions?.sellerKey);
+        const baseDescription = data.listing.description;
+        data.listing = applyShopListing(data.listing, shop);
         setGroups((prev) =>
           prev.map((g) =>
             g.id === groupId
               ? {
                   ...g,
                   status: "writing",
+                  shopBaseDescription: baseDescription,
+                  shipping: {
+                    ...(shopOptions
+                      ? validPolicyDefaults(shop, shopOptions)
+                      : {}),
+                    ...g.shipping,
+                  },
                   listing: data.listing,
                   evidencePhotoIds: [
                     ...(group.analysisPhotoIds ?? group.photoIds),
@@ -651,6 +804,27 @@ export default function Home() {
     [photoMap],
   );
 
+  const reanalyzeAll = async () => {
+    const ids = groupsRef.current
+      .filter(
+        (g) =>
+          g.photoIds.length &&
+          !g.cloudBatchId &&
+          g.status !== "writing" &&
+          g.postStatus !== "posted" &&
+          g.postStatus !== "posting" &&
+          !g.publicationAttemptSku,
+      )
+      .map((g) => g.id);
+    if (
+      !ids.length ||
+      !window.confirm(
+        `${ids.length} offene Brillen mit vorhandenen Fotos neu analysieren? Titel, Merkmale, Beschreibung und manuelle Änderungen daran werden ersetzt. SKU und Versandregeln bleiben erhalten. Es entstehen Analysekosten.`,
+      )
+    )
+      return;
+    await startQueue(ids, "write", writeGroup);
+  };
   const writeAll = async () => {
     // Only write listings that don't exist yet. Re-running everything after a
     // trip back to the review step re-billed the AI for unchanged listings
@@ -671,7 +845,9 @@ export default function Home() {
 
   const editGroup = (id: string, patch: Partial<ItemGroup>) =>
     setGroups((prev) =>
-      prev.map((g) => (g.id === id ? { ...g, ...patch } : g)),
+      prev.map((g) =>
+        g.id === id ? { ...g, verificationMessage: undefined, ...patch } : g,
+      ),
     );
   const editListing = (groupId: string, patch: Partial<ListingResult>) =>
     setGroups((prev) =>
@@ -683,9 +859,13 @@ export default function Home() {
         g.postStatus !== "posting"
           ? {
               ...g,
+              verificationMessage: undefined,
               listing: {
                 ...g.listing,
                 ...patch,
+                ...(patch.title !== undefined && patch.title !== g.listing.title
+                  ? { title_manually_edited: true }
+                  : {}),
                 ...(patch.size !== undefined
                   ? {
                       item_specifics: {
@@ -704,8 +884,14 @@ export default function Home() {
     );
 
   const postGroup = useCallback(
-    async (groupId: string) => {
-      const group = groupsRef.current.find((g) => g.id === groupId);
+    async (
+      groupId: string,
+      mode: "verify" | "publish" | "resolve" | "repair" = "publish",
+      confirmedSnapshot?: string,
+    ) => {
+      const selectedGroup = groupsRef.current.find((g) => g.id === groupId);
+      if (!selectedGroup) return;
+      let group: ItemGroup = selectedGroup;
       if (
         !group ||
         !group.listing ||
@@ -713,11 +899,102 @@ export default function Home() {
         inFlight.current.has(groupId)
       )
         return;
+      if (mode === "resolve" || mode === "repair") {
+        inFlight.current.add(groupId);
+        const original = withPublicationIdentity(group);
+        editGroup(groupId, { postStatus: "posting" });
+        try {
+          const res = await apiPost("/api/ebay/publication-status", {
+            action: mode === "repair" ? "repair" : "inspect",
+            sku: original.publicationAttemptSku || original.sku,
+            publicationId: original.publicationId,
+            draftId: original.id,
+            conflictItemId: original.publicationConflict?.listingId,
+            differentItem: mode === "repair",
+          });
+          const data = await readJson(res);
+          if (!data.success)
+            throw new Error(data.error || "Abgleich fehlgeschlagen.");
+          let patch: Partial<ItemGroup> = {
+            publicationId: original.publicationId,
+            postStatus: undefined,
+            postError: undefined,
+          };
+          if (mode === "repair") {
+            patch = {
+              ...patch,
+              sku: data.sku,
+              publicationId: data.publicationId,
+              publicationAttemptSku: undefined,
+              publicationConflict: undefined,
+              publicationRepair: {
+                previousId: original.publicationId!,
+                previousSku: original.sku,
+                conflictItemId: original.publicationConflict!.listingId,
+                repairedAt: Date.now(),
+              },
+              verificationMessage: `Entwurf repariert und gespeichert. SKU: ${data.sku}. Fotos, Beschreibung, Merkmale und Preis bleiben erhalten. Noch nicht veröffentlicht.`,
+            };
+            if (data.listingId)
+              patch = {
+                ...patch,
+                postStatus: "posted",
+                listingId: data.listingId,
+              };
+          } else if (data.status === "published") {
+            patch = {
+              ...patch,
+              postStatus: "posted",
+              listingId: data.listingId,
+              publicationConflict: undefined,
+            };
+          } else if (data.status === "conflict") {
+            patch = {
+              ...patch,
+              publicationConflict: {
+                listingId: data.listingId,
+                sku: data.sku,
+                title: data.title,
+              },
+              postStatus: "error",
+              postError:
+                "Diese SKU gehört bereits zu einem eBay-Angebot. Bitte die beiden Brillen vergleichen.",
+            };
+          } else if (data.status === "uncertain") {
+            throw new Error(
+              "Der alte Versuch ist nicht eindeutig geklärt. Bitte vorhandene eBay-Angebote prüfen; es wurde keine neue Kennung vergeben.",
+            );
+          } else {
+            patch.verificationMessage =
+              "Kein aktives Angebot mit dieser SKU gefunden. Die gespeicherte Veröffentlichungskennung bleibt erhalten.";
+          }
+          const nextGroups = groupsRef.current.map((g) =>
+            g.id === groupId ? { ...g, ...patch } : g,
+          );
+          await saveDraft({
+            version: 1,
+            photos: [...photoMap.values()],
+            groups: nextGroups,
+            orphanIds,
+            binPrefix,
+            skuStart,
+            step: "listings",
+            updatedAt: Date.now(),
+          });
+          groupsRef.current = nextGroups;
+          setGroups(nextGroups);
+        } catch (error) {
+          editGroup(groupId, {
+            postStatus: "error",
+            postError: (error as Error).message,
+          });
+        } finally {
+          inFlight.current.delete(groupId);
+        }
+        return;
+      }
       const issues = draftIssues(group);
-      if (
-        groupsRef.current.some((g) => g.id !== groupId && g.sku === group.sku)
-      )
-        issues.push("Another item in this batch has the same SKU.");
+
       if (issues.length) {
         editGroup(groupId, {
           postStatus: "error",
@@ -725,15 +1002,56 @@ export default function Home() {
         });
         return;
       }
+      if (mode === "publish" && confirmedSnapshot !== JSON.stringify(group)) {
+        setPublicationConfirmation(group);
+        return;
+      }
+      group = withPublicationIdentity(group);
+      setPublicationConfirmation(null);
       inFlight.current.add(groupId);
       setGroups((prev) =>
         prev.map((g) =>
           g.id === groupId
-            ? { ...g, postStatus: "posting", postError: undefined }
+            ? {
+                ...g,
+                postStatus: "posting",
+                postError: undefined,
+                verificationMessage: undefined,
+              }
             : g,
         ),
       );
       try {
+        // A changed display SKU must not hide an earlier successful request.
+        // Resolve the original SKU first; never rotate the publication identity.
+        if (
+          group.publicationAttemptSku &&
+          group.publicationAttemptSku !== group.sku
+        ) {
+          const response = await apiPost("/api/ebay/publication-status", {
+            action: "inspect",
+            sku: group.publicationAttemptSku,
+            publicationId: group.publicationId,
+          });
+          const previous = await readJson(response);
+          if (!previous.success)
+            throw new Error(previous.error || "Statusabgleich fehlgeschlagen.");
+          if (previous.status === "published") {
+            editGroup(groupId, {
+              sku: group.publicationAttemptSku,
+              postStatus: "posted",
+              listingId: previous.listingId,
+              verificationMessage:
+                "Dieses Angebot wurde bereits veröffentlicht. Die SKU bitte direkt bei eBay ändern.",
+            });
+            return;
+          }
+          if (previous.status !== "available") {
+            throw new Error(
+              "Der frühere Veröffentlichungsversuch ist noch nicht geklärt. Bitte Veröffentlichungsstatus abgleichen und gegebenenfalls den Entwurf reparieren. Deine eingegebene SKU bleibt gespeichert.",
+            );
+          }
+        }
         const images = await Promise.all(
           group.photoIds.map(async (id) => {
             const p = (await loadPhoto(id)) ?? photoMap.get(id);
@@ -793,7 +1111,8 @@ export default function Home() {
           imageUrls,
           uploadedPhotoIds: [...group.photoIds],
           postStatus: "posting" as const,
-          publicationAttemptSku: group.sku,
+          publicationAttemptSku:
+            mode === "publish" ? group.sku : group.publicationAttemptSku,
         };
         editGroup(groupId, uploaded);
         await saveDraft({
@@ -815,20 +1134,30 @@ export default function Home() {
           error?: string;
           alreadyListed?: boolean;
           warnings?: string[];
+          fees?: { name: string; amount: string; currency: string }[];
         } | null = null;
         let hadTransientRetry = false;
         for (let attempt = 0; ; attempt++) {
-          const res = await apiPost("/api/ebay/publish", {
-            sku: group.sku,
-            listing: group.listing,
-            imageUrls,
-            shipping: group.shipping,
-            review: group.preparation,
-            expectedPhotoCount: group.photoIds.length,
-          });
+          const res = await apiPost(
+            mode === "verify" ? "/api/ebay/verify" : "/api/ebay/publish",
+            {
+              confirmed: mode === "publish",
+              publicationId: group.publicationId,
+              sku: group.sku,
+              listing: group.listing,
+              imageUrls,
+              shipping: group.shipping,
+              review: group.preparation,
+              expectedPhotoCount: group.photoIds.length,
+            },
+          );
           // Wait out rate limits / transient platform errors instead of dying
           // mid-batch with "try again later".
-          if (attempt < 2 && TRANSIENT_STATUSES.has(res.status)) {
+          if (
+            mode === "verify" &&
+            attempt < 2 &&
+            TRANSIENT_STATUSES.has(res.status)
+          ) {
             hadTransientRetry = true;
             await sleep(res.status === 429 ? 65_000 : 8_000);
             continue;
@@ -849,6 +1178,17 @@ export default function Home() {
         }
         if (!data?.success)
           throw new Error(data?.error || "eBay rejected the listing.");
+        if (mode === "verify" && !data.listingId) {
+          const fees = (data.fees ?? [])
+            .filter((f) => Number(f.amount) > 0)
+            .map((f) => `${f.name}: ${f.amount} ${f.currency}`)
+            .join("; ");
+          editGroup(groupId, {
+            postStatus: undefined,
+            verificationMessage: `eBay-Prüfung erfolgreich. Nicht veröffentlicht.${fees ? ` Geschätzte Gebühren: ${fees}.` : ""}${data.warnings?.length ? ` Hinweise: ${data.warnings.join("; ")}` : ""}`,
+          });
+          return;
+        }
         const allWarnings = [...uploadWarnings, ...(data.warnings ?? [])];
         setGroups((prev) =>
           prev.map((g) =>
@@ -877,17 +1217,27 @@ export default function Home() {
     [photoMap, orphanIds, binPrefix, skuStart],
   );
 
-  const postAll = async (selected?: string[]) => {
-    const ready = groupsRef.current
-      .filter(
-        (g) =>
-          (!selected || selected.includes(g.id)) &&
-          g.status === "done" &&
-          g.postStatus !== "posted" &&
-          !draftIssues(g).length,
-      )
-      .map((g) => g.id);
-    await startQueue(ready, "post", postGroup);
+  const saveCurrentDraft = async () => {
+    if (readOnly || !restored)
+      throw new Error(
+        "Dieser Arbeitsbereich ist noch nicht zum Speichern bereit.",
+      );
+    await saveDraft({
+      version: 1,
+      photos,
+      groups: groupsRef.current,
+      orphanIds,
+      binPrefix,
+      skuStart,
+      step,
+      updatedAt: Date.now(),
+    });
+  };
+
+  const postAll = async (_selected?: string[]) => {
+    setError(
+      "Für den ersten Test bitte genau eine Brille in der Detailansicht prüfen und einzeln veröffentlichen.",
+    );
   };
 
   const hasWork = photos.length > 0 || groups.length > 0;
@@ -931,7 +1281,8 @@ export default function Home() {
     [groups],
   );
 
-  if (!restored) return <main className="wrap">Restoring saved work…</main>;
+  if (!restored)
+    return <main className="wrap">Gespeicherte Arbeit wird geladen…</main>;
   if (readOnly)
     return (
       <main className="wrap">
@@ -949,9 +1300,11 @@ export default function Home() {
             className="btn btn-ghost danger"
             onClick={startNewBatch}
             disabled={busy}
-            title={busy ? "Wait for writing or posting to finish" : undefined}
+            title={
+              busy ? "Bitte die laufende Verarbeitung abwarten" : undefined
+            }
           >
-            Start new batch
+            Neuen Stapel beginnen
           </button>
         )}
       </div>
@@ -960,37 +1313,59 @@ export default function Home() {
           🪄
         </span>
         <div>
-          <h1>Listing Writer</h1>
+          <h1>SNAPLIST</h1>
           <p>
-            Upload a pile of photos · auto-sort into items · write every
-            listing.
+            Fotos hochladen · Artikel sortieren · eBay-Angebote vorbereiten.
           </p>
         </div>
       </header>
 
       <EbayConnect />
+      {automaticPreparing && (
+        <p role="status">
+          Deutsche Merkmale und Kategorien werden vorbereitet:{" "}
+          {automaticPreparing}…
+        </p>
+      )}
+      <ShopSettings
+        groups={groups}
+        disabled={
+          readOnly ||
+          !restored ||
+          queueBusy.current ||
+          inFlight.current.size > 0
+        }
+        onApply={(settings, options) => {
+          if (readOnly || queueBusy.current || inFlight.current.size)
+            throw new Error("Bitte laufende Verarbeitung abwarten.");
+          const current = groupsRef.current;
+          const next = current.map((g) => applyShopGroup(g, settings, options));
+          setGroups(next);
+          return next.filter((g, i) => g !== current[i]).length;
+        }}
+      />
 
       {step === "upload" && (
         <>
           <section className="hero">
             <h2>
-              Dump every photo. <em>We&rsquo;ll sort it out.</em>
+              Alle Fotos hochladen. <em>Wir sortieren sie.</em>
             </h2>
             <p>
-              Add all your photos for the whole batch at once. The app groups
-              them into separate items, then writes a polished eBay listing for
-              each one.
+              Lade die Fotos des gesamten Stapels hoch. Die App ordnet sie
+              einzelnen Artikeln zu und erstellt für jeden einen prüfbaren
+              eBay-Entwurf.
             </p>
           </section>
 
           <section className="panel" aria-labelledby="upload-heading">
             <h2 id="upload-heading" className="section-label">
-              1 · Add all your photos
+              1 · Fotos hinzufügen
             </h2>
 
             <div className="field bin-field">
               <label htmlFor="bin">
-                Bin / SKU code{" "}
+                Lagerbox / SKU-Kürzel{" "}
                 <span
                   style={{
                     fontWeight: 400,
@@ -998,25 +1373,25 @@ export default function Home() {
                     letterSpacing: 0,
                   }}
                 >
-                  (where these items are stored)
+                  (Lagerort dieser Artikel)
                 </span>
               </label>
               <input
                 id="bin"
                 type="text"
-                placeholder="e.g. K75"
+                placeholder="z. B. K75"
                 value={binPrefix}
                 onChange={(e) => setBinPrefix(e.target.value)}
                 autoCapitalize="characters"
               />
               <span className="field-hint">
-                Each item gets{" "}
+                Jeder Artikel erhält{" "}
                 {binPrefix
                   ? `${binPrefix.trim()}-A, ${binPrefix.trim()}-B`
                   : "A, B, C"}
-                … with a unique suffix to prevent collisions across devices. If
-                this bin already has listings on eBay, lettering continues where
-                it left off. You can edit any SKU after sorting.
+                … mit einer eindeutigen Ergänzung. Bereits verwendete Kürzel
+                werden berücksichtigt. Nach dem Sortieren kannst du jede SKU
+                bearbeiten.
               </span>
             </div>
 
@@ -1039,9 +1414,9 @@ export default function Home() {
               <span className="icon" aria-hidden="true">
                 📸
               </span>
-              <strong>Tap to choose photos, or drag them all here</strong>
+              <strong>Fotos auswählen oder hierher ziehen</strong>
               <span>
-                Every item in the batch · up to {MAX_PHOTOS} photos · JPG, PNG,
+                Alle Artikel im Stapel · bis zu {MAX_PHOTOS} Fotos · JPG, PNG,
                 WebP
               </span>
               <input
@@ -1056,14 +1431,14 @@ export default function Home() {
 
             {importProgress && <p aria-live="polite">{importProgress}</p>}
             {photos.length > 0 && (
-              <div className="thumbs" aria-label="Selected photos">
+              <div className="thumbs" aria-label="Ausgewählte Fotos">
                 {photos.map((p) => (
                   <div className="thumb" key={p.id}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={p.previewUrl} alt="" />
                     <button
                       type="button"
-                      aria-label="Remove photo"
+                      aria-label="Foto entfernen"
                       onClick={() => removePhoto(p.id)}
                     >
                       ✕
@@ -1093,7 +1468,7 @@ export default function Home() {
                     {
                       id,
                       sku: `${buildSku(binPrefix, 0).slice(0, 37)}-${id.replace(/-/g, "").slice(0, 12)}`,
-                      name: "Single item",
+                      name: "Einzelner Artikel",
                       photoIds: photos.map((p) => p.id),
                       status: "idle",
                     },
@@ -1102,7 +1477,7 @@ export default function Home() {
                   setStep("review");
                 }}
               >
-                These photos are one item
+                Diese Fotos gehören zu einem Artikel
               </button>
               <button
                 type="button"
@@ -1148,7 +1523,41 @@ export default function Home() {
         <CloudBatch
           groups={usableGroups}
           photos={photos}
-          onResult={editGroup}
+          onResult={(id, patch) => {
+            if (!patch.listing) {
+              editGroup(id, patch);
+              return;
+            }
+            void (async () => {
+              try {
+                const options = await loadAccountOptions();
+                const current = groupsRef.current.find((g) => g.id === id);
+                if (
+                  !current ||
+                  current.postStatus === "posted" ||
+                  current.postStatus === "posting"
+                )
+                  return;
+                editGroup(
+                  id,
+                  applyShopGroup(
+                    {
+                      ...current,
+                      ...patch,
+                      shopBaseDescription: patch.listing!.description,
+                    },
+                    readShopPreferences(options.sellerKey),
+                    options,
+                  ),
+                );
+              } catch (e) {
+                editGroup(id, {
+                  ...patch,
+                  preparationError: `Vorgaben nicht übernommen: ${(e as Error).message}`,
+                });
+              }
+            })();
+          }}
           onOpen={() => setStep("listings")}
         />
       )}
@@ -1184,10 +1593,21 @@ export default function Home() {
               editGroup(id, patch);
           }}
           onRenameSku={renameSku}
+          onNumberSkus={(first) => {
+            if (readOnly || queueBusy.current || inFlight.current.size)
+              throw new Error("Bitte die laufende Verarbeitung abwarten.");
+            const current = groupsRef.current;
+            const next = applyBatchSkus(current, first);
+            groupsRef.current = next;
+            setGroups(next);
+            return next.filter((g, i) => g !== current[i]).length;
+          }}
           onRetry={writeGroup}
           onPost={postGroup}
+          onSaveDraft={saveCurrentDraft}
           onPostAll={postAll}
           onWriteAll={writeAll}
+          onReanalyzeAll={reanalyzeAll}
           onResume={() =>
             queue?.kind === "post"
               ? void postAll(queueIds.current)
@@ -1201,6 +1621,68 @@ export default function Home() {
           onBack={() => setStep("review")}
         />
       )}
+
+      <dialog
+        ref={publicationDialog}
+        aria-labelledby="publication-heading"
+        onCancel={() => setPublicationConfirmation(null)}
+        style={{ maxWidth: "36rem", padding: "2rem", borderRadius: "1rem" }}
+      >
+        {publicationConfirmation && (
+          <>
+            <h2 id="publication-heading">Veröffentlichung bestätigen</h2>
+            <p>{publicationConfirmation.listing?.title}</p>
+            <p>SKU: {publicationConfirmation.sku}</p>
+            <p>
+              Hauptkategorie:{" "}
+              {publicationConfirmation.preparation?.categoryName ||
+                publicationConfirmation.listing?.category_id}
+            </p>
+            {publicationConfirmation.listing?.secondary_category_id && (
+              <p>
+                Zweitkategorie:{" "}
+                {publicationConfirmation.preparation?.secondaryCategoryName ||
+                  publicationConfirmation.listing.secondary_category_id}
+                . eBay kann dafür zusätzliche Gebühren berechnen.
+              </p>
+            )}
+            <p>
+              <strong>
+                Preis:{" "}
+                {Number(
+                  publicationConfirmation.listing?.suggested_price,
+                ).toFixed(2)}{" "}
+                EUR
+              </strong>{" "}
+              · Menge: 1
+            </p>
+            <p>
+              Das Angebot ist danach öffentlich und kann gekauft werden, auch
+              bei hohem Preis. Es ist kein Entwurf.
+            </p>
+            <button
+              type="button"
+              autoFocus
+              onClick={() => setPublicationConfirmation(null)}
+            >
+              Abbrechen
+            </button>{" "}
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() =>
+                void postGroup(
+                  publicationConfirmation.id,
+                  "publish",
+                  JSON.stringify(publicationConfirmation),
+                )
+              }
+            >
+              Jetzt verbindlich auf eBay veröffentlichen
+            </button>
+          </>
+        )}
+      </dialog>
 
       <p className="footnote">
         Drafts and photos are saved on this device. Keep this tab open while a

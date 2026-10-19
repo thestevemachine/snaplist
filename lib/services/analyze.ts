@@ -1,3 +1,15 @@
+import {
+  applyContentRules,
+  CLASSIFICATION_PROMPT,
+} from "@/lib/listing-content-rules";
+import {
+  extractEyewear,
+  parseBoxDimensions,
+  INSCRIPTION_PROMPT,
+} from "@/lib/eyewear-inscriptions";
+import { isGlasses } from "@/lib/glasses-rules";
+import { GERMAN_LISTING_PROMPT } from "@/lib/glasses-rules";
+import { EBAY_MARKETPLACE_ID } from "@/lib/ebay/config";
 import { cleanGeneratedDescription } from "@/lib/description";
 import { acceptedPhotoFact, isEstimate } from "@/lib/photo-facts";
 import { AI_LISTING_SCHEMA } from "@/lib/ai-schema";
@@ -161,7 +173,11 @@ async function handle(input: unknown) {
       routerModel,
       deadline,
     );
-    const systemPrompt = buildProfiledAnalysisPrompt(profile);
+    const systemPrompt =
+      buildProfiledAnalysisPrompt(profile) +
+      (EBAY_MARKETPLACE_ID === "EBAY_DE"
+        ? GERMAN_LISTING_PROMPT + INSCRIPTION_PROMPT + CLASSIFICATION_PROMPT
+        : "");
 
     // Retry up to 3 times, mirroring the Python analyze_photos() loop — but
     // never start an attempt the time budget can't cover.
@@ -216,12 +232,98 @@ async function handle(input: unknown) {
         const supported = specifics.filter((s) =>
           acceptedPhotoFact(s, imageBlocks.length),
         );
-        const listing = parseListing({
+        for (const f of supported) {
+          if (
+            f.basis === "estimate" &&
+            /^(Scheibenhöhe|Glashöhe|Gläserhöhe|Gesamtbreite|Fassungsbreite|Rahmenbreite|Lichte Breite)$/i.test(
+              f.name,
+            )
+          )
+            f.value =
+              String(
+                Math.floor(
+                  Number(f.value.replace(/\s*mm$/i, "").replace(",", ".")),
+                ),
+              ) + " mm";
+        }
+        let listing = parseListing({
           ...raw,
           item_specifics: Object.fromEntries(
             supported.map((s: any) => [s.name, s.value]),
           ),
         });
+        if (isGlasses(listing)) {
+          listing.eyewear = extractEyewear(supported);
+          const grid = supported.filter(
+            (f) =>
+              f.basis === "estimate" &&
+              /^(Scheibenhöhe|Glashöhe|Gläserhöhe|Gesamtbreite|Fassungsbreite|Rahmenbreite|Lichte Breite)$/i.test(
+                f.name,
+              ),
+          );
+          if (grid.length)
+            listing.measurements = grid
+              .map(
+                (f) =>
+                  f.name +
+                  ": ca. " +
+                  f.value.replace(/\s*mm$/i, "") +
+                  " mm (Messfoto " +
+                  f.photoIndices.join(", ") +
+                  ")",
+              )
+              .join("\n");
+          for (const f of supported) {
+            if (
+              /^(Modellnummer|Model Number)$/i.test(f.name) &&
+              (parseBoxDimensions(f.value) ||
+                Object.values(parseBoxDimensions(f.quote) ?? {}).includes(
+                  f.value,
+                ))
+            )
+              delete listing.item_specifics?.[f.name];
+          }
+          listing.eyewear.warnings.push(
+            ...supported
+              .filter((s) => s.name === "Prüfhinweis")
+              .map((s) => s.value),
+          );
+          if (
+            supported.some(
+              (f) => f.basis === "label" && /\boptyl\b/i.test(f.quote),
+            )
+          ) {
+            const evidence = supported.find(
+              (f) => f.basis === "label" && /\boptyl\b/i.test(f.quote),
+            )!;
+            listing.eyewear.fields.material = {
+              value: "Optyl",
+              source: "label",
+              quote: evidence.quote,
+              photos: evidence.photoIndices,
+            };
+            listing.material = "Optyl";
+            for (const key of Object.keys(listing.item_specifics ?? {})) {
+              if (
+                /^(material|fassungsmaterial|rahmenmaterial|frame material)$/i.test(
+                  key,
+                )
+              )
+                delete listing.item_specifics![key];
+            }
+            listing.item_specifics = {
+              ...listing.item_specifics,
+              Fassungsmaterial: "Optyl",
+            };
+          }
+          if (listing.eyewear.fields.material?.source === "shop") {
+            listing.material = listing.eyewear.fields.material.value;
+            listing.item_specifics = {
+              ...listing.item_specifics,
+              Fassungsmaterial: listing.material,
+            };
+          }
+        }
         listing.description = cleanGeneratedDescription(listing.description);
         listing.item_profile = profile;
         listing.evidence = Object.fromEntries(
@@ -233,6 +335,40 @@ async function handle(input: unknown) {
         // Deterministic title cleanup happens HERE, before the seller reviews —
         // the title on the card is exactly the title that publishes.
         listing.title = optimizeTitle(listing);
+        if (isGlasses(listing)) {
+          listing = applyContentRules(listing);
+          // Seller owns condition statements; free-form image prose must not invent wear.
+          const facts = Object.entries(listing.eyewear?.fields ?? {})
+            .filter(
+              ([key, field]) =>
+                field?.value &&
+                [
+                  "brand",
+                  "modelNumber",
+                  "modelName",
+                  "lensWidth",
+                  "bridgeWidth",
+                  "templeLength",
+                ].includes(key),
+            )
+            .map(
+              ([key, field]) =>
+                `${({ brand: "Marke", modelNumber: "Modellnummer", modelName: "Modellname", lensWidth: "Glasbreite", bridgeWidth: "Stegbreite", templeLength: "Bügellänge" } as Record<string, string>)[key]}: ${field!.value}`,
+            );
+          listing.description = ["Ungetragen ohne Etui", ...facts].join("\n");
+          listing.key_features = [];
+          listing = applyContentRules(listing);
+          if (
+            listing.eyewear_kind === "optical" &&
+            supported.some(
+              (f) =>
+                /^Demoscheiben$/i.test(f.name) &&
+                /^(nicht vorhanden|ohne|keine)$/i.test(f.value) &&
+                (f.confidence ?? 0) >= 85,
+            )
+          )
+            listing.condition_notes = "Ungetragen ohne Etui ohne Demoscheiben";
+        }
         // Same principle for the optional storewide markup: applied pre-review,
         // so the price on the card is exactly the price that publishes.
         listing.suggested_price = applyPriceMarkup(

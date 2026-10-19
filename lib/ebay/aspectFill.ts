@@ -5,6 +5,7 @@ import {
   MIN_ESTIMATE_CONFIDENCE,
   PHOTO_FACT_SCHEMA,
 } from "@/lib/photo-facts";
+import { mapGridMeasurements } from "./category-fields";
 import { remainingTime } from "@/lib/network";
 import { measuredMessage } from "@/lib/ai-usage";
 // Category-aware, photo-grounded item-specifics fill.
@@ -37,7 +38,7 @@ const FILL_MODEL = "claude-sonnet-4-6";
 // Prompt-size bound, applied AFTER priority sorting — a category with 60
 // aspects fills its required + recommended ones first, never junk-first.
 const MAX_ASPECTS_TO_FILL = 40;
-const MAX_ALLOWED_VALUES_SHOWN = 40;
+const MAX_ALLOWED_VALUES_SHOWN = 200;
 // Vision costs scale with image count; 8 photos cover tags + details for
 // nearly every item while keeping the call cheap (~1–3¢).
 const MAX_FILL_IMAGES = 24;
@@ -59,7 +60,7 @@ function aspectPromptLine(a: AspectMeta): string {
         : "";
   const multi =
     a.cardinality === "MULTI"
-      ? " (multiple values allowed — return an array)"
+      ? " (multiple values allowed — return one string separated by |)"
       : "";
   if (a.mode === "SELECTION_ONLY" && a.values.length) {
     const values =
@@ -69,7 +70,7 @@ function aspectPromptLine(a: AspectMeta): string {
     return `- "${a.name}"${tag}${multi} (must be EXACTLY one of: ${values})`;
   }
   const hint = a.values.length
-    ? ` (common values: ${a.values.slice(0, 12).join(" | ")})`
+    ? ` (common values: ${a.values.slice(0, MAX_ALLOWED_VALUES_SHOWN).join(" | ")})`
     : "";
   return `- "${a.name}"${tag} (free text)${multi}${hint}`;
 }
@@ -93,10 +94,30 @@ export async function fillRecommendedAspects(
   // reads the eBay-hosted URLs instead, so photo grounding survives.
   imageUrls: string[] = [],
 ): Promise<void> {
-  const have = new Set(Object.keys(aspects).map((k) => k.toLowerCase()));
-  const candidates = prioritizeAspects(
-    meta.filter((a) => a.name && !have.has(a.name.toLowerCase())),
+  const have = new Set(
+    Object.entries(aspects)
+      .filter(([, values]) => values.some((v) => v.trim()))
+      .map(([k]) => k.toLowerCase()),
   );
+  const augment = (a: AspectMeta) =>
+    a.cardinality === "MULTI" &&
+    /^(Besonderheiten|Thema|Charakter)$/i.test(a.name) &&
+    (aspects[a.name]?.length ?? 0) < 5;
+  const candidates = prioritizeAspects(
+    meta.filter(
+      (a) => a.name && (!have.has(a.name.toLowerCase()) || augment(a)),
+    ),
+  ).sort((a, b) => {
+    const rank = (m: AspectMeta) =>
+      m.usage === "REQUIRED"
+        ? 0
+        : /^(Besonderheiten|Thema|Charakter|Scheibenhöhe|Glashöhe|Gläserhöhe|Gesamtbreite)$/i.test(
+              m.name,
+            )
+          ? 1
+          : 2;
+    return rank(a) - rank(b);
+  });
   const unfilled = candidates.slice(0, MAX_ASPECTS_TO_FILL);
   if (candidates.length > unfilled.length) {
     console.log(
@@ -147,17 +168,18 @@ EBAY WANTS VALUES FOR THESE ASPECTS (exact aspect names for this category):
 ${unfilled.map(aspectPromptLine).join("\n")}
 
 Rules:
+ For eyewear colors: include both front and temple colors as separate allowed values for exactly two colors (Grün | Gold); more than two frame colors become Mehrfarbig. Do not count lens color. For eyewear: MPN/Herstellernummer is not the model number; leave it empty unless explicitly identified as a manufacturer part number. Default Abteilung to Unisex Erwachsene when unclear; Vintage to Nein when uncertain. Sonnenbrillen have Produktart Sonnenbrille. Determine shape from the LENS outline: round lenses mean Rund even in a rectangular outer frame. Temple length includes mm. When calipers appear, the FIRST caliper photo measures maximum lens height, the SECOND total frame width. Read the scale or estimate conservatively from it, round down to whole mm, return Glashöhe and Gesamtbreite as estimate facts with confidence and photoIndices. The quote must mention Messschieber and the measured scale/span. Never substitute lens width for height. 
 - Fill every aspect you can determine or reasonably estimate from the photos and item data. Educated guesses are welcome: judge materials, construction, style, width, closure, theme, etc. from what the item looks like, the brand, and the model.
 - Give each fact a confidence from 0 to 100 that the value is correct. Omit any aspect below ${MIN_ESTIMATE_CONFIDENCE}; it is better blank than wrong.
 ${alwaysEstimatePromptLine(unfilled.map((a) => a.name))}
 - Use ONLY the supplied eBay aspect names as keys, spelled exactly as given.
 - For "must be EXACTLY one of" aspects, copy the value verbatim from the list.
-- For "multiple values allowed" aspects you may return a JSON array of values.
+- For "multiple values allowed" aspects return a SINGLE string containing values separated by " | ", never an array. For Besonderheiten, Thema and Charakter aim for 3–5 compatible choices from the supplied list, including plausible stylistic associations. Preserve already selected values. Never combine contradictory rim constructions or unrelated fictional characters. Decades describe visual style, not manufacturing dates.
 - Never answer with placeholder text like "See photos", "Unknown", or "N/A" — omit the aspect instead.
 - Values must be short (under 65 characters each).
 
 Label-only (never estimate): UPC/EAN/ISBN/MPN, year of manufacture, country/region of manufacture, vintage, handmade, personalization and any tape measurement. Sizes come from a readable size label; a size estimated from appearance is below ${MIN_ESTIMATE_CONFIDENCE}. A legal eBay value is not evidence by itself. Copyright dates are not manufacture dates.
-Return {"facts":[{"name":"Material","value":"Cashmere","basis":"label","quote":"100% CASHMERE","photoIndices":[2],"confidence":98},{"name":"Upper Material","value":"Leather","basis":"estimate","quote":"","photoIndices":[1],"confidence":80}]}. basis: label for text read off a tag or label (quote it exactly); visible_feature for something plainly visible; estimate for an educated guess. Use an empty quote for visible_feature and estimate. Photo indices are 1-based. Return {"facts":[]} if nothing reaches ${MIN_ESTIMATE_CONFIDENCE}`;
+Return {"facts":[{"name":"Material","value":"Cashmere","basis":"label","quote":"100% CASHMERE","photoIndices":[2],"confidence":98},{"name":"Upper Material","value":"Leather","basis":"estimate","quote":"","photoIndices":[1],"confidence":80}]}. basis: label for text read off a tag or label (quote it exactly); visible_feature for something plainly visible; estimate for an educated guess. Use an empty quote for visible_feature and estimate EXCEPT grid measurements: inspect especially the LAST photo, where eyewear is placed face down on millimeter paper photographed from above. Count calibrated grid intervals to estimate the maximum vertical groove-to-groove lens height (Glashöhe/Scheibenhöhe) and total outer frame width (Gesamtbreite), in mm. Use basis estimate and a quote explicitly containing Millimeterpapier or Messschieber, the grid calibration and measured span; round down to a whole mm. Do not confuse total width with lens width. Omit only when the grid scale cannot be read. Optyl printed on a lens/frame is material evidence: never infer Acetat from it; use Optyl if available, otherwise Kunststoff. Printed material takes priority over prior guesses. Photo indices are 1-based. Return {"facts":[]} if nothing reaches ${MIN_ESTIMATE_CONFIDENCE}`;
 
   try {
     const client = getClient();
@@ -200,15 +222,20 @@ Return {"facts":[{"name":"Material","value":"Cashmere","basis":"label","quote":"
       const key = fact.name,
         raw = fact.value;
       const a = byLower.get(String(key).toLowerCase());
-      if (!a || aspects[a.name]) continue;
+      if (!a || (aspects[a.name]?.length && !augment(a))) continue;
       const parts = Array.isArray(raw)
         ? raw
             .map((v) => cleanAspectValue(String(v ?? ""), a.maxLength))
             .filter(Boolean)
         : splitAspectValues(raw, a.maxLength);
       if (!parts.length) continue;
+      const measured: Record<string, string[]> = {};
+      if (fact.basis === "estimate")
+        mapGridMeasurements({ [a.name]: raw }, measured, [a]);
       let vals: string[];
-      if (a.mode === "SELECTION_ONLY") {
+      if (measured[a.name]?.length) {
+        vals = measured[a.name];
+      } else if (a.mode === "SELECTION_ONLY") {
         vals = [];
         for (const p of parts) {
           const canonical = matchAllowed(p, a.values);
@@ -230,8 +257,24 @@ Return {"facts":[{"name":"Material","value":"Cashmere","basis":"label","quote":"
       }
       aspects[a.name] =
         a.cardinality === "MULTI"
-          ? vals.slice(0, MAX_MULTI_VALUES)
+          ? [...new Set([...(aspects[a.name] ?? []), ...vals])].slice(
+              0,
+              MAX_MULTI_VALUES,
+            )
           : vals.slice(0, 1);
+      if (
+        fact.basis === "estimate" &&
+        /^(Scheibenhöhe|Glashöhe|Gläserhöhe|Gesamtbreite|Fassungsbreite|Rahmenbreite|Lichte Breite)$/i.test(
+          a.name,
+        )
+      ) {
+        listing.measurements = [
+          listing.measurements,
+          `${a.name}: ca. ${aspects[a.name].join(", ")} (Messfoto ${fact.photoIndices.join(", ")})`,
+        ]
+          .filter(Boolean)
+          .join("\n");
+      }
       listing.evidence = { ...listing.evidence, [a.name]: fact.photoIndices };
       if (isEstimate(fact))
         listing.estimates = {

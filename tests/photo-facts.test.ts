@@ -18,11 +18,19 @@ it("uses a 60% threshold for educated guesses", () => {
 it("accepts confident educated guesses for any category aspect", () => {
   expect(acceptedPhotoFact(fact({}), 2)).toBe(true);
   expect(
-    acceptedPhotoFact(fact({ name: "Shoe Width", value: "Medium", confidence: 60 }), 2),
+    acceptedPhotoFact(
+      fact({ name: "Shoe Width", value: "Medium", confidence: 60 }),
+      2,
+    ),
   ).toBe(true);
   expect(
     acceptedPhotoFact(
-      fact({ name: "Closure", value: "Lace Up", basis: "visible_feature", confidence: 90 }),
+      fact({
+        name: "Closure",
+        value: "Lace Up",
+        basis: "visible_feature",
+        confidence: 90,
+      }),
       2,
     ),
   ).toBe(true);
@@ -31,8 +39,12 @@ it("accepts confident educated guesses for any category aspect", () => {
 it("leaves an aspect blank when confidence is under 60% or missing", () => {
   const width = { name: "Shoe Width", value: "Medium" };
   expect(acceptedPhotoFact(fact({ ...width, confidence: 59 }), 2)).toBe(false);
-  expect(acceptedPhotoFact(fact({ ...width, confidence: undefined }), 2)).toBe(false);
-  expect(acceptedPhotoFact(fact({ ...width, confidence: "high" }), 2)).toBe(false);
+  expect(acceptedPhotoFact(fact({ ...width, confidence: undefined }), 2)).toBe(
+    false,
+  );
+  expect(acceptedPhotoFact(fact({ ...width, confidence: "high" }), 2)).toBe(
+    false,
+  );
 });
 
 it("never guesses identifiers, provenance or measurements", () => {
@@ -48,19 +60,32 @@ it("never guesses identifiers, provenance or measurements", () => {
     "Personalize",
     "Inseam",
   ])
-    expect(acceptedPhotoFact(fact({ name, value: "X", confidence: 95 }), 2)).toBe(false);
+    expect(
+      acceptedPhotoFact(fact({ name, value: "X", confidence: 95 }), 2),
+    ).toBe(false);
 });
 
 it("still accepts label-read identifiers that match their quote", () => {
   expect(
     acceptedPhotoFact(
-      fact({ name: "US Shoe Size", value: "6.5", basis: "label", quote: "W US 6.5", confidence: 99 }),
+      fact({
+        name: "US Shoe Size",
+        value: "6.5",
+        basis: "label",
+        quote: "W US 6.5",
+        confidence: 99,
+      }),
       2,
     ),
   ).toBe(true);
   expect(
     acceptedPhotoFact(
-      fact({ name: "UPC", value: "012345678905", basis: "label", quote: "012345678905" }),
+      fact({
+        name: "UPC",
+        value: "012345678905",
+        basis: "label",
+        quote: "012345678905",
+      }),
       2,
     ),
   ).toBe(true);
@@ -68,7 +93,57 @@ it("still accepts label-read identifiers that match their quote", () => {
 
 it("always accepts a best guess for Upper Material, whatever the confidence", () => {
   expect(acceptedPhotoFact(fact({ confidence: 20 }), 2)).toBe(true);
-  expect(acceptedPhotoFact(fact({ name: "upper material", confidence: 0 }), 2)).toBe(true);
+  expect(
+    acceptedPhotoFact(fact({ name: "upper material", confidence: 0 }), 2),
+  ).toBe(true);
   expect(acceptedPhotoFact(fact({ confidence: undefined }), 2)).toBe(false);
-  expect(acceptedPhotoFact(fact({ name: "Lining Material", confidence: 20 }), 2)).toBe(false);
+  expect(
+    acceptedPhotoFact(fact({ name: "Lining Material", confidence: 20 }), 2),
+  ).toBe(false);
+});
+it("accepts only documented grid estimates for eyewear height and widths", () => {
+  for (const name of ["Scheibenhöhe", "Gesamtbreite", "Lichte Breite"]) {
+    expect(
+      acceptedPhotoFact(
+        fact({
+          name,
+          value: "42 mm",
+          quote: "Millimeterpapier: Raster 1 mm, 42 Kästchen",
+          confidence: 85,
+        }),
+        1,
+      ),
+    ).toBe(true);
+    expect(
+      acceptedPhotoFact(
+        fact({ name, value: "42 mm", quote: "geschätzt", confidence: 99 }),
+        1,
+      ),
+    ).toBe(false);
+  }
+  expect(
+    acceptedPhotoFact(
+      fact({
+        name: "Glasbreite",
+        value: "52 mm",
+        quote: "Millimeterpapier",
+        confidence: 99,
+      }),
+      1,
+    ),
+  ).toBe(false);
+});
+
+it("accepts documented caliper estimates for lens height and total frame width", () => {
+  for (const name of ["Glashöhe", "Gesamtbreite"])
+    expect(
+      acceptedPhotoFact(
+        fact({
+          name,
+          value: "42 mm",
+          quote: "Messschieber: Skala zeigt ungefähr 42 mm",
+        }),
+        1,
+      ),
+    ).toBe(true);
 });

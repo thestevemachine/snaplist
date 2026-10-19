@@ -1,14 +1,12 @@
 import { withDeadline } from "@/lib/network";
 import { validationMessage } from "@/lib/validation";
 import { NextRequest, NextResponse } from "next/server";
-import { EBAY_COOKIE, accessTokenFromCookie } from "@/lib/ebay/session";
+import { EBAY_COOKIE, sellerAccessToken } from "@/lib/ebay/session";
 import { guardApiRequest } from "@/lib/api-guard";
-import { publishListing } from "@/lib/ebay/publish";
+import { submitTradingListing } from "@/lib/ebay/trading-publish";
 import type { PublishInput } from "@/lib/ebay/publish";
 
-// Photo upload + several eBay calls + recovery loops — give it room.
-// (Uploads now run in parallel, but a 12-photo item with recovery retries can
-// still be slow; 300s is within both Hobby-with-fluid-compute and Pro limits.)
+// Photos are uploaded separately. Verification precedes the single Trading Add.
 export const maxDuration = 300;
 
 async function handle(req: NextRequest) {
@@ -16,7 +14,7 @@ async function handle(req: NextRequest) {
   const denied = guardApiRequest(req);
   if (denied) return denied;
 
-  let body: PublishInput;
+  let body: PublishInput & { confirmed?: boolean };
   try {
     body = (await req.json()) as PublishInput;
   } catch {
@@ -25,6 +23,16 @@ async function handle(req: NextRequest) {
       { status: 400 },
     );
   }
+
+  if (!body || body.confirmed !== true)
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          "Die Veröffentlichung dieses einzelnen Angebots muss ausdrücklich bestätigt werden.",
+      },
+      { status: 400 },
+    );
 
   const hasImages = Array.isArray(body.images) && body.images.length > 0;
   const hasImageUrls =
@@ -36,12 +44,10 @@ async function handle(req: NextRequest) {
     );
   }
 
-  // Mint a fresh access token from the encrypted connection cookie.
+  // Use the shared shop connection, or the existing seller cookie.
   let accessToken: string | null;
   try {
-    accessToken = await accessTokenFromCookie(
-      req.cookies.get(EBAY_COOKIE)?.value,
-    );
+    accessToken = await sellerAccessToken(req.cookies.get(EBAY_COOKIE)?.value);
   } catch (e) {
     return NextResponse.json(
       { success: false, error: validationMessage(e) },
@@ -59,17 +65,12 @@ async function handle(req: NextRequest) {
   }
 
   try {
-    const result = await publishListing(accessToken, body);
-    // A failed publish is a business outcome (eBay rejected the listing), not a
-    // server error. Return 422 so it can't be confused with Vercel's own
-    // platform 502 (function crash/timeout). The client keys off `success`, not
-    // the HTTP status. True server faults still throw and surface as 500 below.
+    const result = await submitTradingListing(accessToken, body, "publish");
     return NextResponse.json(result, { status: result.success ? 200 : 422 });
   } catch (e) {
-    console.error(`[ebay/publish] unhandled error sku=${body.sku}:`, e);
     return NextResponse.json(
-      { success: false, sku: body.sku, error: (e as Error).message },
-      { status: 500 },
+      { success: false, sku: body.sku, error: validationMessage(e) },
+      { status: 422 },
     );
   }
 }

@@ -855,7 +855,7 @@ async function uploadPhoto(
 ): Promise<string | null> {
   const xml = `<?xml version="1.0" encoding="utf-8"?>
 <UploadSiteHostedPicturesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
-  <PictureName>${name.slice(0, 50)}</PictureName>
+  <PictureName>${name.slice(0, 50).replace(/[&<>]/g, "_")}</PictureName>
   <PictureUploadPolicy>ClearAndNew</PictureUploadPolicy>
 </UploadSiteHostedPicturesRequest>`;
 
@@ -876,8 +876,8 @@ async function uploadPhoto(
   const resp = await boundedFetch(EBAY_TRADING, {
     method: "POST",
     headers: {
-      "X-EBAY-API-SITEID": "0",
-      "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+      "X-EBAY-API-SITEID": EBAY_MARKETPLACE_ID === "EBAY_DE" ? "77" : "0",
+      "X-EBAY-API-COMPATIBILITY-LEVEL": "1477",
       "X-EBAY-API-CALL-NAME": "UploadSiteHostedPictures",
       "X-EBAY-API-IAF-TOKEN": accessToken,
     },
@@ -898,6 +898,8 @@ export interface AccountSetup {
 }
 
 export interface AccountOptions {
+  sellerKey?: string;
+  sellerName?: string;
   fulfillment: { id: string; name: string }[];
   payment: { id: string; name: string }[];
   returns: { id: string; name: string }[];
@@ -953,8 +955,14 @@ export async function fetchAccountOptions(
 // ── The full publish flow for one item ───────────────────────────────────────
 
 export interface PublishInput {
+  publicationId?: string;
   shipping?: import("@/lib/validation").ShippingSelection;
-  review?: { categoryId: string; expiresAt: number; signature: string };
+  review?: {
+    categoryId: string;
+    secondaryCategoryId?: string;
+    expiresAt: number;
+    signature: string;
+  };
   expectedPhotoCount?: number;
   sku: string;
   listing: ListingResult;

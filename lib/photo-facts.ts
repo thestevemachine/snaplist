@@ -8,7 +8,7 @@ const alwaysEstimate = new Set(ALWAYS_ESTIMATE.map((n) => n.toLowerCase()));
 // A wrong guess here misrepresents the item or breaks catalog matching:
 // these must come from a readable label or stay empty.
 const labelOnly =
-  /\b(upc|ean|isbn|gtin|mpn)\b|manufactur|vintage|handmade|personaliz|inseam|\brise\b|chest|waist size|measurement|length \(in|pit to pit/i;
+  /herstellernummer|marke|\bbrand\b|modell|\bmodel\b|model number|lens width|frame width|bridge width|temple length|stegbreite|bügellänge|farbcode|color code|glasbreite|fassungsbreite|gesamtbreite|\b(upc|ean|isbn|gtin|mpn)\b|manufactur|vintage|handmade|personaliz|inseam|\brise\b|chest|waist size|measurement|length \(in|pit to pit/i;
 // Legacy visible_feature facts without a confidence score.
 const visible = new Set([
   "color",
@@ -68,6 +68,23 @@ export function acceptedPhotoFact(
       .every((v) => normalize(s.quote).includes(normalize(v)));
   }
   if (s.basis !== "visible_feature" && s.basis !== "estimate") return false;
+  if (
+    /^(Scheibenhöhe|Glashöhe|Gläserhöhe|Gesamtbreite|Fassungsbreite|Rahmenbreite|Lichte Breite)$/i.test(
+      s.name,
+    )
+  ) {
+    return (
+      s.basis === "estimate" &&
+      typeof s.quote === "string" &&
+      /messschieber|schieblehre|caliper|millimeterpapier|millimeterraster|1\s*mm.*raster/i.test(
+        s.quote,
+      ) &&
+      /^\d+(?:[.,]\d+)?(?:\s*mm)?$/i.test(s.value) &&
+      Number(s.value.replace(/\s*mm$/i, "").replace(",", ".")) > 0 &&
+      Number.isFinite(s.confidence) &&
+      s.confidence! >= MIN_ESTIMATE_CONFIDENCE
+    );
+  }
   if (labelOnly.test(s.name)) return false;
   if (typeof s.confidence === "number")
     return (

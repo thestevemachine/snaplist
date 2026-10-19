@@ -1,12 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { clearAccountOptions } from "@/lib/account-options-client";
+import {
+  loadAccountOptions,
+  clearAccountOptions,
+} from "@/lib/account-options-client";
 import { apiPost } from "@/lib/api-client";
 
 interface Status {
   configured: boolean;
   connected: boolean;
+  sharedConfigured?: boolean;
 }
 
 export function EbayConnect() {
@@ -14,6 +18,7 @@ export function EbayConnect() {
   const [notice, setNotice] = useState<{ ok: boolean; msg: string } | null>(
     null,
   );
+  const [sellerName, setSellerName] = useState("");
   const [busy, setBusy] = useState(false);
   const [authorizeUrl, setAuthorizeUrl] = useState("");
   const [pasteValue, setPasteValue] = useState("");
@@ -43,6 +48,27 @@ export function EbayConnect() {
       });
     if (e) window.history.replaceState({}, "", window.location.pathname);
   }, [refresh]);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      setSellerName("");
+      if (!status?.connected) return;
+      try {
+        const account = await loadAccountOptions();
+        if (active)
+          setSellerName(account.sellerName || "Kontoname nicht verfügbar");
+      } catch {
+        if (active) setSellerName("Konto nicht bestätigt – Zugang prüfen");
+      }
+    };
+    void load();
+    window.addEventListener("ebay-connection-changed", load);
+    return () => {
+      active = false;
+      window.removeEventListener("ebay-connection-changed", load);
+    };
+  }, [status?.connected]);
 
   const disconnect = async () => {
     setBusy(true);
@@ -97,6 +123,58 @@ export function EbayConnect() {
     }
   };
 
+  const testStoredConnection = async () => {
+    setBusy(true);
+    setNotice(null);
+    try {
+      const response = await apiPost("/api/ebay/readiness", {});
+      const result = (await response.json()) as {
+        ok?: boolean;
+        message?: string;
+        error?: string;
+      };
+      if (!response.ok || !result.ok)
+        throw new Error(
+          result.error || "Der Verbindungstest ist fehlgeschlagen.",
+        );
+      setNotice({
+        ok: true,
+        msg: result.message || "eBay-Verbindung bestätigt.",
+      });
+    } catch (error) {
+      setNotice({ ok: false, msg: (error as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Stored credentials are used server-side for preparation and Trading calls.
+  if (status?.sharedConfigured)
+    return (
+      <div className="ebay-bar">
+        <span className="ebay-label">
+          Gespeicherter eBay-Zugang: {sellerName || "Konto wird geladen…"} ·
+          eBay.de · EUR
+        </span>
+        <button
+          type="button"
+          className="btn-ghost"
+          disabled={busy}
+          onClick={testStoredConnection}
+        >
+          {busy ? "Verbindung wird geprüft…" : "eBay.de-Zugang prüfen"}
+        </button>
+        {notice && (
+          <span
+            role="status"
+            className={`ebay-notice${notice.ok ? "" : " err"}`}
+          >
+            {notice.msg}
+          </span>
+        )}
+      </div>
+    );
+
   // If eBay isn't configured on the server, show nothing (the writing flow
   // still works fine without it).
   if (!status?.configured) return null;
@@ -106,7 +184,9 @@ export function EbayConnect() {
       <span className="ebay-dot" aria-hidden="true" />
       {status.connected ? (
         <>
-          <span className="ebay-label">eBay account connected</span>
+          <span className="ebay-label">
+            eBay-Konto: {sellerName || "Konto wird geladen…"}
+          </span>
           <button
             type="button"
             className="btn-ghost"

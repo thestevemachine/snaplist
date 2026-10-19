@@ -31,11 +31,13 @@ export function ModelSelector() {
         setModels(data);
 
         const defaultSort =
-          data.sortModels.find((m) => m.isDefault)?.id ?? data.sortModels[0]?.id ?? "";
+          data.sortModels.find((m) => m.isDefault)?.id ??
+          data.sortModels[0]?.id ??
+          "";
         setSortModel(
           savedSort && data.sortModels.some((m) => m.id === savedSort)
             ? savedSort
-            : defaultSort
+            : defaultSort,
         );
 
         const defaultAnalysis =
@@ -43,9 +45,10 @@ export function ModelSelector() {
           data.analysisModels[0]?.id ??
           "";
         setAnalysisModel(
-          savedAnalysis && data.analysisModels.some((m) => m.id === savedAnalysis)
+          savedAnalysis &&
+            data.analysisModels.some((m) => m.id === savedAnalysis)
             ? savedAnalysis
-            : defaultAnalysis
+            : defaultAnalysis,
         );
       })
       .catch(() => {
@@ -65,8 +68,12 @@ export function ModelSelector() {
     saveAnalysisModel(id);
   };
 
-  const sortDesc = models?.sortModels.find((m) => m.id === sortModel)?.description;
-  const analysisDesc = models?.analysisModels.find((m) => m.id === analysisModel)?.description;
+  const sortDesc = models?.sortModels.find(
+    (m) => m.id === sortModel,
+  )?.description;
+  const analysisDesc = models?.analysisModels.find(
+    (m) => m.id === analysisModel,
+  )?.description;
 
   return (
     <>
@@ -77,20 +84,23 @@ export function ModelSelector() {
         aria-expanded={open}
         aria-controls="model-settings-body"
       >
-        ⚙ Model Settings{" "}
-        <span aria-hidden="true">{open ? "▲" : "▼"}</span>
+        ⚙ KI-Einstellungen <span aria-hidden="true">{open ? "▲" : "▼"}</span>
       </button>
 
       {open && (
         <div id="model-settings-body" className="model-settings-body">
           {loadError && (
-            <p className="note note-error" style={{ margin: 0, gridColumn: "1 / -1" }}>
-              Couldn&rsquo;t load the model list — the app will use its defaults.
+            <p
+              className="note note-error"
+              style={{ margin: 0, gridColumn: "1 / -1" }}
+            >
+              Couldn&rsquo;t load the model list — the app will use its
+              defaults.
             </p>
           )}
 
           <div className="field">
-            <label htmlFor="sort-model">Photo Sorting Model</label>
+            <label htmlFor="sort-model">KI für die Fotosortierung</label>
             {models ? (
               <select
                 id="sort-model"
@@ -101,20 +111,24 @@ export function ModelSelector() {
                 {models.sortModels.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.displayName}
-                    {m.isDefault ? " (default)" : ""}
+                    {m.isDefault ? " (Standard)" : ""}
                   </option>
                 ))}
               </select>
             ) : (
               <select disabled className="model-select">
-                <option>Loading…</option>
+                <option>Wird geladen…</option>
               </select>
             )}
-            {sortDesc && <span className="field-hint model-hint">{sortDesc}</span>}
+            {sortDesc && (
+              <span className="field-hint model-hint">{sortDesc}</span>
+            )}
           </div>
 
           <div className="field">
-            <label htmlFor="analysis-model">Listing Generation Model</label>
+            <label htmlFor="analysis-model">
+              KI für die Angebotserstellung
+            </label>
             {models ? (
               <select
                 id="analysis-model"
@@ -125,16 +139,18 @@ export function ModelSelector() {
                 {models.analysisModels.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.displayName}
-                    {m.isDefault ? " (default)" : ""}
+                    {m.isDefault ? " (Standard)" : ""}
                   </option>
                 ))}
               </select>
             ) : (
               <select disabled className="model-select">
-                <option>Loading…</option>
+                <option>Wird geladen…</option>
               </select>
             )}
-            {analysisDesc && <span className="field-hint model-hint">{analysisDesc}</span>}
+            {analysisDesc && (
+              <span className="field-hint model-hint">{analysisDesc}</span>
+            )}
           </div>
         </div>
       )}

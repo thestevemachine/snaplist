@@ -1,13 +1,22 @@
 "use client";
+import {
+  changeEyewearKind,
+  FIXED_CONDITION_NOTES,
+} from "@/lib/listing-content-rules";
+import { syncManualEyewear } from "@/lib/eyewear-inscriptions";
+import { isGlasses, controlledGlassesAspect } from "@/lib/glasses-rules";
+import { isSunglasses } from "@/lib/category-selection";
 import { useState, useRef, useEffect } from "react";
 import type { ItemGroup, Photo } from "@/lib/types";
 import type { AccountOptions } from "@/lib/ebay/publish";
-import { applyShippingDefaults } from "@/lib/shipping-defaults";
-import { requestText } from "@/lib/text-dialog";
 import { loadAccountOptions } from "@/lib/account-options-client";
 import { apiPost } from "@/lib/api-client";
 import { draftIssues } from "@/lib/client-review";
 import { isStandardSizeAspect } from "@/lib/ebay/aspects";
+import {
+  isMeasurementAspect as isMeasurement,
+  formatMeasurement,
+} from "@/lib/ebay/category-fields";
 interface Props {
   group: ItemGroup;
   photoById: (id: string) => Photo | undefined;
@@ -33,12 +42,15 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
     if (patch.item_specifics) {
       for (const [key, field] of [
         ["Brand", "brand"],
+        ["Marke", "brand"],
+        ["Fassungsmaterial", "material"],
         ["Size", "size"],
         ["Material", "material"],
         ["Type", "item_type"],
       ] as const)
         if (key in patch.item_specifics)
           next[field] = patch.item_specifics[key];
+      syncManualEyewear(l, next);
       next.evidence = {};
       next.estimates = Object.fromEntries(
         Object.entries(l.estimates ?? {}).filter(
@@ -56,12 +68,7 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
   };
   const specifics = l.item_specifics ?? {};
   const names = [
-    ...new Set([
-      ...(g.preparation?.aspects ?? [])
-        .filter((a) => a.required || a.usage === "RECOMMENDED")
-        .map((a) => a.name),
-      ...Object.keys(specifics),
-    ]),
+    ...new Set([...(g.preparation?.aspects ?? []).map((a) => a.name), "EAN"]),
   ];
   async function prepare() {
     setBusy(true);
@@ -80,7 +87,7 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
       if (!d.ok) throw new Error(d.error);
       if (latest.current.listing !== l)
         throw new Error(
-          "The draft changed while preparing. Prepare it again to keep your edits.",
+          "Der Entwurf wurde während der Vorbereitung geändert. Bitte erneut vorbereiten; deine Änderungen bleiben erhalten.",
         );
       onGroupEdit(g.id, {
         listing: d.listing,
@@ -102,10 +109,6 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
     try {
       const options = await loadAccountOptions(refresh);
       setOptions(options);
-      const current = latest.current;
-      const shipping = applyShippingDefaults(current.shipping ?? {}, options);
-      if (JSON.stringify(shipping) !== JSON.stringify(current.shipping ?? {}))
-        onGroupEdit(g.id, { shipping });
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -137,41 +140,70 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
       disabled={busy || g.postStatus === "posted" || g.postStatus === "posting"}
       className="draft-controls"
     >
-      <legend>Review eBay details</legend>
-      <label>
-        Clothing department
-        <select
-          aria-label="Clothing department"
-          value={
-            l.category?.startsWith("womens_")
-              ? "Women"
-              : l.category?.startsWith("mens_")
-                ? "Men"
-                : ""
-          }
-          onChange={(e) => {
-            const family = (l.category || "clothing").replace(
-              /^(womens|mens)_/,
-              "",
-            );
-            edit({
-              category: e.target.value
-                ? (e.target.value === "Women" ? "womens_" : "mens_") + family
-                : "accessory",
-              category_id: "",
-              ebay_condition: "",
-              item_specifics: { ...specifics, Department: e.target.value },
-            });
-          }}
-        >
-          <option value="">Not established / other</option>
-          <option>Women</option>
-          <option>Men</option>
-        </select>
-      </label>
+      <legend>eBay-Details prüfen</legend>
+      {isGlasses(l) && (
+        <label>
+          Brillenart
+          <select
+            aria-label="Brillenart"
+            value={
+              l.eyewear_kind ?? (isSunglasses(l) ? "sunglasses" : "optical")
+            }
+            onChange={(e) =>
+              onGroupEdit(g.id, {
+                listing: changeEyewearKind(
+                  l,
+                  e.target.value as "optical" | "sunglasses" | "uncertain",
+                ),
+                preparation: undefined,
+                preparationError: undefined,
+                verificationMessage: undefined,
+              })
+            }
+          >
+            <option value="optical">Korrektionsfassung / Brille</option>
+            <option value="sunglasses">Sonnenbrille</option>
+            <option value="uncertain">Unklar – bitte prüfen</option>
+          </select>
+          {l.classification_note && <small>{l.classification_note}</small>}
+        </label>
+      )}
+      {!isGlasses(l) && (
+        <label>
+          Bekleidungsabteilung
+          <select
+            aria-label="Bekleidungsabteilung"
+            value={
+              l.category?.startsWith("womens_")
+                ? "Women"
+                : l.category?.startsWith("mens_")
+                  ? "Men"
+                  : ""
+            }
+            onChange={(e) => {
+              const family = (l.category || "clothing").replace(
+                /^(womens|mens)_/,
+                "",
+              );
+              edit({
+                category: e.target.value
+                  ? (e.target.value === "Women" ? "womens_" : "mens_") + family
+                  : "accessory",
+                category_id: "",
+                ebay_condition: "",
+                item_specifics: { ...specifics, Department: e.target.value },
+              });
+            }}
+          >
+            <option value="">Nicht festgelegt / Sonstiges</option>
+            <option>Women</option>
+            <option>Men</option>
+          </select>
+        </label>
+      )}
       {!!g.preparation?.suggestions?.length && (
         <label>
-          Suggested category
+          Vorgeschlagene Kategorie
           <select
             value={l.category_id || ""}
             onChange={(e) =>
@@ -187,9 +219,9 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
         </label>
       )}
       <label>
-        Category ID{" "}
+        Kategorie-ID{" "}
         <input
-          aria-label="Category ID"
+          aria-label="Kategorie-ID"
           value={l.category_id ?? ""}
           onChange={(e) =>
             edit({ category_id: e.target.value, ebay_condition: "" })
@@ -197,30 +229,49 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
         />
       </label>
       <button type="button" onClick={prepare}>
-        {busy ? "Working…" : "Prepare category and specifics"}
+        {busy
+          ? "Wird vorbereitet…"
+          : isSunglasses(l)
+            ? "Sonnenbrillen: Herren + Damen vorbereiten"
+            : "Kategorie und Merkmale vorbereiten"}
       </button>
       {g.preparation && <p>{g.preparation.categoryName}</p>}
+      {g.preparation?.secondaryCategoryId && (
+        <p>
+          Zweitkategorie: {g.preparation.secondaryCategoryName} (
+          {g.preparation.secondaryCategoryId})
+        </p>
+      )}
+      {isSunglasses(l) && (
+        <p className="note">
+          Ein Angebot in beiden Kategorien: Herren und Damen. eBay kann für die
+          zweite Kategorie zusätzliche Gebühren berechnen.
+        </p>
+      )}
       {(error || g.preparationError) && (
         <p role="alert">{error || g.preparationError}</p>
       )}
       {g.preparation && (
         <label>
-          eBay condition{" "}
+          eBay-Zustand{" "}
           <select
-            aria-label="eBay condition"
+            aria-label="eBay-Zustand"
             value={l.ebay_condition ?? ""}
             onChange={(e) =>
               edit({
                 ebay_condition: e.target.value,
-                condition: e.target.value.startsWith("NEW")
-                  ? "NEW_WITH_TAGS"
-                  : e.target.value === "FOR_PARTS_OR_NOT_WORKING"
-                    ? "FOR_PARTS_OR_NOT_WORKING"
-                    : "GOOD",
+                condition:
+                  e.target.value === "NEW_OTHER"
+                    ? "NEW_NO_TAGS"
+                    : e.target.value.startsWith("NEW")
+                      ? "NEW_WITH_TAGS"
+                      : e.target.value === "FOR_PARTS_OR_NOT_WORKING"
+                        ? "FOR_PARTS_OR_NOT_WORKING"
+                        : "GOOD",
               })
             }
           >
-            <option value="">Choose condition</option>
+            <option value="">Zustand auswählen</option>
             {g.preparation.conditions.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
@@ -230,39 +281,155 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
         </label>
       )}
       <label>
-        Condition / testing notes
+        Zustand und Hinweise
         <textarea
-          value={l.condition_notes ?? ""}
+          aria-label="Zustand und Hinweise"
+          value={
+            l.condition_notes ?? (isGlasses(l) ? FIXED_CONDITION_NOTES : "")
+          }
           onChange={(e) => edit({ condition_notes: e.target.value })}
         />
+        <small>
+          Dieser Text steht beim Übertragen automatisch als erste Zeile der
+          Artikelbeschreibung.
+        </small>
       </label>
       <details open>
         <summary>
-          Editable item specifics — AI estimates are marked; check them before posting
+          Artikelmerkmale bearbeiten – KI-Schätzungen bitte vor dem
+          Veröffentlichen prüfen
         </summary>
+        {!g.preparation && (
+          <p>
+            Die Artikelmerkmale erscheinen nach dem Laden der eBay-Kategorie.
+          </p>
+        )}
+        {g.preparation?.aspects.some((a) => /^Besonderheiten$/i.test(a.name)) &&
+          !l.item_specifics?.Besonderheiten?.trim() && (
+            <p className="note-error">
+              Besonderheiten fehlen: bitte mindestens ein zutreffendes Merkmal
+              auswählen.
+            </p>
+          )}
+        {g.preparation?.aspects.some((a) => /^Thema$/i.test(a.name)) &&
+          (l.item_specifics?.Thema ?? "").split(" | ").filter(Boolean).length <
+            5 && (
+            <p className="note">
+              Thema: möglichst fünf passende Stilthemen auswählen, soweit eBay
+              dies zulässt. Jahrzehnte bezeichnen hier den Stil, nicht das
+              Herstellungsjahr.
+            </p>
+          )}
         {names.map((name) => {
           const meta = g.preparation?.aspects.find((a) => a.name === name);
           return (
-            <label key={name} className="specific-edit">
-              {name}
-              {l.evidence?.[name]?.length
-                ? ` (AI cites photo ${l.evidence[name]
-                    .map((n) => {
-                      const id = g.evidencePhotoIds?.[n - 1];
-                      return id ? g.photoIds.indexOf(id) + 1 : n;
-                    })
-                    .join(", ")}; verify)`
-                : ""}
-              {l.estimates?.[name] ? (
-                <span className="estimate-tag">
-                  {" "}
-                  AI estimate · {l.estimates[name]}% sure
-                </span>
+            <fieldset key={name} className="specific-edit">
+              <legend>
+                {name}
+                {meta?.required ? " *" : ""}
+              </legend>
+              {l.evidence?.[name]?.length || l.estimates?.[name] ? (
+                <details className="aspect-evidence">
+                  <summary>Analysehinweise</summary>
+                  <div>
+                    {l.evidence?.[name]?.length
+                      ? ` (KI verweist auf Foto ${l.evidence[name]
+                          .map((n) => {
+                            const id = g.evidencePhotoIds?.[n - 1];
+                            return id ? g.photoIds.indexOf(id) + 1 : n;
+                          })
+                          .join(", ")}; bitte prüfen)`
+                      : ""}
+                    {l.estimates?.[name] ? (
+                      <span className="estimate-tag">
+                        {" "}
+                        KI-Schätzung · {l.estimates[name]}% sicher
+                      </span>
+                    ) : null}
+                  </div>
+                </details>
               ) : null}
-              {meta?.required ? " *" : ""}
-              {meta &&
-              (meta.mode === "SELECTION_ONLY" || isStandardSizeAspect(meta)) &&
-              meta.cardinality !== "MULTI" ? (
+              {isSunglasses(l) &&
+                /^(gläsermaterial|glasmaterial|linsenmaterial)$/i.test(
+                  name,
+                ) && (
+                  <p className="note">
+                    Vorgabe für Sonnenbrillen: Kunststoff. Bitte für diese
+                    Brille prüfen und bei Bedarf ändern.
+                  </p>
+                )}
+              {isSunglasses(l) && /^UV[- ]?Schutz$/i.test(name) && (
+                <p className="note">
+                  Shop-Vorgabe: UV400. Bitte für diese Brille prüfen; die
+                  Fotoanalyse misst keinen UV-Schutz.
+                </p>
+              )}
+              {meta?.cardinality === "MULTI" && meta.values.length > 0 ? (
+                <details className="aspect-choices">
+                  <summary aria-label={`${name}: Auswahl bearbeiten`}>
+                    {(specifics[name] ?? "")
+                      .split(" | ")
+                      .filter(Boolean)
+                      .map((v) => `✓ ${v}`)
+                      .join(" · ") || "Keine Auswahl"}
+                  </summary>
+                  <div
+                    className="aspect-options"
+                    role="group"
+                    aria-label={name}
+                  >
+                    {[...meta.values]
+                      .sort(
+                        (a, b) =>
+                          Number(
+                            (specifics[name] ?? "").split(" | ").includes(b),
+                          ) -
+                          Number(
+                            (specifics[name] ?? "").split(" | ").includes(a),
+                          ),
+                      )
+                      .map((value) => {
+                        const selected = (specifics[name] ?? "")
+                          .split(" | ")
+                          .filter(Boolean);
+                        const checked = selected.includes(value);
+                        return (
+                          <label key={value}>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={!checked && selected.length >= 5}
+                              onChange={(event) =>
+                                edit({
+                                  item_specifics: {
+                                    ...specifics,
+                                    [name]: (event.target.checked
+                                      ? [...selected, value]
+                                      : selected.filter((v) => v !== value)
+                                    ).join(" | "),
+                                  },
+                                })
+                              }
+                            />
+                            {value}
+                          </label>
+                        );
+                      })}
+                    <small>
+                      Mehrere Werte können ausgewählt werden (höchstens 5).
+                    </small>
+                  </div>
+                </details>
+              ) : meta &&
+                (meta.mode === "SELECTION_ONLY" ||
+                  isStandardSizeAspect(meta) ||
+                  (isGlasses(l) &&
+                    (controlledGlassesAspect(meta.name) ||
+                      /glasbreite|gläserbreite|glasdurchmesser|stegbreite|brückenbreite/i.test(
+                        meta.name,
+                      )) &&
+                    meta.values.length > 0)) &&
+                meta.cardinality !== "MULTI" ? (
                 <select
                   aria-label={name}
                   value={specifics[name] ?? ""}
@@ -272,46 +439,46 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
                     })
                   }
                 >
-                  <option value="">Unknown — leave empty</option>
+                  <option value="">Unbekannt – leer lassen</option>
                   {meta.values.map((v) => (
-                    <option key={v}>{v}</option>
+                    <option key={v} value={v}>
+                      {formatMeasurement(name, v)}
+                    </option>
                   ))}
                 </select>
               ) : (
-                <input
-                  aria-label={name}
-                  value={specifics[name] ?? ""}
-                  placeholder={
-                    meta?.cardinality === "MULTI"
-                      ? "Separate multiple values with |"
-                      : "Unknown — leave empty"
-                  }
-                  onChange={(e) =>
-                    edit({
-                      item_specifics: { ...specifics, [name]: e.target.value },
-                    })
-                  }
-                />
+                <div className="measurement-input">
+                  <input
+                    aria-label={name}
+                    value={specifics[name] ?? ""}
+                    placeholder={
+                      meta?.cardinality === "MULTI"
+                        ? "Mehrere Werte mit | trennen"
+                        : "Unbekannt – leer lassen"
+                    }
+                    onChange={(e) =>
+                      edit({
+                        item_specifics: {
+                          ...specifics,
+                          [name]: e.target.value,
+                        },
+                      })
+                    }
+                  />
+                  {isMeasurement(name) &&
+                    !/mm\s*$/i.test(specifics[name] ?? "") && <span>mm</span>}
+                </div>
               )}
-            </label>
+            </fieldset>
           );
         })}
-        <button
-          type="button"
-          onClick={async () => {
-            const name = await requestText("Specific name, such as Model");
-            if (name?.trim())
-              edit({ item_specifics: { ...specifics, [name.trim()]: "" } });
-          }}
-        >
-          Add a specific
-        </button>
       </details>
       <details>
-        <summary>Photos and analysis evidence ({g.photoIds.length})</summary>
+        <summary>Fotos und Analysebelege ({g.photoIds.length})</summary>
         <p>
-          All item photos publish. Choose which photos the AI reads; include
-          labels and defects. Originals are saved on this device.
+          Alle Artikelfotos werden beim Veröffentlichen übertragen. Wähle die
+          Fotos für die KI-Analyse einschließlich Beschriftungen und Mängeln.
+          Originale bleiben auf diesem Gerät.
         </p>
         {g.photoIds.map((id, i) => {
           const p = photoById(id);
@@ -331,9 +498,9 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
                     })
                   }
                 />
-                Use photo {i + 1} for analysis
+                Foto verwenden: {i + 1} für die Analyse
               </label>
-              <img src={p.previewUrl} width={80} alt={`Item photo ${i + 1}`} />
+              <img src={p.previewUrl} width={80} alt={`Artikelfoto ${i + 1}`} />
               {p.original && (
                 <button
                   type="button"
@@ -346,7 +513,7 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
                     setTimeout(() => URL.revokeObjectURL(u), 1000);
                   }}
                 >
-                  Save original
+                  Original speichern
                 </button>
               )}
             </div>
@@ -354,34 +521,26 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
         })}
       </details>
       <details open>
-        <summary>Shipping and returns</summary>
+        <summary>Versand und Rückgabe</summary>
         <p className="note">
-          USPS Ground Advantage · flat buyer charge · 2 business days handling.
-          Usually $7.95 for tees, shirts, blouses, lightweight pants, sandals
-          and light shoes without boxes; $9.95 for heavier shoes, sweaters,
-          jackets and jeans. Select the existing eBay policy you want for this
-          item.
-        </p>
-        <p className="note">
-          Your usual $7.95 shipping, Managed Payments, returns-accepted policy
-          and shipping origin are selected automatically when available. Change
-          any selection for this item.
+          Gespeicherte Shop-Vorgaben werden für neue Angebote verwendet. Hier
+          kannst du sie für diese Brille ändern.
         </p>
         {options && options.returns.length === 0 && (
           <p className="note-error">
-            No returns-accepted policy was found. Check your eBay return policy,
-            then reload policies here.
+            Keine Rückgaberegel gefunden. Bitte deine eBay-Rahmenbedingungen
+            prüfen und erneut laden.
           </p>
         )}
         <button type="button" onClick={() => void loadOptions(true)}>
-          Load my eBay policies and locations
+          Meine eBay-Rahmenbedingungen laden
         </button>
         {(
           [
-            ["fulfillment", "fulfillmentPolicyId", "Shipping policy"],
-            ["payment", "paymentPolicyId", "Payment policy"],
-            ["returns", "returnPolicyId", "Return policy"],
-            ["locations", "locationKey", "Shipping origin"],
+            ["fulfillment", "fulfillmentPolicyId", "Versandregel"],
+            ["payment", "paymentPolicyId", "Zahlungsregel"],
+            ["returns", "returnPolicyId", "Rückgaberegel"],
+            ["locations", "locationKey", "Artikelstandort"],
           ] as const
         ).map(([kind, key, label]) => (
           <label key={key}>
@@ -395,10 +554,10 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
                 })
               }
             >
-              <option value="">Select…</option>
+              <option value="">Auswählen…</option>
               {!options && g.shipping?.[key] && (
                 <option value={g.shipping[key]}>
-                  {g.shipping[key]} (saved)
+                  {g.shipping[key]} (gespeichert)
                 </option>
               )}
               {options?.[kind].map((o) => (
@@ -409,94 +568,71 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
             </select>
           </label>
         ))}
-        <details>
-          <summary>Package weight and dimensions (optional)</summary>
-          <p className="note">
-            Leave blank for your flat-fee shipping. No package measurements will
-            be sent unless you enter them.
-          </p>
-          {(
-            [
-              ["weightOz", "Packed weight (oz)"],
-              ["lengthIn", "Length (in)"],
-              ["widthIn", "Width (in)"],
-              ["heightIn", "Height (in)"],
-            ] as const
-          ).map(([key, label]) => (
-            <label key={key}>
-              {label}
-              <input
-                aria-label={label}
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={g.shipping?.[key] ?? ""}
-                onChange={(e) =>
-                  onGroupEdit(g.id, {
-                    shipping: {
-                      ...g.shipping,
-                      [key]:
-                        e.target.value === ""
-                          ? undefined
-                          : Number(e.target.value),
-                    },
-                  })
-                }
-              />
-            </label>
-          ))}
-        </details>
         {!options?.locations.length && options && (
           <p>
-            Create an inventory location with your real address in eBay before
-            publishing.
+            Bitte die eBay-Kontoadresse prüfen und die Rahmenbedingungen erneut
+            laden.
           </p>
         )}
       </details>
-      <button type="button" onClick={research}>
-        Refresh comparable asking prices
-      </button>
-      {g.compsStatus && g.compsStatus !== "ready" && (
-        <p>
-          Market research: {g.compsStatus}. The AI price is an unverified
-          estimate.
-        </p>
-      )}
-      {g.comps?.sources && (
-        <details>
-          <summary>Inspect comparable sources · {g.comps.matchBasis}</summary>
+      <details>
+        <summary>Preisrecherche und KI-Analyse</summary>
+        <button type="button" onClick={research}>
+          Vergleichspreise aktualisieren
+        </button>
+        {g.compsStatus && g.compsStatus !== "ready" && (
           <p>
-            Checked {g.comps.checkedAt}. Asking prices are not sold prices.
-            Verify identity, condition and accessories.
+            Preisvergleich:{" "}
+            {g.compsStatus === "loading"
+              ? "wird geladen"
+              : g.compsStatus === "stale"
+                ? "veraltet"
+                : "nicht verfügbar"}
+            . Der KI-Preis ist eine ungeprüfte Schätzung.
           </p>
-          {g.comps.sources.map((s) => (
-            <p key={s.id}>
-              <a href={s.url} target="_blank" rel="noreferrer">
-                {s.title}
-              </a>{" "}
-              — ${s.price.toFixed(2)} +{" "}
-              {s.shipping === undefined
-                ? "unknown shipping"
-                : `$${s.shipping.toFixed(2)} shipping`}
+        )}
+        {g.comps?.sources && (
+          <details>
+            <summary>Vergleichsangebote ansehen · {g.comps.matchBasis}</summary>
+            <p>
+              Geprüft am {g.comps.checkedAt}. Dies sind Angebotspreise, keine
+              Verkaufspreise. Bitte Artikel, Zustand und Zubehör vergleichen.
             </p>
-          ))}
-        </details>
-      )}
-      {!!g.usage?.length && (
-        <p>
-          AI usage so far:{" "}
-          {g.usage
-            .reduce((n, u) => n + u.input + u.cacheRead + u.cacheWrite, 0)
-            .toLocaleString()}{" "}
-          input tokens ·{" "}
-          {g.usage.reduce((n, u) => n + u.output, 0).toLocaleString()} output ·
-          estimated $
-          {g.usage.reduce((n, u) => n + (u.estimatedUsd ?? 0), 0).toFixed(4)}{" "}
-          (recorded calls; bulk sorting separate).
-        </p>
-      )}
+            {g.comps.sources.map((s) => (
+              <p key={s.id}>
+                <a href={s.url} target="_blank" rel="noreferrer">
+                  {s.title}
+                </a>{" "}
+                — {s.price.toFixed(2)} € +{" "}
+                {s.shipping === undefined
+                  ? "Versand unbekannt"
+                  : `${s.shipping.toFixed(2)} € Versand`}
+              </p>
+            ))}
+          </details>
+        )}
+        {g.usage?.some((u) => u.stage === "analysis") && (
+          <p className="note">
+            Verwendetes Analysemodell:{" "}
+            {g.usage.filter((u) => u.stage === "analysis").at(-1)?.model}
+          </p>
+        )}
+        {!!g.usage?.length && (
+          <p>
+            Bisherige KI-Nutzung:{" "}
+            {g.usage
+              .reduce((n, u) => n + u.input + u.cacheRead + u.cacheWrite, 0)
+              .toLocaleString()}{" "}
+            Eingabe-Token ·{" "}
+            {g.usage.reduce((n, u) => n + u.output, 0).toLocaleString()} Ausgabe
+            · geschätzt $
+            {g.usage.reduce((n, u) => n + (u.estimatedUsd ?? 0), 0).toFixed(4)}{" "}
+            (erfasste Aufrufe; Sortierung separat).
+          </p>
+        )}
+      </details>
       {draftIssues(g).length > 0 && (
-        <ul aria-label="Review issues">
+        <ul aria-label="Noch zu prüfen">
           {draftIssues(g).map((i) => (
             <li key={i}>{i}</li>
           ))}
