@@ -1,3 +1,4 @@
+import { materialTitleIssues } from "../eyewear-inscriptions";
 import { categorySpecifics } from "./category-fields";
 import { isSunglasses } from "../category-selection";
 import { mergeCategoryAspects } from "./secondary-category";
@@ -130,7 +131,15 @@ export async function submitTradingListing(
   );
   const ean = eanKey ? aspects[eanKey][0] : "Nicht zutreffend";
   if (meta.some((aspect) => aspect.name === "EAN")) aspects.EAN = [ean];
-  const issues = validateAspects(aspects, meta);
+  const issues = [
+    ...validateAspects(aspects, meta),
+    ...materialTitleIssues({
+      ...listing,
+      item_specifics: Object.fromEntries(
+        Object.entries(aspects).map(([k, v]) => [k, v.join(" | ")]),
+      ),
+    }),
+  ];
   if (issues.length) throw new Error(issues.join("; "));
   // Description is editable plain text. Escape HTML first, then XML; preserve lines.
   const description = xml(listing.description).replace(/\r?\n/g, "<br>");

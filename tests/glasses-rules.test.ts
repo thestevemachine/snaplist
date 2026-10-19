@@ -7,6 +7,7 @@ const aspect = (name: string, values: string[] = []): AspectMeta => ({
   name,
   values,
   required: false,
+  usage: "OPTIONAL",
   mode: "FREE_TEXT",
   cardinality: "SINGLE",
 });

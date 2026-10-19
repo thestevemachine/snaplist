@@ -1,3 +1,4 @@
+import { mapEyewear } from "@/lib/eyewear-inscriptions";
 import {
   categorySpecifics,
   applySunglassesLensDefault,
@@ -130,7 +131,10 @@ export async function prepareListing(body: any, sealedConnection?: string) {
           const aspects = buildAspects(listing, listing.category || "");
           const glasses =
             EBAY_MARKETPLACE_ID === "EBAY_DE" && isGlasses(listing);
-          if (glasses) germanAspects(listing, aspects, meta);
+          if (glasses) {
+            mapEyewear(listing, aspects, meta);
+            germanAspects(listing, aspects, meta);
+          }
           reconcileAspects(aspects, meta, listing, listing.category || "");
           if (body.enrich === true)
             await fillRecommendedAspects(
@@ -140,7 +144,10 @@ export async function prepareListing(body: any, sealedConnection?: string) {
               "draft",
               images,
             );
-          if (glasses) germanAspects(listing, aspects, meta);
+          if (glasses) {
+            mapEyewear(listing, aspects, meta);
+            germanAspects(listing, aspects, meta);
+          }
           if (
             dual &&
             listing.category_fields_version !== CATEGORY_FIELDS_VERSION
@@ -189,7 +196,8 @@ export async function prepareListing(body: any, sealedConnection?: string) {
             listing.item_type = dual ? "Sonnenbrille" : "Brille";
           if (
             glasses &&
-            (listing.glasses_rules_version !== GLASSES_RULES_VERSION ||
+            ((!listing.title_manually_edited &&
+              listing.glasses_rules_version !== GLASSES_RULES_VERSION) ||
               body.applyGermanRules === true)
           ) {
             listing.title = germanGlassesTitle(listing, meta);

@@ -8,7 +8,7 @@ const alwaysEstimate = new Set(ALWAYS_ESTIMATE.map((n) => n.toLowerCase()));
 // A wrong guess here misrepresents the item or breaks catalog matching:
 // these must come from a readable label or stay empty.
 const labelOnly =
-  /marke|\bbrand\b|modell|\bmodel\b|model number|lens width|frame width|glasbreite|fassungsbreite|gesamtbreite|\b(upc|ean|isbn|gtin|mpn)\b|manufactur|vintage|handmade|personaliz|inseam|\brise\b|chest|waist size|measurement|length \(in|pit to pit/i;
+  /marke|\bbrand\b|modell|\bmodel\b|model number|lens width|frame width|bridge width|temple length|stegbreite|bügellänge|farbcode|color code|glasbreite|fassungsbreite|gesamtbreite|\b(upc|ean|isbn|gtin|mpn)\b|manufactur|vintage|handmade|personaliz|inseam|\brise\b|chest|waist size|measurement|length \(in|pit to pit/i;
 // Legacy visible_feature facts without a confidence score.
 const visible = new Set([
   "color",

@@ -1,5 +1,6 @@
 "use client";
 
+import { EyewearDetails } from "./EyewearDetails";
 import { isGlasses } from "@/lib/glasses-rules";
 import { DraftControls } from "./DraftControls";
 import { draftIssues } from "@/lib/client-review";
@@ -374,6 +375,11 @@ export function ListingCard({
           <button type="button" onClick={() => onRetry(group.id)}>
             Ausgewählte Fotos neu analysieren (ersetzt diesen Entwurf)
           </button>
+          <EyewearDetails
+            listing={listing}
+            meta={group.preparation?.aspects ?? []}
+            onEdit={(patch) => onEdit(group.id, patch)}
+          />
           <DraftControls
             group={group}
             photoById={photoById}

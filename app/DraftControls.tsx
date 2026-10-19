@@ -1,4 +1,5 @@
 "use client";
+import { syncManualEyewear } from "@/lib/eyewear-inscriptions";
 import { isGlasses, controlledGlassesAspect } from "@/lib/glasses-rules";
 import { isSunglasses } from "@/lib/category-selection";
 import { useState, useRef, useEffect } from "react";
@@ -41,6 +42,7 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
       ] as const)
         if (key in patch.item_specifics)
           next[field] = patch.item_specifics[key];
+      syncManualEyewear(l, next);
       next.evidence = {};
       next.estimates = Object.fromEntries(
         Object.entries(l.estimates ?? {}).filter(

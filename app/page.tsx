@@ -795,6 +795,9 @@ export default function Home() {
               listing: {
                 ...g.listing,
                 ...patch,
+                ...(patch.title !== undefined && patch.title !== g.listing.title
+                  ? { title_manually_edited: true }
+                  : {}),
                 ...(patch.size !== undefined
                   ? {
                       item_specifics: {

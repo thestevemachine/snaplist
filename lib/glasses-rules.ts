@@ -24,6 +24,8 @@ const aliases: Record<string, string[]> = {
   Glasmaterial: ["Lens Material"],
   Linsenmaterial: ["Lens Material"],
   Glasbreite: ["Lens Width"],
+  Stegbreite: ["Bridge Width"],
+  Bügellänge: ["Temple Length"],
   Gesamtbreite: ["Frame Width", "Total Frame Width"],
 };
 const translations: Record<string, string> = {
@@ -161,7 +163,11 @@ export function germanGlassesTitle(l: ListingResult, meta: AspectMeta[]) {
   const brand = s.Marke ?? l.brand ?? "";
   const model = fact(l, ["Modellnummer", "Modell", "Model Number", "Model"]);
   const modelText =
-    model && l.estimates?.[model.key] === undefined ? model.value : "";
+    model && l.estimates?.[model.key] === undefined
+      ? model.value
+      : l.eyewear?.fields.modelNumber?.value ||
+        l.eyewear?.fields.modelName?.value ||
+        "";
   const gender =
     fact(l, ["Abteilung", "Geschlecht", "Department", "Gender"])?.value ?? "";
   const sex = /unisex|herren.*damen|damen.*herren/i.test(gender)
@@ -194,17 +200,19 @@ export function germanGlassesTitle(l: ListingResult, meta: AspectMeta[]) {
         .filter((v) => materialMeta.values.includes(v))
         .join(" ")
     : "";
-  const width = measured(l, ["Glasbreite", "Lens Width"]);
-  const total = measured(l, [
-    "Gesamtbreite",
-    "Fassungsbreite",
-    "Total Frame Width",
-    "Frame Width",
-  ]);
+  const width =
+    measured(l, ["Glasbreite", "Lens Width"]) ??
+    Number(l.eyewear?.fields.lensWidth?.value.replace(/\s*mm$/i, "") || NaN);
+  const total =
+    measured(l, [
+      "Gesamtbreite",
+      "Fassungsbreite",
+      "Total Frame Width",
+      "Frame Width",
+    ]) ?? Number(l.eyewear?.fields.totalWidth?.value.replace(/\s*mm$/i, "") || NaN);
   const extras = [
     width !== undefined && width > 0 && width < 47 ? "kleine Gläser" : "",
     total !== undefined && total > 139 ? "groß L XL" : "",
-    material,
   ];
   const type = isSunglasses(l) ? "Sonnenbrille" : "Brille";
   const parts = [
@@ -212,6 +220,7 @@ export function germanGlassesTitle(l: ListingResult, meta: AspectMeta[]) {
     type,
     sex,
     ...(round ? [shapeText, color] : [color, shapeText]),
+    material,
     modelText,
     ...extras,
   ].filter(Boolean);

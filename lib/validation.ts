@@ -15,6 +15,31 @@ export const CONDITIONS = [
   "FOR_PARTS_OR_NOT_WORKING",
 ] as const;
 export const listingSchema = z.object({
+  title_manually_edited: z.boolean().optional(),
+  eyewear: z
+    .object({
+      fields: z.partialRecord(
+        z.enum([
+          "brand",
+          "modelNumber",
+          "modelName",
+          "colorCode",
+          "material",
+          "lensWidth",
+          "bridgeWidth",
+          "templeLength",
+          "totalWidth",
+        ]),
+        z.object({
+          value: z.string().max(500),
+          source: z.enum(["label", "shop", "manual"]),
+          quote: z.string().max(2000).optional(),
+          photos: z.array(z.number().int().min(1).max(24)).max(24).optional(),
+        }),
+      ),
+      warnings: z.array(z.string().max(1000)).max(100),
+    })
+    .optional(),
   category_fields_version: z.number().int().min(0).max(100).optional(),
   glasses_rules_version: z.number().int().min(0).max(100).optional(),
   title: z.string().trim().min(1).max(200),
@@ -24,7 +49,9 @@ export const listingSchema = z.object({
   category_id: z.string().regex(/^\d*$/).max(20).optional(),
   secondary_category_id: z.string().regex(/^\d*$/).max(20).optional(),
   ebay_condition: text.optional(),
-  estimates: z.record(z.string().max(100), z.number().finite().min(0).max(100)).optional(),
+  estimates: z
+    .record(z.string().max(100), z.number().finite().min(0).max(100))
+    .optional(),
   evidence: z
     .record(
       z.string().max(100),

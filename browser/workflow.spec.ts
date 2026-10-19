@@ -904,3 +904,80 @@ test("only category fields appear and material supports multiple reviewed choice
     .click();
   await expect.poll(() => verified).toBe(true);
 });
+test("inscription data remains editable, persists, and only explicitly rebuilds title", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.route("**/api/analyze", (r) =>
+    r.fulfill({
+      json: {
+        ok: true,
+        listing: {
+          title: "Lindberg Brille",
+          description: "Text",
+          brand: "Lindberg",
+          item_type: "Brille",
+          suggested_price: 200,
+          glasses_rules_version: 1,
+          category_fields_version: 1,
+          item_specifics: { Brand: "Lindberg" },
+          eyewear: {
+            fields: {
+              brand: {
+                value: "Lindberg",
+                source: "label",
+                quote: "Lindberg 46□18-140",
+                photos: [1],
+              },
+              lensWidth: {
+                value: "46",
+                source: "label",
+                quote: "46□18-140",
+                photos: [1],
+              },
+              material: { value: "Titan", source: "shop" },
+              modelNumber: {
+                value: "1234",
+                source: "label",
+                quote: "1234",
+                photos: [1],
+              },
+            },
+            warnings: [],
+          },
+        },
+        usage: [],
+      },
+    }),
+  );
+  await draft(page);
+  const panel = page
+    .locator("details")
+    .filter({
+      has: page.getByText("Erkannte Bügelaufdrucke und Maße", { exact: true }),
+    });
+  await expect(panel.getByLabel("Glasbreite", { exact: false })).toHaveValue(
+    "46",
+  );
+  await panel.getByLabel("Modellnummer", { exact: false }).fill("5678");
+  await expect(page.locator(".title-input")).toHaveValue("Lindberg Brille");
+  await page.locator(".title-input").fill("Mein geprüfter Titel");
+  await panel.getByLabel("Glasbreite", { exact: false }).fill("45");
+  await expect(page.locator(".title-input")).toHaveValue(
+    "Mein geprüfter Titel",
+  );
+  await page
+    .getByRole("button", { name: "Entwurf speichern", exact: true })
+    .click();
+  await page.reload();
+  await expect(page.locator(".title-input")).toHaveValue(
+    "Mein geprüfter Titel",
+  );
+  await expect(panel.getByLabel("Glasbreite", { exact: false })).toHaveValue(
+    "45",
+  );
+  await panel
+    .getByRole("button", { name: "Titel aus geprüften Angaben neu bilden" })
+    .click();
+  await expect(page.locator(".title-input")).toHaveValue(/5678.*kleine Gläser/);
+});

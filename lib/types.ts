@@ -5,6 +5,8 @@ import type { ShippingSelection } from "./validation";
 // Python script's analyze_photos(), plus the routed profile.
 
 export interface ListingResult {
+  title_manually_edited?: boolean;
+  eyewear?: import("./eyewear-inscriptions").EyewearData;
   glasses_rules_version?: number;
   category_fields_version?: number;
   title: string;

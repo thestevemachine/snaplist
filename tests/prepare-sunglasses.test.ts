@@ -119,6 +119,7 @@ it("removes invented fields and defaults only the official lens material", async
     {
       name: "Marke",
       required: true,
+      usage: "REQUIRED",
       mode: "FREE_TEXT",
       cardinality: "SINGLE",
       values: [],
@@ -126,6 +127,7 @@ it("removes invented fields and defaults only the official lens material", async
     {
       name: "Gläsermaterial",
       required: false,
+      usage: "OPTIONAL",
       mode: "SELECTION_ONLY",
       cardinality: "MULTI",
       values: ["Glas", "Kunststoff"],
@@ -164,4 +166,19 @@ it("removes invented fields and defaults only the official lens material", async
     })
   ).json();
   expect(second.listing.item_specifics.Gläsermaterial || "").toBe("");
+});
+it("preserves a manual title even before the first category preparation", async () => {
+  const body = await (
+    await prepareListing({
+      listing: {
+        title: "Meine Sonnenbrille korrigiert",
+        title_manually_edited: true,
+        description: "Text",
+        item_specifics: { Marke: "Lindberg" },
+      },
+      enrich: false,
+    })
+  ).json();
+  expect(body.ok).toBe(true);
+  expect(body.listing.title).toBe("Meine Sonnenbrille korrigiert");
 });

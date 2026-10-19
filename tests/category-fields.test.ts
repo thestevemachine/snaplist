@@ -8,6 +8,7 @@ import type { AspectMeta } from "@/lib/ebay/taxonomy";
 const material: AspectMeta = {
   name: "Gläsermaterial",
   required: false,
+  usage: "OPTIONAL",
   mode: "SELECTION_ONLY",
   cardinality: "MULTI",
   values: ["Glas", "Kunststoff"],

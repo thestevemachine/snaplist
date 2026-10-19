@@ -1,3 +1,9 @@
+import {
+  extractEyewear,
+  parseBoxDimensions,
+  INSCRIPTION_PROMPT,
+} from "@/lib/eyewear-inscriptions";
+import { isGlasses } from "@/lib/glasses-rules";
 import { GERMAN_LISTING_PROMPT } from "@/lib/glasses-rules";
 import { EBAY_MARKETPLACE_ID } from "@/lib/ebay/config";
 import { cleanGeneratedDescription } from "@/lib/description";
@@ -163,7 +169,11 @@ async function handle(input: unknown) {
       routerModel,
       deadline,
     );
-    const systemPrompt = buildProfiledAnalysisPrompt(profile) + (EBAY_MARKETPLACE_ID === "EBAY_DE" ? GERMAN_LISTING_PROMPT : "");
+    const systemPrompt =
+      buildProfiledAnalysisPrompt(profile) +
+      (EBAY_MARKETPLACE_ID === "EBAY_DE"
+        ? GERMAN_LISTING_PROMPT + INSCRIPTION_PROMPT
+        : "");
 
     // Retry up to 3 times, mirroring the Python analyze_photos() loop — but
     // never start an attempt the time budget can't cover.
@@ -224,6 +234,31 @@ async function handle(input: unknown) {
             supported.map((s: any) => [s.name, s.value]),
           ),
         });
+        if (isGlasses(listing)) {
+          listing.eyewear = extractEyewear(supported);
+          for (const f of supported) {
+            if (
+              /^(Modellnummer|Model Number)$/i.test(f.name) &&
+              (parseBoxDimensions(f.value) ||
+                Object.values(parseBoxDimensions(f.quote) ?? {}).includes(
+                  f.value,
+                ))
+            )
+              delete listing.item_specifics?.[f.name];
+          }
+          listing.eyewear.warnings.push(
+            ...supported
+              .filter((s) => s.name === "Prüfhinweis")
+              .map((s) => s.value),
+          );
+          if (listing.eyewear.fields.material?.source === "shop") {
+            listing.material = listing.eyewear.fields.material.value;
+            listing.item_specifics = {
+              ...listing.item_specifics,
+              Fassungsmaterial: listing.material,
+            };
+          }
+        }
         listing.description = cleanGeneratedDescription(listing.description);
         listing.item_profile = profile;
         listing.evidence = Object.fromEntries(
