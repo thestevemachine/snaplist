@@ -268,7 +268,7 @@ async function handle(input: unknown) {
                   f.name +
                   ": ca. " +
                   f.value.replace(/\s*mm$/i, "") +
-                  " mm (Millimeterpapier, Foto " +
+                  " mm (Messfoto " +
                   f.photoIndices.join(", ") +
                   ")",
               )

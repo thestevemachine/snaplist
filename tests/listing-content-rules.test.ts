@@ -122,3 +122,13 @@ it("updates old word-list drafts without restoring removed text or changing publ
   expect(next.listing?.content_rules_version).toBe(3);
   expect(migrateContentGroup(next)).toBe(next);
 });
+
+it("preserves seller condition notes during preparation, including deliberate clearing", () => {
+  expect(
+    applyContentRules({ ...l, condition_notes: "Ungetragen, mit Etui" }, false)
+      .condition_notes,
+  ).toBe("Ungetragen, mit Etui");
+  expect(
+    applyContentRules({ ...l, condition_notes: "" }, false).condition_notes,
+  ).toBe("");
+});

@@ -8,7 +8,7 @@ const alwaysEstimate = new Set(ALWAYS_ESTIMATE.map((n) => n.toLowerCase()));
 // A wrong guess here misrepresents the item or breaks catalog matching:
 // these must come from a readable label or stay empty.
 const labelOnly =
-  /marke|\bbrand\b|modell|\bmodel\b|model number|lens width|frame width|bridge width|temple length|stegbreite|bügellänge|farbcode|color code|glasbreite|fassungsbreite|gesamtbreite|\b(upc|ean|isbn|gtin|mpn)\b|manufactur|vintage|handmade|personaliz|inseam|\brise\b|chest|waist size|measurement|length \(in|pit to pit/i;
+  /herstellernummer|marke|\bbrand\b|modell|\bmodel\b|model number|lens width|frame width|bridge width|temple length|stegbreite|bügellänge|farbcode|color code|glasbreite|fassungsbreite|gesamtbreite|\b(upc|ean|isbn|gtin|mpn)\b|manufactur|vintage|handmade|personaliz|inseam|\brise\b|chest|waist size|measurement|length \(in|pit to pit/i;
 // Legacy visible_feature facts without a confidence score.
 const visible = new Set([
   "color",
@@ -76,7 +76,9 @@ export function acceptedPhotoFact(
     return (
       s.basis === "estimate" &&
       typeof s.quote === "string" &&
-      /millimeterpapier|millimeterraster|1\s*mm.*raster/i.test(s.quote) &&
+      /messschieber|schieblehre|caliper|millimeterpapier|millimeterraster|1\s*mm.*raster/i.test(
+        s.quote,
+      ) &&
       /^\d+(?:[.,]\d+)?(?:\s*mm)?$/i.test(s.value) &&
       Number(s.value.replace(/\s*mm$/i, "").replace(",", ".")) > 0 &&
       Number.isFinite(s.confidence) &&

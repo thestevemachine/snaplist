@@ -1198,3 +1198,42 @@ test("batch reanalysis asks before replacing drafts and retains SKU", async ({
   await expect(page.getByLabel("SKU", { exact: true })).toHaveValue(sku);
   expect(calls).toBe(1);
 });
+
+test("eyewear condition notes can be edited and survive reload", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.route("**/api/analyze", (r) =>
+    r.fulfill({
+      json: {
+        ok: true,
+        listing: {
+          title: "Test Brille",
+          description: "Text",
+          item_type: "Brille",
+          eyewear_kind: "optical",
+          condition_notes: "Ungetragen ohne Etui",
+          suggested_price: 100,
+          content_rules_version: 3,
+          glasses_rules_version: 4,
+          category_fields_version: 4,
+          item_specifics: {},
+        },
+        usage: [],
+      },
+    }),
+  );
+  await draft(page);
+  const notes = page.getByRole("textbox", {
+    name: "Zustand und Hinweise",
+    exact: true,
+  });
+  await notes.fill("Ungetragen, mit Originaletui");
+  await page
+    .getByRole("button", { name: "Entwurf speichern", exact: true })
+    .click();
+  await page.reload();
+  await expect(
+    page.getByRole("textbox", { name: "Zustand und Hinweise", exact: true }),
+  ).toHaveValue("Ungetragen, mit Originaletui");
+});

@@ -118,7 +118,7 @@ it("fills empty arrays and augments multiple category choices without duplicates
     );
     expect(aspects.Thema).toEqual(["Retro", "80er", "90er", "Klassisch"]);
     expect(aspects.Glashöhe).toEqual(["42 mm"]);
-    expect(listing.measurements).toContain("Millimeterpapier, Foto 1");
+    expect(listing.measurements).toContain("Messfoto 1");
   } finally {
     facts.splice(0, facts.length, ...old);
   }

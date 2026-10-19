@@ -32,13 +32,18 @@ export function contentIssues(l: ListingResult) {
     );
   return issues;
 }
-export function applyContentRules(l: ListingResult): ListingResult {
+export function applyContentRules(
+  l: ListingResult,
+  resetCondition = true,
+): ListingResult {
   return {
     ...l,
     content_rules_version: 3,
     title: cleanListingText(l.title),
     description: cleanListingText(l.description),
-    condition_notes: FIXED_CONDITION_NOTES,
+    condition_notes: resetCondition
+      ? FIXED_CONDITION_NOTES
+      : (l.condition_notes ?? FIXED_CONDITION_NOTES),
     item_specifics: Object.fromEntries(
       Object.entries(l.item_specifics ?? {}).map(([k, v]) => [
         k,

@@ -168,6 +168,7 @@ EBAY WANTS VALUES FOR THESE ASPECTS (exact aspect names for this category):
 ${unfilled.map(aspectPromptLine).join("\n")}
 
 Rules:
+ For eyewear: MPN/Herstellernummer is not the model number; leave it empty unless explicitly identified as a manufacturer part number. Default Abteilung to Unisex Erwachsene when unclear; Vintage to Nein when uncertain. Sonnenbrillen have Produktart Sonnenbrille. Determine shape from the LENS outline: round lenses mean Rund even in a rectangular outer frame. Temple length includes mm. When calipers appear, the FIRST caliper photo measures maximum lens height, the SECOND total frame width. Read the scale or estimate conservatively from it, round down to whole mm, return Glashöhe and Gesamtbreite as estimate facts with confidence and photoIndices. The quote must mention Messschieber and the measured scale/span. Never substitute lens width for height. 
 - Fill every aspect you can determine or reasonably estimate from the photos and item data. Educated guesses are welcome: judge materials, construction, style, width, closure, theme, etc. from what the item looks like, the brand, and the model.
 - Give each fact a confidence from 0 to 100 that the value is correct. Omit any aspect below ${MIN_ESTIMATE_CONFIDENCE}; it is better blank than wrong.
 ${alwaysEstimatePromptLine(unfilled.map((a) => a.name))}
@@ -178,7 +179,7 @@ ${alwaysEstimatePromptLine(unfilled.map((a) => a.name))}
 - Values must be short (under 65 characters each).
 
 Label-only (never estimate): UPC/EAN/ISBN/MPN, year of manufacture, country/region of manufacture, vintage, handmade, personalization and any tape measurement. Sizes come from a readable size label; a size estimated from appearance is below ${MIN_ESTIMATE_CONFIDENCE}. A legal eBay value is not evidence by itself. Copyright dates are not manufacture dates.
-Return {"facts":[{"name":"Material","value":"Cashmere","basis":"label","quote":"100% CASHMERE","photoIndices":[2],"confidence":98},{"name":"Upper Material","value":"Leather","basis":"estimate","quote":"","photoIndices":[1],"confidence":80}]}. basis: label for text read off a tag or label (quote it exactly); visible_feature for something plainly visible; estimate for an educated guess. Use an empty quote for visible_feature and estimate EXCEPT grid measurements: inspect especially the LAST photo, where eyewear is placed face down on millimeter paper photographed from above. Count calibrated grid intervals to estimate the maximum vertical groove-to-groove lens height (Glashöhe/Scheibenhöhe) and total outer frame width (Gesamtbreite), in mm. Use basis estimate and a quote explicitly containing Millimeterpapier, the grid calibration and measured span; round down to a whole mm. Do not confuse total width with lens width. Omit only when the grid scale cannot be read. Optyl printed on a lens/frame is material evidence: never infer Acetat from it; use Optyl if available, otherwise Kunststoff. Printed material takes priority over prior guesses. Photo indices are 1-based. Return {"facts":[]} if nothing reaches ${MIN_ESTIMATE_CONFIDENCE}`;
+Return {"facts":[{"name":"Material","value":"Cashmere","basis":"label","quote":"100% CASHMERE","photoIndices":[2],"confidence":98},{"name":"Upper Material","value":"Leather","basis":"estimate","quote":"","photoIndices":[1],"confidence":80}]}. basis: label for text read off a tag or label (quote it exactly); visible_feature for something plainly visible; estimate for an educated guess. Use an empty quote for visible_feature and estimate EXCEPT grid measurements: inspect especially the LAST photo, where eyewear is placed face down on millimeter paper photographed from above. Count calibrated grid intervals to estimate the maximum vertical groove-to-groove lens height (Glashöhe/Scheibenhöhe) and total outer frame width (Gesamtbreite), in mm. Use basis estimate and a quote explicitly containing Millimeterpapier or Messschieber, the grid calibration and measured span; round down to a whole mm. Do not confuse total width with lens width. Omit only when the grid scale cannot be read. Optyl printed on a lens/frame is material evidence: never infer Acetat from it; use Optyl if available, otherwise Kunststoff. Printed material takes priority over prior guesses. Photo indices are 1-based. Return {"facts":[]} if nothing reaches ${MIN_ESTIMATE_CONFIDENCE}`;
 
   try {
     const client = getClient();
@@ -269,7 +270,7 @@ Return {"facts":[{"name":"Material","value":"Cashmere","basis":"label","quote":"
       ) {
         listing.measurements = [
           listing.measurements,
-          `${a.name}: ca. ${aspects[a.name].join(", ")} (Millimeterpapier, Foto ${fact.photoIndices.join(", ")})`,
+          `${a.name}: ca. ${aspects[a.name].join(", ")} (Messfoto ${fact.photoIndices.join(", ")})`,
         ]
           .filter(Boolean)
           .join("\n");

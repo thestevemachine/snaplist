@@ -180,6 +180,7 @@ export function mapEyewear(
       )
         continue;
       let value = field.value;
+      if (key === "templeLength" && /^\d+$/.test(value)) value += " mm";
       if (
         key === "material" &&
         /^optyl$/i.test(value) &&
@@ -227,7 +228,7 @@ export function eyewearWarnings(l: ListingResult) {
   }
   return [...new Set(warnings)];
 }
-export const INSCRIPTION_PROMPT = `\nOptyl printed on a lens or frame identifies Optyl plastic, NOT Acetat. Return a label fact Fassungsmaterial=Optyl with the exact quote and photo index. For eyewear transcribe all legible temple/bridge inscriptions as specifics named Bügelaufdruck (basis label, value and quote exact, photoIndices). Also classify separately Marke, Modellnummer, Modellname, Farbcode, Fassungsmaterial. Example fictitious Lindberg Air Titanium 1234 C02 52□18 140: brand Lindberg, model name Air Titanium, model number 1234, color code C02. Never label 52/18/140 as model. Box dimensions are parsed deterministically from the exact inscription, never invent missing digits or infer total width. For unclear characters add a specific Prüfhinweis with a German review note and basis estimate, confidence 100, relevant photoIndices; do not invent readable values. Distinguish material assertions from model names. Preserve exact quotes for all label facts.`;
+export const INSCRIPTION_PROMPT = `\nOptyl printed on a lens or frame identifies Optyl plastic, NOT Acetat. Return a label fact Fassungsmaterial=Optyl with the exact quote and photo index. For eyewear transcribe all legible temple/bridge inscriptions as specifics named Bügelaufdruck (basis label, value and quote exact, photoIndices). Also classify separately Marke, Modellnummer, Modellname, Farbcode, Fassungsmaterial. Example fictitious Lindberg Air Titanium 1234 C02 52□18 140: brand Lindberg, model name Air Titanium, model number 1234, color code C02. Never label 52/18/140 as model. Box dimensions are parsed deterministically from the exact inscription, never invent missing digits or infer total width. For unclear characters add a specific Prüfhinweis with a German review note and basis estimate, confidence 100, relevant photoIndices; do not invent readable values. Distinguish material assertions from model names. Preserve exact quotes for all label facts. Herstellernummer/MPN is NOT Modellnummer; omit MPN unless explicitly identified as a manufacturer part number. Bügellänge must include mm.`;
 
 export function syncManualEyewear(
   previous: ListingResult,

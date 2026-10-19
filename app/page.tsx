@@ -368,9 +368,9 @@ export default function Home() {
     async (fileList: FileList | null) => {
       if (!fileList || fileList.length === 0 || importing.current) return;
       setError(null);
-      const files = Array.from(fileList).filter((f) =>
-        f.type.startsWith("image/"),
-      );
+      const files = Array.from(fileList)
+        .filter((f) => f.type.startsWith("image/"))
+        .sort((a, b) => a.name.localeCompare(b.name, "de", { numeric: true }));
       if (files.length === 0) {
         setError("Those didn't look like photos. Use JPG, PNG, or WebP.");
         return;
@@ -496,7 +496,11 @@ export default function Home() {
         id: newId(),
         sku: `${buildSku(binPrefix, skuOffset + i).slice(0, 37)}-${newId().replace(/-/g, "").slice(0, 12)}`,
         name: g.name,
-        photoIds: g.photoIds,
+        photoIds: [...g.photoIds].sort(
+          (a, b) =>
+            photos.findIndex((p) => p.id === a) -
+            photos.findIndex((p) => p.id === b),
+        ),
         status: "idle",
       }));
       setSkuStart(skuOffset);

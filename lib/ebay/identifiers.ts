@@ -39,19 +39,24 @@ function gs1CheckOk(code: string): boolean {
 
 export function validUpc(raw: string): string | null {
   const code = digitsOnly(raw);
-  return /^\d{12}$/.test(code) && !isAllZeros(code) && gs1CheckOk(code) ? code : null;
+  return /^\d{12}$/.test(code) && !isAllZeros(code) && gs1CheckOk(code)
+    ? code
+    : null;
 }
 
 export function validEan(raw: string): string | null {
   const code = digitsOnly(raw);
-  return /^\d{13}$/.test(code) && !isAllZeros(code) && gs1CheckOk(code) ? code : null;
+  return /^\d{13}$/.test(code) && !isAllZeros(code) && gs1CheckOk(code)
+    ? code
+    : null;
 }
 
 export function validIsbn(raw: string): string | null {
   const code = digitsOnly(raw).toUpperCase();
   if (/^\d{13}$/.test(code)) {
     // ISBN-13 uses the same GS1 check and starts with the Bookland prefix.
-    return (code.startsWith("978") || code.startsWith("979")) && gs1CheckOk(code)
+    return (code.startsWith("978") || code.startsWith("979")) &&
+      gs1CheckOk(code)
       ? code
       : null;
   }
@@ -70,7 +75,8 @@ export function validMpn(raw: string): string | null {
   const s = String(raw || "").trim();
   if (!s || isPlaceholderValue(s) || s.length > 65) return null;
   // An MPN needs at least one digit or letter and shouldn't be a sentence.
-  return /^[\w\-./#+ ]{2,65}$/.test(s) && !/\s{2,}|\w+\s+\w+\s+\w+\s+\w+/.test(s)
+  return /^[\w\-./#+ ]{2,65}$/.test(s) &&
+    !/\s{2,}|\w+\s+\w+\s+\w+\s+\w+/.test(s)
     ? s
     : null;
 }
@@ -88,7 +94,9 @@ function specificValue(listing: ListingResult, ...keys: string[]): string {
 
 // Pull whatever identifiers the photos actually showed. A 13-digit "UPC" is
 // really an EAN; a Bookland EAN doubles as the ISBN-13.
-export function extractProductIdentifiers(listing: ListingResult): ProductIdentifiers {
+export function extractProductIdentifiers(
+  listing: ListingResult,
+): ProductIdentifiers {
   const out: ProductIdentifiers = {};
 
   const upcRaw = specificValue(listing, "UPC", "Barcode");
@@ -112,11 +120,20 @@ export function extractProductIdentifiers(listing: ListingResult): ProductIdenti
     const isbn = validIsbn(isbnRaw);
     if (isbn) out.isbn = isbn;
   }
-  if (!out.isbn && out.ean && (out.ean.startsWith("978") || out.ean.startsWith("979"))) {
+  if (
+    !out.isbn &&
+    out.ean &&
+    (out.ean.startsWith("978") || out.ean.startsWith("979"))
+  ) {
     out.isbn = out.ean;
   }
 
-  const mpnRaw = specificValue(listing, "MPN", "Manufacturer Part Number", "Model Number");
+  const mpnRaw = specificValue(
+    listing,
+    "MPN",
+    "Manufacturer Part Number",
+    "Herstellernummer",
+  );
   if (mpnRaw) {
     const mpn = validMpn(mpnRaw);
     if (mpn) out.mpn = mpn;
@@ -137,7 +154,11 @@ export function hasCatalogIdentifier(ids: ProductIdentifiers): boolean {
 // pipeline only ships an MPN when this returns something.
 export function realBrand(listing: ListingResult): string {
   const b = String(listing.brand || "").trim();
-  if (!b || isPlaceholderValue(b) || /^(no\s?brand|unbranded|unknown|generic|n\/?a)$/i.test(b)) {
+  if (
+    !b ||
+    isPlaceholderValue(b) ||
+    /^(no\s?brand|unbranded|unknown|generic|n\/?a)$/i.test(b)
+  ) {
     return "";
   }
   return b.slice(0, 65);

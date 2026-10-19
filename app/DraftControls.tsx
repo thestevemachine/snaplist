@@ -280,9 +280,8 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
         Zustand und Hinweise
         <textarea
           value={
-            isGlasses(l) ? FIXED_CONDITION_NOTES : (l.condition_notes ?? "")
+            l.condition_notes ?? (isGlasses(l) ? FIXED_CONDITION_NOTES : "")
           }
-          readOnly={isGlasses(l)}
           onChange={(e) => edit({ condition_notes: e.target.value })}
         />
       </label>

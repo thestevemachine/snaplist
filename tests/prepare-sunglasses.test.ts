@@ -223,5 +223,5 @@ it("prepares optical frames without either sunglasses category", async () => {
   expect(body.listing.category_id).toBe("180957");
   expect(body.listing.secondary_category_id).toBeUndefined();
   expect(body.listing.title).not.toContain("Sonnenbrille");
-  expect(body.listing.condition_notes).toBe("Ungetragen ohne Etui");
+  expect(body.listing.condition_notes).toBe("Kratzer");
 });

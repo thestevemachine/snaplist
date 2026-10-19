@@ -1,6 +1,7 @@
 import { it, expect } from "vitest";
 import {
   categorySpecifics,
+  applyEyewearSellerDefaults,
   applySunglassesLensDefault,
 } from "@/lib/ebay/category-fields";
 import { mergeCategoryAspects } from "@/lib/ebay/secondary-category";
@@ -86,7 +87,7 @@ it("applies category-backed sun defaults and retains multiple lens technologies"
   applyEyewearSellerDefaults(a, meta, true, "ic! berlin");
   expect(a).toMatchObject({
     "UV-Schutz": ["UV400"],
-    Vintage: ["Nein"],
+    Vintage: ["Ja"],
     Stil: ["Vollrand"],
     Gläsertechnologie: ["Verlaufsgetönt", "Getönt"],
   });
@@ -98,7 +99,7 @@ it("applies category-backed sun defaults and retains multiple lens technologies"
     "Other",
   );
   expect(b.Gläsertechnologie).toEqual(["Verlaufsgetönt"]);
-  expect(b.Vintage).toBeUndefined();
+  expect(b.Vintage).toEqual(["Nein"]);
 });
 it("expands physical features without misclassifying rimless frames", async () => {
   const { expandEyewearFeatures } = await import("@/lib/ebay/category-fields");
@@ -146,4 +147,23 @@ it("maps measured lens height and total width to real category dropdown values",
     ] as any,
   );
   expect(aspects).toEqual({ Glashöhe: ["42 mm"], Fassungsbreite: ["136 mm"] });
+});
+
+it("defaults unknown department and vintage, and sets sunglasses product type", () => {
+  const aspects: Record<string, string[]> = {};
+  applyEyewearSellerDefaults(
+    aspects,
+    [
+      { name: "Abteilung", values: ["Herren", "Unisex Erwachsene"] },
+      { name: "Vintage", values: ["Ja", "Nein"] },
+      { name: "Produktart", values: ["Sonnenbrille", "Brille"] },
+    ] as any,
+    true,
+    "Fendi",
+  );
+  expect(aspects).toEqual({
+    Abteilung: ["Unisex Erwachsene"],
+    Vintage: ["Nein"],
+    Produktart: ["Sonnenbrille"],
+  });
 });

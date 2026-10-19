@@ -121,7 +121,7 @@ it("maps only actual allowed fields and preserves manual values including cleare
   mapEyewear(listing, aspects, meta);
   expect(aspects.Marke).toEqual(["Korrigiert"]);
   expect(aspects.Glasbreite).toEqual([]);
-  expect(aspects.Bügellänge).toEqual(["140"]);
+  expect(aspects.Bügellänge).toEqual(["140 mm"]);
   expect(aspects.Modell).toEqual(["1234"]);
   expect(aspects.Fassungsmaterial).toEqual(["Titan"]);
   expect(aspects).not.toHaveProperty("Bügelaufdruck");

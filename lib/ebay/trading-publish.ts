@@ -106,7 +106,11 @@ export async function submitTradingListing(
     meta = mergeCategoryAspects(meta, secondMeta);
     accepted = new Set([...accepted].filter((id) => secondAccepted.has(id)));
   }
-  if (isGlasses(listing)) meta = meta.map(m => ({...m, required:m.required || /^Besonderheiten$/i.test(m.name)}));
+  if (isGlasses(listing))
+    meta = meta.map((m) => ({
+      ...m,
+      required: m.required || /^Besonderheiten$/i.test(m.name),
+    }));
   for (const [rows, id] of [
     [options.fulfillment, shipping.fulfillmentPolicyId],
     [options.payment, shipping.paymentPolicyId],
@@ -150,7 +154,7 @@ export async function submitTradingListing(
   if (issues.length) throw new Error(issues.join("; "));
   // Description is editable plain text. Escape HTML first, then XML; preserve lines.
   const conditionNotes = isGlasses(listing)
-    ? FIXED_CONDITION_NOTES
+    ? (listing.condition_notes ?? FIXED_CONDITION_NOTES)
     : listing.condition_notes;
   const description = xml(listing.description).replace(/\r?\n/g, "<br>");
   const grams =

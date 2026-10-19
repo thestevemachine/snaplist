@@ -198,6 +198,23 @@ export async function prepareListing(body: any, sealedConnection?: string) {
             listing.category_fields_version !== CATEGORY_FIELDS_VERSION
           )
             expandEyewearFeatures(aspects, meta);
+          if (glasses) {
+            for (const field of meta.filter(
+              (m) =>
+                /^(Bügellänge|Temple Length)$/i.test(m.name) &&
+                m.dataType !== "NUMBER",
+            )) {
+              aspects[field.name] = (aspects[field.name] ?? []).map((value) => {
+                if (!/^\d+$/.test(value.trim())) return value;
+                const withUnit = value.trim() + " mm";
+                return (
+                  field.values.find(
+                    (v) => v.toLowerCase() === withUnit.toLowerCase(),
+                  ) ?? (field.mode === "FREE_TEXT" ? withUnit : value)
+                );
+              });
+            }
+          }
           enforceCardinality(aspects, meta);
           sanitizeNumericAspects(aspects, meta);
           snapStandardSizes(aspects, meta);
@@ -248,7 +265,7 @@ export async function prepareListing(body: any, sealedConnection?: string) {
             listing.item_specifics ?? {},
             meta,
           );
-          if (glasses) listing = applyContentRules(listing);
+          if (glasses) listing = applyContentRules(listing, false);
           listing.category_fields_version = CATEGORY_FIELDS_VERSION;
           if (listing.evidence)
             listing.evidence = categorySpecifics(listing.evidence, meta);

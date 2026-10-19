@@ -56,9 +56,10 @@ export function applyEyewearSellerDefaults(
     );
     if (value) aspects[m.name] = [value];
   };
-  if (/^(lindberg|ic!?[ .]*berlin)$/i.test(brand.trim()))
-    set(/^Vintage$/i, "Nein", false);
+  set(/^Vintage$/i, "Nein");
+  set(/^Abteilung$/i, "Unisex Erwachsene");
   if (sunglasses) {
+    set(/^Produktart$/i, "Sonnenbrille", false);
     set(/^UV[- ]?Schutz$/i, "UV400");
     const lens = meta.find((a) =>
       /^(Gläsertechnologie|Glastechnologie|Linsentechnologie)$/i.test(a.name),
