@@ -71,6 +71,7 @@ export const listingSchema = z.object({
   condition: z.enum(CONDITIONS).optional(),
   condition_notes: z.string().max(3000).optional(),
   measurements: text.optional(),
+  best_offer_enabled: z.boolean().optional(),
   suggested_price: z
     .union([
       z.number().finite().min(0).max(1_000_000),

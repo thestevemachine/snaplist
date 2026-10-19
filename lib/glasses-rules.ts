@@ -105,7 +105,7 @@ const translations: Record<string, string> = {
   "unisex adults": "Unisex Erwachsene",
 };
 export const controlledGlassesAspect = (name: string) =>
-  /farbe|material/i.test(name);
+  /farbe|material|^stil$/i.test(name);
 // The localized category field wins over an old English duplicate, including a seller-cleared value.
 export function germanAspects(
   l: ListingResult,

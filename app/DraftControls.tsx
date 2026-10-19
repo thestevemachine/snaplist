@@ -327,6 +327,12 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
                     Brille prüfen und bei Bedarf ändern.
                   </p>
                 )}
+              {isSunglasses(l) && /^UV[- ]?Schutz$/i.test(name) && (
+                <p className="note">
+                  Shop-Vorgabe: UV400. Bitte für diese Brille prüfen; die
+                  Fotoanalyse misst keinen UV-Schutz.
+                </p>
+              )}
               {meta?.cardinality === "MULTI" && meta.values.length > 0 ? (
                 <div className="aspect-options" role="group" aria-label={name}>
                   {meta.values.map((value) => {

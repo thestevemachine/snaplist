@@ -265,6 +265,17 @@ export function ListingCard({
                   }
                 />
               </div>
+              <small>Inklusive 19 % MwSt.</small>
+              <label style={{ display: "block", marginTop: ".5rem" }}>
+                <input
+                  type="checkbox"
+                  checked={listing.best_offer_enabled !== false}
+                  onChange={(e) =>
+                    onEdit(group.id, { best_offer_enabled: e.target.checked })
+                  }
+                />
+                Preisvorschläge zulassen
+              </label>
               {group.comps?.ok && group.comps.median !== undefined && (
                 <span className="comps-line" title={group.comps.basis}>
                   Markt: {group.comps.count} ähnliche aktive Angebote, €

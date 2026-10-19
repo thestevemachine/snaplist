@@ -1,7 +1,8 @@
 import type { ListingResult, ItemGroup } from "./types";
 export const FIXED_CONDITION_NOTES = "Ungetragen ohne Etui";
 // Seller's word blacklist, independent of any legal assessment.
-const forbidden = /\b(?:aviator[\p{L}-]*|flieger[\p{L}-]*)\b/giu;
+const forbidden =
+  /\b(?:aviator[\p{L}-]*|flieger[\p{L}-]*|clubmaster[\p{L}-]*|klappmaster[\p{L}-]*)\b/giu;
 export function cleanListingText(text: string) {
   return text
     .replace(forbidden, "")
@@ -22,7 +23,7 @@ export function contentIssues(l: ListingResult) {
     (t) => t && cleanListingText(t) !== t.trim().replace(/[ \t]{2,}/g, " "),
   )
     ? [
-        "Gesperrter Begriff im Angebot: Flieger/Aviator oder eine Variante. Bitte entfernen.",
+        "Gesperrter Begriff im Angebot: Flieger/Aviator/Clubmaster oder eine Variante. Bitte entfernen.",
       ]
     : [];
   if (l.eyewear_kind === "uncertain")
@@ -34,7 +35,7 @@ export function contentIssues(l: ListingResult) {
 export function applyContentRules(l: ListingResult): ListingResult {
   return {
     ...l,
-    content_rules_version: 2,
+    content_rules_version: 3,
     title: cleanListingText(l.title),
     description: cleanListingText(l.description),
     condition_notes: FIXED_CONDITION_NOTES,
@@ -55,7 +56,7 @@ export function migrateContentGroup(g: ItemGroup): ItemGroup {
     g.status !== "done" ||
     g.postStatus === "posted" ||
     g.postStatus === "posting" ||
-    g.listing.content_rules_version === 2
+    g.listing.content_rules_version === 3
   )
     return g;
   const l = g.listing;

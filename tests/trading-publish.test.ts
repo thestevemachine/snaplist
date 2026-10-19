@@ -157,7 +157,8 @@ describe("Trading listing flow", () => {
       Title: input().listing.title,
       InventoryTrackingMethod: "SKU",
       UUID: listingUuid(input().sku),
-      BestOfferDetails: { BestOfferEnabled: "false" },
+      VATDetails: { VATPercent: "19" },
+      BestOfferDetails: { BestOfferEnabled: "true" },
       ProductListingDetails: {
         EAN: "Nicht zutreffend",
         IncludeeBayProductDetails: "false",
@@ -418,4 +419,12 @@ it("never sends invented item-specific names to Trading", async () => {
     "Lens Treatment",
   ])
     expect(xml).not.toContain(`<Name>${name}</Name>`);
+});
+it("honors disabled best offers while retaining seller VAT", async () => {
+ const draft=input();draft.listing.best_offer_enabled=false;
+ await submitTradingListing("private-token",draft,"verify");
+ const body=calls.find(c=>c.call==="VerifyAddFixedPriceItem")!.body;
+ expect(body).toContain("<BestOfferEnabled>false</BestOfferEnabled>");
+ expect(body).toContain("<VATPercent>19</VATPercent>");
+ expect(body).not.toContain("BestOfferAutoAcceptPrice");
 });

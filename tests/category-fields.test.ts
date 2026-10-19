@@ -68,3 +68,35 @@ it("uses seller fallback materials only in an empty actual multi-select", async 
   applyFrameMaterialDefault(b, [{ ...m, cardinality: "SINGLE" }]);
   expect(b).toEqual({});
 });
+it("applies category-backed sun defaults and retains multiple lens technologies", async () => {
+  const { applyEyewearSellerDefaults } =
+    await import("@/lib/ebay/category-fields");
+  const m = (name: string, values: string[]) => ({ ...material, name, values });
+  const meta = [
+    m("UV-Schutz", ["UV400"]),
+    m("Vintage", ["Ja", "Nein"]),
+    m("Stil", ["Vollrand", "Rund", "Clubmaster"]),
+    m("Gläsertechnologie", ["Getönt", "Verlaufsgetönt"]),
+  ];
+  const a: Record<string, string[]> = {
+    Vintage: ["Ja"],
+    Gläsertechnologie: ["Verlaufsgetönt"],
+    Stil: ["Clubmaster"],
+  };
+  applyEyewearSellerDefaults(a, meta, true, "ic! berlin");
+  expect(a).toMatchObject({
+    "UV-Schutz": ["UV400"],
+    Vintage: ["Nein"],
+    Stil: ["Vollrand"],
+    Gläsertechnologie: ["Verlaufsgetönt", "Getönt"],
+  });
+  const b: Record<string, string[]> = { Gläsertechnologie: ["Verlaufsgetönt"] };
+  applyEyewearSellerDefaults(
+    b,
+    meta.map((m) => ({ ...m, cardinality: "SINGLE" })),
+    true,
+    "Other",
+  );
+  expect(b.Gläsertechnologie).toEqual(["Verlaufsgetönt"]);
+  expect(b.Vintage).toBeUndefined();
+});

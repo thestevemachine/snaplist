@@ -30,6 +30,7 @@ export interface ListingResult {
   condition_notes?: string;
   measurements?: string;
   description: string;
+  best_offer_enabled?: boolean;
   suggested_price?: number | string;
   search_terms?: string[];
   seo_keywords?: string[];

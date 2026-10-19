@@ -148,7 +148,9 @@ export async function submitTradingListing(
   ];
   if (issues.length) throw new Error(issues.join("; "));
   // Description is editable plain text. Escape HTML first, then XML; preserve lines.
-  const conditionNotes = isGlasses(listing) ? FIXED_CONDITION_NOTES : listing.condition_notes;
+  const conditionNotes = isGlasses(listing)
+    ? FIXED_CONDITION_NOTES
+    : listing.condition_notes;
   const description = xml(listing.description).replace(/\r?\n/g, "<br>");
   const grams =
     shipping.weightOz === undefined
@@ -183,7 +185,8 @@ export async function submitTradingListing(
       <SellerReturnProfile><ReturnProfileID>${xml(shipping.returnPolicyId)}</ReturnProfileID></SellerReturnProfile>
     </SellerProfiles>
     ${packageXml}
-    <BestOfferDetails><BestOfferEnabled>false</BestOfferEnabled></BestOfferDetails>
+    <VATDetails><VATPercent>19</VATPercent></VATDetails>
+    <BestOfferDetails><BestOfferEnabled>${listing.best_offer_enabled !== false}</BestOfferEnabled></BestOfferDetails>
   </Item>`;
   // Always verify first. Verification never falls through to Add in verify mode.
   const verification = await tradingCall(

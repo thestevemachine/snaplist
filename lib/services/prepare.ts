@@ -3,6 +3,7 @@ import { mapEyewear } from "@/lib/eyewear-inscriptions";
 import {
   categorySpecifics,
   applyFrameMaterialDefault,
+  applyEyewearSellerDefaults,
   applySunglassesLensDefault,
   CATEGORY_FIELDS_VERSION,
 } from "@/lib/ebay/category-fields";
@@ -122,6 +123,12 @@ export async function prepareListing(body: any, sealedConnection?: string) {
                 "Die Kategorien unterstützen keinen gemeinsamen Zustand.",
               );
           }
+          meta = meta.map((m) => ({
+            ...m,
+            values: m.values.filter(
+              (v) => !/flieger|aviator|clubmaster|klappmaster/i.test(v),
+            ),
+          }));
           const departmentMeta = meta.find((a) => a.name === "Department");
           const expected = expectedDepartment(listing);
           if (
@@ -169,6 +176,16 @@ export async function prepareListing(body: any, sealedConnection?: string) {
             listing.category_fields_version !== CATEGORY_FIELDS_VERSION
           )
             applyFrameMaterialDefault(aspects, meta);
+          if (
+            glasses &&
+            listing.category_fields_version !== CATEGORY_FIELDS_VERSION
+          )
+            applyEyewearSellerDefaults(
+              aspects,
+              meta,
+              dual,
+              listing.brand || aspects.Marke?.join(" ") || "",
+            );
           enforceCardinality(aspects, meta);
           sanitizeNumericAspects(aspects, meta);
           snapStandardSizes(aspects, meta);

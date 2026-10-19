@@ -590,6 +590,8 @@ test("shop preferences persist, fill future drafts and keep card overrides for e
   await expect(description).toHaveValue(
     "DE: Meine geprüfte Brille\nEN: My glasses\nVisible scuff. Untested.",
   );
+  await expect(page.getByLabel("Preisvorschläge zulassen", {exact:true})).toBeChecked();
+  await page.getByLabel("Preisvorschläge zulassen", {exact:true}).uncheck();
   await description.fill("Individuell geändert");
   await page
     .getByLabel("eBay-Zustand", { exact: true })
@@ -605,6 +607,7 @@ test("shop preferences persist, fill future drafts and keep card overrides for e
   let verified = false;
   await page.route("**/api/ebay/verify", (r) => {
     const b = r.request().postDataJSON();
+    expect(b.listing.best_offer_enabled).toBe(false);
     expect(b.listing.description).toBe("Individuell geändert");
     expect(b.listing.ebay_condition).toBe("USED_EXCELLENT");
     expect(b.listing.item_specifics.EAN).toBe("Nicht zutreffend");
@@ -734,7 +737,7 @@ test("restored sunglasses prepare automatically once, retain descriptions and ne
           ...listing,
           title: "Test Sonnenbrille Herren Damen Braun",
           glasses_rules_version: 4,
-          category_fields_version: 2,
+          category_fields_version: 3,
           category_id: "11",
           secondary_category_id: "22",
         },
@@ -919,7 +922,7 @@ test("inscription data remains editable, persists, and only explicitly rebuilds 
           item_type: "Brille",
           suggested_price: 200,
           glasses_rules_version: 4,
-          category_fields_version: 2,
+          category_fields_version: 3,
           item_specifics: { Brand: "Lindberg" },
           eyewear: {
             fields: {
@@ -1030,7 +1033,7 @@ test("seller corrects optical frame and removes both sunglasses categories", asy
           category_id: optical ? "180957" : "79720",
           secondary_category_id: optical ? undefined : "45246",
           glasses_rules_version: 4,
-          category_fields_version: 2,
+          category_fields_version: 3,
         },
         preparation: {
           categoryId: optical ? "180957" : "79720",
@@ -1087,8 +1090,8 @@ test("reanalysis reuses existing photos and replaces draft content while keeping
           item_type: "Brille",
           eyewear_kind: "optical",
           glasses_rules_version: 4,
-          category_fields_version: 2,
-          content_rules_version: 2,
+          category_fields_version: 3,
+          content_rules_version: 3,
           suggested_price: 100,
           item_specifics: { Brand: "Test" },
         },
