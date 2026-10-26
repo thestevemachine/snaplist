@@ -1,4 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
+async function expandUnpostedCards(page: Page) {
+ await expect(page.getByRole("status").filter({hasText:"Auf diesem Gerät gespeichert"})).toBeVisible();
+ for(const button of await page.locator(".listing-card:not(.is-posted) .card-details-toggle[aria-expanded=false]").all()) await button.click();
+}
 const picture =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=";
 const options = [
@@ -78,6 +82,7 @@ test("independent model choices survive reload; switching and cancelling do not 
   expect(tests).toBe(0);
   expect(analyses).toBe(0);
   await page.reload();
+  await expandUnpostedCards(page);
   await page.getByRole("button", { name: /KI-Einstellungen/ }).click();
   await expect(page.getByLabel("KI für die Fotosortierung")).toHaveValue(
     "gemini-3.5-flash-lite",
@@ -182,6 +187,7 @@ test("comparison keeps draft, SKU and manual changes and persists the separate v
     });
   }, picture);
   await page.reload();
+  await expandUnpostedCards(page);
 
   await page
     .getByText("Modelle vergleichen · Entwurf bleibt erhalten", { exact: true })
@@ -232,6 +238,7 @@ test("comparison keeps draft, SKU and manual changes and persists the separate v
   expect(saved.comparisons[0].usage[0].input).toBe(1000);
   expect(calls).toBe(1);
   await page.reload();
+  await expandUnpostedCards(page);
   await page
     .getByText("Modelle vergleichen · Entwurf bleibt erhalten", { exact: true })
     .click();
@@ -363,6 +370,7 @@ test("front-photo estimates remain visible and persisted without overwriting man
     });
   }, picture);
   await page.reload();
+  await expandUnpostedCards(page);
   const open = async () => {
     await page
       .getByText("Aufdrucke & Maße", { exact: true })
@@ -403,6 +411,7 @@ test("front-photo estimates remain visible and persisted without overwriting man
   ).toBeVisible();
   await page.waitForTimeout(450);
   await page.reload();
+  await expandUnpostedCards(page);
   await open();
   await expect(
     page.getByRole("textbox", { name: "Glashöhe", exact: true }),
@@ -455,6 +464,7 @@ test("front-photo estimates remain visible and persisted without overwriting man
     ),
   );
   await page.reload();
+  await expandUnpostedCards(page);
   await page
     .getByText("Maße berechnen", { exact: true })
     .click();

@@ -151,6 +151,7 @@ async function setup(page: Page, pattern = "") {
     { image, pattern },
   );
   await page.reload();
+  await page.getByRole("button",{name:"Angebotsdetails aufklappen"}).click();
   await expect(
     page.locator(".draft-controls").getByLabel("Marke", { exact: true }),
   ).toHaveValue("CRH");
@@ -161,6 +162,11 @@ test("compact cards group values with labels, collapse rare sections, preserve e
 }) => {
   const counts = await setup(page);
   const card = page.locator(".listing-card");
+  await page.getByRole("button",{name:"Stapeltabelle",exact:true}).click();
+  await expect(page.getByRole("button",{name:"Detailkarten",exact:true})).toHaveCSS("border-top-color","rgb(29, 78, 216)");
+  await expect(page.getByRole("button",{name:"Detailkarten",exact:true})).toHaveCSS("border-top-width","3px");
+  await page.getByRole("button",{name:"Detailkarten",exact:true}).click();
+  await page.getByRole("button",{name:"Angebotsdetails aufklappen"}).click();
   await expect(
     card.getByLabel("Versandregel", { exact: true }),
   ).not.toBeVisible();
@@ -237,6 +243,7 @@ test("compact cards group values with labels, collapse rare sections, preserve e
   await card.getByLabel("Thema: Auswahl bearbeiten").click();
   await page.waitForTimeout(600);
   await page.reload();
+  await page.getByRole("button",{name:"Angebotsdetails aufklappen"}).click();
   await expect(
     page.getByLabel("Versandregel", { exact: true }),
   ).not.toBeVisible();
@@ -358,6 +365,7 @@ test("recovers Lindberg 46 mm from stored demo-lens text without a paid reanalys
  });
  await page.reload();
  await expect(page.getByLabel("Scheibenbreite",{exact:true})).toHaveValue("46");
+ await page.getByRole("button",{name:"Angebotsdetails aufklappen"}).click();
  await page.getByText("Aufdrucke & Maße",{exact:true}).click();
  await expect(page.getByRole("textbox",{name:/^Glasbreite \(mm\)/})).toHaveValue("46");
  await expect(page.getByRole("status")).toContainText("Auf diesem Gerät gespeichert");
@@ -382,6 +390,7 @@ test("missing-field warning jumps into a closed aspect section, and optical lens
   });
  });
  await page.reload();
+ await page.getByRole("button",{name:"Angebotsdetails aufklappen"}).click();
  const width=page.getByRole("spinbutton",{name:"Glasbreite manuell (mm)"});
  await expect(width).toBeVisible();
  await width.fill("46");
@@ -394,11 +403,12 @@ test("missing-field warning jumps into a closed aspect section, and optical lens
  await expect(page.getByRole("button",{name:"Enter Rahmenfarbe",exact:true})).toHaveCount(0);
  await expect(page.getByRole("status")).toContainText("Auf diesem Gerät gespeichert");
  await page.reload();
+ await page.getByRole("button",{name:"Angebotsdetails aufklappen"}).click();
  await expect(width).toHaveValue("46");
  await expect(page.getByLabel("Glashöhe",{exact:true})).toHaveValue("37 mm");
  expect(counts()).toEqual({paid:0,writes:0});
 });
-test("restored published cards start collapsed while the next unpublished card remains open",async ({page})=>{
+test("restored published cards stay collapsed while the next draft summary remains visible",async ({page})=>{
  const counts=await setup(page);
  await expect(page.getByRole("status")).toContainText("Auf diesem Gerät gespeichert");
  await page.evaluate(async()=>{
@@ -420,5 +430,28 @@ test("restored published cards start collapsed while the next unpublished card r
  await cards.nth(0).locator(".listing-card-head").click();
  await expect(cards.nth(0).locator(".listing-card-body")).toBeVisible();
  await expect(cards.nth(1).locator(".listing-card-body")).toBeVisible();
+ expect(counts()).toEqual({paid:0,writes:0});
+});
+
+test("draft defaults to a compact title/SKU/price and a warning expands directly to its field",async({page})=>{
+ const counts=await setup(page);
+ await page.reload();
+ const card=page.locator(".listing-card");
+ await expect(card.getByRole("button",{name:"Angebotsdetails aufklappen"})).toHaveAttribute("aria-expanded","false");
+ await expect(card.getByLabel("SKU",{exact:true})).toBeVisible();
+ await expect(card.getByLabel("Preis",{exact:true})).toBeVisible();
+ await expect(card.getByLabel("Beschreibung",{exact:true})).not.toBeVisible();
+ await expect(card.getByRole("button",{name:"Titel kopieren"})).toBeVisible();
+ await page.setViewportSize({width:390,height:844});
+ const actions=card.locator(".title-actions");
+ const copyBox=await actions.getByRole("button",{name:"Titel kopieren"}).boundingBox();
+ const publishBox=await actions.getByRole("button",{name:"Auf eBay.de veröffentlichen…"}).boundingBox();
+ expect(Math.abs(copyBox!.y-publishBox!.y)).toBeLessThan(2);
+ await page.screenshot({path:"/tmp/snaplist-quick-card-phone.png",fullPage:true});
+ const publish=card.getByRole("button",{name:"Auf eBay.de veröffentlichen…"});
+ await expect(publish).toBeVisible();await expect(publish).toBeDisabled();
+ await card.getByRole("button",{name:/Rahmenbedingungen und Artikelstandort/}).click();
+ await expect(card.getByLabel("Versandregel",{exact:true})).toBeFocused();
+ await expect(card.getByLabel("Beschreibung",{exact:true})).toBeVisible();
  expect(counts()).toEqual({paid:0,writes:0});
 });

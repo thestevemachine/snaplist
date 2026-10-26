@@ -71,6 +71,7 @@ export interface SortResponse {
 // ── Client-side working model for the bulk flow ──────────────────────────────
 
 export interface Photo {
+  separator?: boolean;
   id: string;
   previewUrl: string;
   mediaType: string;

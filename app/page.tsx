@@ -47,6 +47,7 @@ import {
 import { EbayConnect } from "./EbayConnect";
 import { ModelSelector } from "./ModelSelector";
 import { ReviewBoard } from "./ReviewBoard";
+import {detectWhiteSeparator, splitAtSeparators} from "@/lib/photo-separators";
 import { CameraCapture } from "./CameraCapture";
 import { CloudBatch } from "./CloudBatch";
 import { ListingsView } from "./ListingsView";
@@ -107,6 +108,15 @@ async function readJson(
 }
 
 export default function Home() {
+  function backToListing() {
+    const id=publicationConfirmation?.id;
+    setPublicationConfirmation(null);
+    if(id) requestAnimationFrame(()=>{
+      const toggle=document.getElementById(`expand-${id}`);
+      if(toggle?.getAttribute("aria-expanded") === "false") toggle.click();
+      toggle?.closest(".listing-card")?.scrollIntoView({behavior:"smooth",block:"start"});
+    });
+  }
   const [publicationConfirmation, setPublicationConfirmation] =
     useState<ItemGroup | null>(null);
   const publicationDialog = useRef<HTMLDialogElement>(null);
@@ -398,7 +408,8 @@ export default function Home() {
           files,
           MAX_PHOTOS - photos.length,
           async (file) => {
-            const p = { id: newId(), ...(await resizeImage(file)) };
+            const resized = await resizeImage(file);
+            const p = { id: newId(), ...resized, separator: await detectWhiteSeparator(resized.previewUrl) };
             await savePhoto(p);
             processed++;
             setImportProgress(`Prepared ${processed} photos…`);
@@ -435,6 +446,16 @@ export default function Home() {
     setSorting(true);
     setError(null);
     try {
+      const ordered = await Promise.all(photos.map(async photo=>({...photo,separator:photo.separator ?? await detectWhiteSeparator(photo.previewUrl)})));
+      if(ordered.some(photo=>photo.separator)) {
+        const parts=splitAtSeparators(ordered);
+        if(!parts.length) throw new Error("Nur Trennbilder vorhanden. Bitte auch Brillenfotos hinzufügen.");
+        setPhotos(ordered);
+        setGroups(parts.map((photoIds,index)=>({id:newId(),sku:"",name:`Brille ${index+1}`,photoIds,status:"idle"})));
+        setOrphanIds([]);
+        setStep("review");
+        return;
+      }
       // SKU is entered once, after the listing is written. Draft identity uses g.id.
       // Sort in chunks so each request's thumbnail payload stays small.
       type RawGroup = { name: string; photoIds: string[] };
@@ -1418,13 +1439,19 @@ export default function Home() {
               disabled={sorting || Boolean(importProgress)}
               onCapture={async (file) => (await addFiles([file])) === 1}
             />
+            {photos.some(photo=>photo.separator) && <p className="separator-note">Trennbilder erkannt: Jede Fotoserie dazwischen wird eine eigene Brille. Die Trennbilder werden nicht ins Angebot übernommen. Keine KI-Sortierkosten.</p>}
             {importProgress && <p aria-live="polite">{importProgress}</p>}
             {photos.length > 0 && (
               <div className="thumbs" aria-label="Ausgewählte Fotos">
                 {photos.map((p) => (
-                  <div className="thumb" key={p.id}>
+                  <div className={`thumb${p.separator ? " separator-photo" : ""}`} key={p.id}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={p.previewUrl} alt="" />
+                    <img src={p.previewUrl} alt={p.separator ? "Trennbild" : ""} />
+                    <button type="button" className="separator-toggle" disabled={sorting || Boolean(importProgress)}
+                      aria-label={p.separator ? "Trennbild als normales Foto verwenden" : "Als Trennbild markieren"}
+                      onClick={()=>setPhotos(prev=>prev.map(photo=>photo.id===p.id ? {...photo,separator:!photo.separator} : photo))}>
+                      {p.separator ? "Trennbild" : "Trennen"}
+                    </button>
                     <button
                       type="button"
                       aria-label="Foto entfernen"
@@ -1452,6 +1479,7 @@ export default function Home() {
                   Boolean(importProgress)
                 }
                 onClick={() => {
+                  if(photos.some(photo=>photo.separator)) {void sort();return;}
                   const id = newId();
                   setGroups([
                     {
@@ -1466,7 +1494,7 @@ export default function Home() {
                   setStep("review");
                 }}
               >
-                Diese Fotos gehören zu einem Artikel
+                {photos.some(photo=>photo.separator) ? "Fotos an Trennbildern aufteilen" : "Diese Fotos gehören zu einem Artikel"}
               </button>
               <button
                 type="button"
@@ -1482,7 +1510,7 @@ export default function Home() {
                     {photos.length} photos…
                   </>
                 ) : (
-                  <>🔀 Sort {photos.length || ""} photos into items</>
+                  <>{photos.some(photo=>photo.separator) ? "Trennbilder anwenden" : `🔀 Sort ${photos.length || ""} photos into items`}</>
                 )}
               </button>
             </div>
@@ -1642,7 +1670,7 @@ export default function Home() {
       <dialog
         ref={publicationDialog}
         aria-labelledby="publication-heading"
-        onCancel={() => setPublicationConfirmation(null)}
+        onCancel={backToListing}
         className="publication-confirmation"
         style={{ maxWidth: "36rem", padding: "1rem", borderRadius: "1rem" }}
       >
@@ -1689,9 +1717,9 @@ export default function Home() {
             <button
               type="button"
               autoFocus
-              onClick={() => setPublicationConfirmation(null)}
+              onClick={backToListing}
             >
-              Abbrechen
+              Zurück zum Bearbeiten
             </button>{" "}
             <button
               type="button"

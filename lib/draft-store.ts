@@ -93,7 +93,7 @@ export async function loadDraft(
       throw new Error(
         "A saved photo is missing. Keep this tab open and restore the original photo.",
       );
-    photos.push({ ...stored, analysisSelected: p.analysisSelected });
+    photos.push({ ...stored, analysisSelected: p.analysisSelected, separator: p.separator ?? stored.separator });
   }
   d.photos = photos;
   d.groups = d.groups.map((g: ItemGroup) => ({
@@ -145,6 +145,7 @@ export function saveDraft(draft: WorkspaceDraft): Promise<void> {
               photos: draft.photos.map((p) => ({
                 id: p.id,
                 analysisSelected: p.analysisSelected,
+                separator: p.separator,
               })),
             },
             "current",
