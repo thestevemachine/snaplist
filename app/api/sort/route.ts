@@ -1,3 +1,4 @@
+import { DEFAULT_AI_MODEL } from "@/lib/ai-defaults";
 import { collectUsage, currentUsage } from "@/lib/ai-usage";
 import { NextRequest, NextResponse } from "next/server";
 import { getClient, AnthropicAuthError } from "@/lib/anthropic";
@@ -55,7 +56,7 @@ async function handle(req: NextRequest) {
 
   let client;
   try {
-    client = getClient(sortModel);
+    client = getClient(sortModel ?? DEFAULT_AI_MODEL);
   } catch (e) {
     if (e instanceof AiProviderError)
       return NextResponse.json(

@@ -1,3 +1,4 @@
+import { DEFAULT_AI_MODEL } from "@/lib/ai-defaults";
 import { eyewearStyleTagsPatch } from "@/lib/eyewear-style-tags";
 import { frontMeasurementFields } from "@/lib/front-measurement-fields";
 import { applyContentRules } from "@/lib/listing-content-rules";
@@ -169,10 +170,10 @@ export async function prepareListing(body: any, sealedConnection?: string) {
               images,
               [],
               providerFor(
-                resolveModel(body.analysisModel, "claude-sonnet-4-6"),
+                resolveModel(body.analysisModel, DEFAULT_AI_MODEL),
               ) === "anthropic"
                 ? "claude-sonnet-4-6"
-                : resolveModel(body.analysisModel, "claude-sonnet-4-6"),
+                : resolveModel(body.analysisModel, DEFAULT_AI_MODEL),
             );
           if (glasses) {
             mapEyewear(listing, aspects, meta);
@@ -308,6 +309,9 @@ export async function prepareListing(body: any, sealedConnection?: string) {
             listing.evidence = categorySpecifics(listing.evidence, meta);
           if (listing.estimates)
             listing.estimates = categorySpecifics(listing.estimates, meta);
+          // Default only an unset choice, never replace a reviewed grade.
+          if (listing.ebay_condition === undefined && conditions.some(c => c.value === "NEW_OTHER"))
+            listing.ebay_condition = "NEW_OTHER";
           // Preserve supported seller choices/defaults; never substitute another grade.
           if (!conditions.some((c) => c.value === listing.ebay_condition))
             listing.ebay_condition = "";

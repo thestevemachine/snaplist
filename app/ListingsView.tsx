@@ -21,7 +21,7 @@ interface ListingsViewProps {
   onEdit: (groupId: string, patch: Partial<ListingResult>) => void;
   onRenameSku: (groupId: string, sku: string) => void;
   onNumberSkus: (first: string) => number;
-  onRetry: (groupId: string) => void;
+  onRetry: (groupId: string, hint?: string) => void;
   onPost: (
     groupId: string,
     mode?: "verify" | "publish" | "resolve" | "repair",
@@ -78,7 +78,7 @@ export function ListingsView(props: ListingsViewProps) {
   const [options, setOptions] = useState<AccountOptions>();
   const [optionsError, setOptionsError] = useState("");
   const [bulkShipping, setBulkShipping] = useState("");
-  const [bulkCondition, setBulkCondition] = useState("");
+  const [bulkCondition, setBulkCondition] = useState("NEW_OTHER");
   const [bulkNotice, setBulkNotice] = useState("");
   const latest = useRef(props);
   latest.current = props;
@@ -210,7 +210,7 @@ export function ListingsView(props: ListingsViewProps) {
         {skuMessage && <p role="status">{skuMessage}</p>}
       </fieldset>
       <div className="batch-toolbar">
-        <button type="button" onClick={() => setTable(!table)}>
+        <button type="button" className={table ? "detail-view-button" : ""} onClick={() => setTable(!table)}>
           {table ? "Detailkarten" : "Stapeltabelle"}
         </button>
         <label>
@@ -360,7 +360,7 @@ export function ListingsView(props: ListingsViewProps) {
             Zustand für Auswahl{" "}
             <select
               aria-label="Zustand für Auswahl"
-              value={bulkCondition}
+              value={conditions.some(c => c.value === bulkCondition) ? bulkCondition : ""}
               onChange={(e) => setBulkCondition(e.target.value)}
             >
               <option value="">Zustand auswählen</option>
@@ -373,7 +373,7 @@ export function ListingsView(props: ListingsViewProps) {
           </label>
           <button
             type="button"
-            disabled={!chosen.length || !bulkCondition || active}
+            disabled={!chosen.length || !conditions.some(c => c.value === bulkCondition) || active}
             onClick={() => {
               let count = 0;
               for (const g of chosen)

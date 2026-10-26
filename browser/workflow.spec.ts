@@ -1144,6 +1144,7 @@ test("reanalysis reuses existing photos and replaces draft content while keeping
   await page.route("**/api/analyze", (r) => {
     analysisCalls++;
     expect(r.request().postDataJSON().images).toHaveLength(2);
+    expect(r.request().postDataJSON().hint).toBe("Das ist eine Sonnenbrille");
     return r.fulfill({
       json: {
         ok: true,
@@ -1163,6 +1164,7 @@ test("reanalysis reuses existing photos and replaces draft content while keeping
       },
     });
   });
+  await page.getByLabel("Hinweis für die Neuanalyse (optional)").fill("Das ist eine Sonnenbrille");
   await page
     .getByRole("button", {
       name: "Ausgewählte Fotos neu analysieren (ersetzt diesen Entwurf)",

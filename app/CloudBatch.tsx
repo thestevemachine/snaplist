@@ -1,4 +1,5 @@
 "use client";
+import { DEFAULT_AI_MODEL } from "@/lib/ai-defaults";
 import { useEffect, useRef, useState } from "react";
 import { apiPost } from "@/lib/api-client";
 import { loadPhoto } from "@/lib/draft-store";
@@ -141,7 +142,7 @@ export function CloudBatch({
           action: "create",
           batchId: id,
           groups: pending.map((g) => ({
-            analysisModel: getAnalysisModel() ?? "claude-opus-4-8",
+            analysisModel: getAnalysisModel() ?? DEFAULT_AI_MODEL,
             id: g.id,
             sku: g.sku,
             name: g.name,

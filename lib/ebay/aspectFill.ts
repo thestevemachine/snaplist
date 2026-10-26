@@ -1,3 +1,4 @@
+import { DEFAULT_AI_MODEL } from "@/lib/ai-defaults";
 import {
   ALWAYS_ESTIMATE,
   acceptedPhotoFact,
@@ -34,7 +35,7 @@ import {
   MAX_MULTI_VALUES,
 } from "./aspects";
 
-const FILL_MODEL = "claude-sonnet-4-6";
+const FILL_MODEL = DEFAULT_AI_MODEL;
 // Prompt-size bound, applied AFTER priority sorting — a category with 60
 // aspects fills its required + recommended ones first, never junk-first.
 const MAX_ASPECTS_TO_FILL = 40;

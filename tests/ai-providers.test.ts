@@ -9,6 +9,7 @@ import { usageTotals } from "@/lib/ai-costs";
 import { analysisImages } from "@/lib/analysis-images";
 import { POST as testConnection } from "@/app/api/ai/test/route";
 import { analyzePhotos } from "@/lib/services/analyze";
+import { GET as modelOptions } from "@/app/api/models/route";
 import { AI_LISTING_SCHEMA } from "@/lib/ai-schema";
 import type Anthropic from "@anthropic-ai/sdk";
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -360,4 +361,24 @@ it("calculates front-photo dimensions in the same paid analysis, preserves inscr
   expect(fetchMock).toHaveBeenCalledTimes(1);
   const request = JSON.parse(fetchMock.mock.calls[0][1].body);
   expect(request.messages[0].content).toContain("front_geometry");
+});
+it("uses Gemini Flash-Lite when no model was chosen and forwards a bounded seller correction hint", async () => {
+  const raw = { title:"Sonnenbrille", description:"", eyewear_kind:"sunglasses", item_type:"Sonnenbrille", specifics:[] };
+  fetchMock.mockResolvedValue(Response.json({candidates:[{content:{parts:[{text:JSON.stringify(raw)}]},finishReason:"STOP"}],usageMetadata:{promptTokenCount:100,candidatesTokenCount:30}}));
+  const response = await analyzePhotos({profile:"hard_goods",images:[{mediaType:"image/jpeg",data:"AAAA"}],hint:"Das ist eine Sonnenbrille"});
+  expect(response.status).toBe(200);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  const [url,init]=fetchMock.mock.calls[0];
+  expect(String(url)).toContain("gemini-3.5-flash-lite");
+  expect(String(init.body)).toContain("Das ist eine Sonnenbrille");
+  expect(String(url)).not.toContain("anthropic");
+});
+
+it("exposes Gemini Flash-Lite as the single default for both selectors without a Claude key", async () => {
+  const data=await (await modelOptions()).json();
+  for(const key of ["sortModels","analysisModels"]) {
+    expect(data[key].filter((m: {isDefault:boolean}) => m.isDefault).map((m:{id:string})=>m.id)).toEqual(["gemini-3.5-flash-lite"]);
+    expect(data[key].some((m:{id:string})=>m.id.startsWith("claude"))).toBe(true);
+  }
+  expect(fetchMock).not.toHaveBeenCalled();
 });

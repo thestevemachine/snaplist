@@ -1,4 +1,5 @@
 "use client";
+import { DEFAULT_AI_MODEL } from "@/lib/ai-defaults";
 import { AiUsageSummary } from "./AiUsageSummary";
 import { analysisImages } from "@/lib/analysis-images";
 import type { AiUsage } from "@/lib/ai-usage";
@@ -447,7 +448,7 @@ export default function Home() {
             mediaType: p.mediaType,
             data: p.previewUrl.split(",")[1],
           })),
-          sortModel: getSortModel() ?? undefined,
+          sortModel: getSortModel() ?? DEFAULT_AI_MODEL,
         });
         const data = (await readJson(
           res,
@@ -618,7 +619,7 @@ export default function Home() {
 
   // ── Write listings ──────────────────────────────────────
   const writeGroup = useCallback(
-    async (groupId: string, confirmed = false) => {
+    async (groupId: string, confirmed = false, hint = "") => {
       // Snapshot this group's photos from the latest state (no stale closure).
       let group = groupsRef.current.find((g) => g.id === groupId);
       if (
@@ -638,7 +639,7 @@ export default function Home() {
         )
       )
         return;
-      const selectedModel = getAnalysisModel() ?? "claude-opus-4-8";
+      const selectedModel = getAnalysisModel() ?? DEFAULT_AI_MODEL;
       inFlight.current.add(groupId);
       const selectedPhotos = (group.analysisPhotoIds ?? group.photoIds)
         .map((id) => photoMap.get(id))
@@ -662,6 +663,7 @@ export default function Home() {
           profile: "auto",
           images: imgs,
           analysisModel: selectedModel,
+          hint: hint.trim().slice(0, 500),
         });
         const data = (await readJson(res)) as AnalyzeResponse;
         if (!data.ok || !data.listing) {
@@ -1606,7 +1608,7 @@ export default function Home() {
             setGroups(next);
             return next.filter((g, i) => g !== current[i]).length;
           }}
-          onRetry={writeGroup}
+          onRetry={(id, hint) => void writeGroup(id, false, hint)}
           onPost={postGroup}
           onSaveDraft={saveCurrentDraft}
           onPostAll={postAll}
@@ -1630,7 +1632,8 @@ export default function Home() {
         ref={publicationDialog}
         aria-labelledby="publication-heading"
         onCancel={() => setPublicationConfirmation(null)}
-        style={{ maxWidth: "36rem", padding: "2rem", borderRadius: "1rem" }}
+        className="publication-confirmation"
+        style={{ maxWidth: "36rem", padding: "1rem", borderRadius: "1rem" }}
       >
         {publicationConfirmation && (
           <>
@@ -1660,6 +1663,13 @@ export default function Home() {
               </strong>{" "}
               · Menge: 1
             </p>
+            <dl className="publication-specifics">
+              <dt>Zustand</dt><dd>{publicationConfirmation.preparation?.conditions.find(c => c.value === publicationConfirmation.listing?.ebay_condition)?.label || publicationConfirmation.listing?.ebay_condition}</dd>
+              {Object.entries(publicationConfirmation.listing?.item_specifics ?? {}).filter(([,value]) => value.trim()).map(([name,value]) => (
+                <div key={name}><dt>{name}</dt><dd>{value}</dd></div>
+              ))}
+              <dt>Zustandshinweis</dt><dd>{publicationConfirmation.listing?.condition_notes}</dd>
+            </dl>
             <p>
               Das Angebot ist danach öffentlich und kann gekauft werden, auch
               bei hohem Preis. Es ist kein Entwurf.

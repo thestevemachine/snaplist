@@ -406,7 +406,8 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
                   ),
               );
           if (
-            (/^(Anzahl der Einheiten|Maßeinheit|Produktlinie)$/i.test(name) ||
+            (/^(Anzahl der Einheiten|Maßeinheit|Produktlinie|Herstellernummer|MPN)$/i.test(name) ||
+              (isSunglasses(l) && /^(Vergrößerungsstärke|Vergrößerung|Dioptrien|Magnification Strength)$/i.test(name)) ||
               noPattern) &&
             !meta?.required
           )
@@ -615,13 +616,6 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
                     Brille prüfen und bei Bedarf ändern.
                   </p>
                 )}
-              {isGlasses(l) && /^Besonderheiten$/i.test(name) && (
-                <p className="note">
-                  Shop-Vorgabe bei leerem Feld: Wasserfest. Bitte für diese
-                  Brille prüfen und bei Bedarf ändern; die Fotoanalyse prüft
-                  keine Wasserfestigkeit.
-                </p>
-              )}
               {isSunglasses(l) && /^UV[- ]?Schutz$/i.test(name) && (
                 <p className="note">
                   Shop-Vorgabe: UV400. Bitte für diese Brille prüfen; die

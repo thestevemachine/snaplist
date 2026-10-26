@@ -1522,3 +1522,16 @@ textarea {
 .draft-controls > .note {
   margin: 0.15rem 0;
 }
+
+/* Compact mobile review: the complete title stays visible. */
+.detail-view-button { border: 2px solid #2563eb; color: #1d4ed8; padding: .75rem 1.1rem; font-size: 1.05rem; font-weight: 700; }
+.listing-card-title strong { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+textarea.title-input { min-height: 5rem; resize: vertical; line-height: 1.4; }
+.eyewear-details { font-size: .85rem; margin-block: .2rem; padding-block: .2rem; }
+.reanalysis-hint { display: grid; gap: .2rem; font-size: .85rem; }
+.publication-confirmation p { margin: .35rem 0; }
+.publication-specifics { margin: .5rem 0; font-size: .9rem; }
+.publication-specifics dt { font-weight: 600; display: inline; }
+.publication-specifics dt::after { content: ": "; }
+.publication-specifics dd { display: inline; margin: 0; overflow-wrap: anywhere; }
+.publication-specifics dd::after { content: ""; display: block; }

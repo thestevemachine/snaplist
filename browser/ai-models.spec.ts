@@ -5,13 +5,14 @@ const options = [
   {
     id: "claude-opus-4-8",
     displayName: "Claude Opus 4.8",
-    isDefault: true,
+    isDefault: false,
     configured: true,
   },
   { id: "gpt-6-luna", displayName: "OpenAI GPT-6 Luna", configured: true },
   {
     id: "gemini-3.5-flash-lite",
     displayName: "Gemini 3.5 Flash-Lite",
+    isDefault: true,
     configured: true,
   },
 ];
@@ -66,6 +67,8 @@ test("independent model choices survive reload; switching and cancelling do not 
   });
   await setup(page);
   await page.getByRole("button", { name: /KI-Einstellungen/ }).click();
+  await expect(page.getByLabel("KI für die Fotosortierung")).toHaveValue("gemini-3.5-flash-lite");
+  await expect(page.getByLabel("KI für die Angebotserstellung")).toHaveValue("gemini-3.5-flash-lite");
   await page
     .getByLabel("KI für die Fotosortierung")
     .selectOption("gemini-3.5-flash-lite");
@@ -384,7 +387,7 @@ test("front-photo estimates remain visible and persisted without overwriting man
   ).toContainText("Wasserfest");
   await expect(
     page.getByText(/Shop-Vorgabe bei leerem Feld: Wasserfest/),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await page.getByLabel("Besonderheiten: Auswahl bearbeiten").click();
   await page
     .getByRole("checkbox", { name: "Wasserfest", exact: true })

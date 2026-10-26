@@ -1,3 +1,4 @@
+import { DEFAULT_AI_MODEL } from "@/lib/ai-defaults";
 import { measuredMessage } from "@/lib/ai-usage";
 import { isAiTerminal } from "@/lib/ai-providers";
 import type Anthropic from "@anthropic-ai/sdk";
@@ -10,8 +11,8 @@ import {
 } from "@/lib/prompts";
 import { labeledContent, toImageBlock, type WireImage } from "@/lib/images";
 
-const GROUP_MODEL = "claude-sonnet-4-6";
-const CHECK_MODEL = "claude-sonnet-4-6";
+const GROUP_MODEL = DEFAULT_AI_MODEL;
+const CHECK_MODEL = DEFAULT_AI_MODEL;
 const BATCH_SIZE = 10;
 
 // Concurrency caps — keep parallel bursts gentle so we don't trip Anthropic's

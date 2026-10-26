@@ -370,3 +370,9 @@ it("retains a visually supported acetate front alongside printed titanium, inclu
     confidence: 85,
   });
 });
+
+it("keeps a model identifier and separate lens width read on a Lindberg demo lens", () => {
+  const data=extractEyewear([fact("Modellnummer","1234","LINDBERG 1234 74"),fact("Glasbreite","74","LINDBERG 1234 74")]);
+  expect(data.fields.modelNumber?.value).toBe("1234");
+  expect(data.fields.lensWidth).toMatchObject({value:"74",source:"label",photos:[1]});
+});
