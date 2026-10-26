@@ -129,7 +129,7 @@ describe("front photo pixel ratios", () => {
     expect(m.status).toBe("unavailable");
     expect(m.lensHeightMm).toBeUndefined(); // impossible tall lens ratio rejected
   });
-  it.each(["manual", "shop"] as const)(
+  it.each(["shop"] as const)(
     "never accepts %s as an automatically read reference",
     (source) => {
       const l = listing();
@@ -280,4 +280,9 @@ it("adds a labelled calculated total width to new sunglasses descriptions only w
  expect(withSunglassesWidth({...l,eyewear_kind:"optical"}).description).toBe(l.description);
  expect(withSunglassesWidth({...l,frontMeasurement:undefined}).description).toBe(l.description);
  expect(withSunglassesWidth({...l,description:"Rahmenbreite: 140 mm"}).description).toBe("Rahmenbreite: 140 mm");
+});
+
+it("accepts an explicitly seller-confirmed 46 mm reference without claiming OCR evidence",()=>{
+ const l=listing();l.eyewear!.fields.lensWidth={value:"46",source:"manual"};
+ expect(calculateFrontMeasurement(observation(),sizes,l)).toMatchObject({referenceMm:46,referenceSource:"manual",referenceQuote:"Manuell bestätigte Scheibenbreite",referencePhotos:[],lensHeightMm:37,totalWidthMm:163});
 });

@@ -1,4 +1,5 @@
 "use client";
+import { lindbergLensWidthPatch } from "@/lib/lindberg-lens-width";
 import { titanEvidencePatch, titanMetalPatch } from "@/lib/titan-evidence";
 import { eyewearStyleTagsPatch } from "@/lib/eyewear-style-tags";
 import { frontMeasurementFields } from "@/lib/front-measurement-fields";
@@ -55,6 +56,8 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
       g.postStatus === "posting"
     )
       return;
+    const lensPatch = lindbergLensWidthPatch(g.listing,g.preparation.aspects);
+    if(lensPatch) {onGroupEdit(g.id,{listing:{...g.listing,...lensPatch}});return;}
     const titanPatch = titanEvidencePatch(g.listing);
     if (titanPatch) {
       onGroupEdit(g.id, {listing:{...g.listing,...titanPatch}});

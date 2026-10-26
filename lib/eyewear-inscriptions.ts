@@ -47,7 +47,7 @@ const names: Record<EyewearKey, string[]> = {
     "Material",
     "Frame Material",
   ],
-  lensWidth: ["Glasbreite", "Gläserbreite", "Glasdurchmesser", "Lens Width"],
+  lensWidth: ["Glasbreite", "Gläserbreite", "Glasdurchmesser", "Scheibenbreite", "Scheibengröße", "Lens Width", "Lens Size"],
   bridgeWidth: ["Stegbreite", "Brückenbreite", "Bridge Width"],
   templeLength: ["Bügellänge", "Temple Length"],
   totalWidth: [
@@ -68,6 +68,12 @@ export function parseBoxDimensions(text: string) {
         ...(match[3] ? { templeLength: match[3] } : {}),
       }
     : undefined;
+}
+// Lindberg demo lenses can print model + lens width without a box/bridge separator.
+export function parseLindbergDemoLens(text: string) {
+  const matches=[...text.matchAll(/(?<![\p{L}\d])(\d{4})(?:\s+|\s*[/·]\s*)([3-6]\d|7[0-5])(?:\s*mm)?(?![\p{L}\d])/gu)];
+  if(matches.length !== 1) return;
+  return {modelNumber:matches[0][1],lensWidth:matches[0][2]};
 }
 const materialName = (v: string) =>
   v
@@ -109,8 +115,15 @@ export function extractEyewear(facts: PhotoFact[]): EyewearData {
       };
   };
   const blocked = new Set<EyewearKey>();
+  const lindberg = facts.some(f => f.basis === "label" &&
+    ((/^(Marke|Brand)$/i.test(f.name) && /^lindberg$/i.test(f.value.trim())) || /\blindberg\b/i.test(f.quote)));
+
   for (const fact of facts.filter((f) => f.basis === "label")) {
     const dimensions = parseBoxDimensions(fact.quote);
+    if (lindberg && /^(Scheibenaufdruck|Demoscheibenaufdruck|Glasaufdruck|Lens Inscription)$/i.test(fact.name)) {
+      const lens = parseLindbergDemoLens(fact.quote);
+      if(lens) {set("modelNumber",lens.modelNumber,fact);set("lensWidth",lens.lensWidth,fact);}
+    }
     if (dimensions)
       for (const [key, value] of Object.entries(dimensions))
         set(key as EyewearKey, value, fact);
@@ -129,7 +142,7 @@ export function extractEyewear(facts: PhotoFact[]): EyewearData {
       }
       set(
         key,
-        key === "material" ? materialName(fact.value) : fact.value,
+        key === "material" ? materialName(fact.value) : key === "lensWidth" ? fact.value.replace(/\s*mm$/i, "") : fact.value,
         fact,
       );
     }
@@ -363,7 +376,7 @@ export function eyewearWarnings(l: ListingResult) {
     warnings.push("Titel/Material: Titan prüfen.");
   return [...new Set(warnings)];
 }
-export const INSCRIPTION_PROMPT = `\nNever infer titanium from the brand ic! berlin (or any brand), a rimless design or a metallic appearance. Only an explicit TITAN/TITANIUM material inscription establishes titanium; otherwise describe visibly metallic parts generically as Metall, not a specific alloy. For Lindberg, inspect lens printing for a model identifier (often four digits) and a separate following lens-width number, e.g. 1234 74. Emit separate label facts Modellnummer=1234 and Glasbreite=74 only if that complete print is legible and unambiguous; preserve the exact quote and photo index. A four-digit model code is never a width. Never infer a missing width or treat a color code as a width. Inspect printed words on BOTH demo lenses as well as temples, bridge and front. Read a clear TITAN/TITANIUM material marking on a demo lens as positive titanium evidence; a demo-lens material marking is not just branding to ignore. Return the exact quote and photo index. Titanium is Titan, not merely Metall. Distinguish the FRONT material from the TEMPLE material: emit Frontmaterial and Bügelmaterial facts separately when identifiable, e.g. an acetate front and titanium temples means Fassungsmaterial Titan | Acetat, not Metall alone. Do not infer that the whole frame is titanium or acetate from a single component label. Visual front material is an estimate with actual confidence; do not call it a label unless printed. Do not transfer colors or materials from display stands, blue holders, background objects or demo-lens tint to the frame. The word TITANIUM in a model name alone is not component-specific proof. Optyl printed on a lens or frame identifies Optyl plastic, NOT Acetat. Return a label fact Fassungsmaterial=Optyl with the exact quote and photo index. For eyewear transcribe all legible temple/bridge inscriptions as specifics named Bügelaufdruck (basis label, value and quote exact, photoIndices). Also classify separately Marke, Modellnummer, Modellname, Farbcode, Fassungsmaterial. Example fictitious Lindberg Air Titanium 1234 C02 52□18 140: brand Lindberg, model name Air Titanium, model number 1234, color code C02. Never label 52/18/140 as model. Inspect every photo for size markings on the bridge (Brücke/Steg), including its underside and inner surface, as well as temples and frame front. Size markings are NOT restricted to the temples. A bridge inscription such as 53-18 (for example on Bogner) means Glasbreite 53 mm and Stegbreite 18 mm; transcribe it exactly as a label fact named Brückenaufdruck with its photo index. Do not interpret it as a model number or infer temple length from it. Box dimensions are parsed deterministically from the exact inscription, never invent missing digits or infer total width. For unclear characters add a specific Prüfhinweis with a German review note and basis estimate, confidence 100, relevant photoIndices; do not invent readable values. Distinguish material assertions from model names. Preserve exact quotes for all label facts. Herstellernummer/MPN is NOT Modellnummer; omit MPN unless explicitly identified as a manufacturer part number. Bügellänge must include mm.`;
+export const INSCRIPTION_PROMPT = `\nNever infer titanium from the brand ic! berlin (or any brand), a rimless design or a metallic appearance. Only an explicit TITAN/TITANIUM material inscription establishes titanium; otherwise describe visibly metallic parts generically as Metall, not a specific alloy. For Lindberg, the DEMO LENS inscription is a primary source for the horizontal lens width, not just for branding. Transcribe its complete legible print as Scheibenaufdruck (label fact with exact quote and photo index), even when the temples contain no size. A model identifier (often four digits) followed by a separate two-digit number, e.g. 1257 46, means model 1257 and horizontal groove-to-groove lens width 46 mm, excluding the frame rim. Emit separate label facts Modellnummer=1257 and Glasbreite=46 only if that complete print is legible and unambiguous; preserve the exact quote and photo index. A four-digit model code is never a width. Never infer a missing width or treat a color code as a width. Inspect printed words on BOTH demo lenses as well as temples, bridge and front. Read a clear TITAN/TITANIUM material marking on a demo lens as positive titanium evidence; a demo-lens material marking is not just branding to ignore. Return the exact quote and photo index. Titanium is Titan, not merely Metall. Distinguish the FRONT material from the TEMPLE material: emit Frontmaterial and Bügelmaterial facts separately when identifiable, e.g. an acetate front and titanium temples means Fassungsmaterial Titan | Acetat, not Metall alone. Do not infer that the whole frame is titanium or acetate from a single component label. Visual front material is an estimate with actual confidence; do not call it a label unless printed. Do not transfer colors or materials from display stands, blue holders, background objects or demo-lens tint to the frame. The word TITANIUM in a model name alone is not component-specific proof. Optyl printed on a lens or frame identifies Optyl plastic, NOT Acetat. Return a label fact Fassungsmaterial=Optyl with the exact quote and photo index. For eyewear transcribe all legible temple/bridge inscriptions as specifics named Bügelaufdruck (basis label, value and quote exact, photoIndices). Also classify separately Marke, Modellnummer, Modellname, Farbcode, Fassungsmaterial. Example fictitious Lindberg Air Titanium 1234 C02 52□18 140: brand Lindberg, model name Air Titanium, model number 1234, color code C02. Never label 52/18/140 as model. Inspect every photo for size markings on the bridge (Brücke/Steg), including its underside and inner surface, as well as temples and frame front. Size markings are NOT restricted to the temples. A bridge inscription such as 53-18 (for example on Bogner) means Glasbreite 53 mm and Stegbreite 18 mm; transcribe it exactly as a label fact named Brückenaufdruck with its photo index. Do not interpret it as a model number or infer temple length from it. Box dimensions are parsed deterministically from the exact inscription, never invent missing digits or infer total width. For unclear characters add a specific Prüfhinweis with a German review note and basis estimate, confidence 100, relevant photoIndices; do not invent readable values. Distinguish material assertions from model names. Preserve exact quotes for all label facts. Herstellernummer/MPN is NOT Modellnummer; omit MPN unless explicitly identified as a manufacturer part number. Bügellänge must include mm.`;
 
 export function syncManualEyewear(
   previous: ListingResult,

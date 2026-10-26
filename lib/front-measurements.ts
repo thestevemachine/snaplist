@@ -31,6 +31,7 @@ export const frontMeasurementSchema = z.object({
   status: z.enum(["estimated", "uncertain", "unavailable"]),
   photoIndex: z.number().int().min(0).max(24),
   referenceMm: z.number().positive().optional(),
+  referenceSource: z.enum(["label", "manual"]).optional(),
   referenceQuote: z.string().max(2000).optional(),
   referencePhotos: z.array(z.number().int().min(1).max(24)).max(24).optional(),
   lensWidthPx: z.number().positive().optional(),
@@ -75,24 +76,24 @@ export function calculateFrontMeasurement(
   const size = sizes[o.photoIndex - 1];
   const ref = listing.eyewear?.fields.lensWidth;
   const reference = Number(ref?.value.replace(/\s*mm$/i, "").replace(",", "."));
-  // Use only the inscription parser's unambiguous label evidence, never size,
-  // a guessed model number, shop defaults or a model-supplied reference number.
+  // Use label evidence or the seller's explicitly confirmed lens width;
+  // never infer the scale from size, model numbers or shop defaults.
   if (
-    ref?.source !== "label" ||
-    !ref.quote ||
-    !ref.photos?.length ||
+    (ref?.source !== "label" && ref?.source !== "manual") ||
+    (ref.source === "label" && (!ref.quote || !ref.photos?.length)) ||
     !/^\d{2}(?:[.,]\d+)?(?:\s*mm)?$/i.test(ref.value) ||
     reference < 20 ||
     reference > 90
   ) {
     result.reasons.push(
-      "Scheibenbreite vom Bügel-/Brückenaufdruck fehlt oder ist widersprüchlich.",
+      "Scheibenbreite vom Demoscheiben-/Bügelaufdruck fehlt oder ist widersprüchlich.",
     );
     return result;
   }
   result.referenceMm = reference;
-  result.referenceQuote = ref.quote;
-  result.referencePhotos = ref.photos;
+  result.referenceSource = ref.source;
+  result.referenceQuote = ref.source === "manual" ? "Manuell bestätigte Scheibenbreite" : ref.quote;
+  result.referencePhotos = ref.photos ?? [];
   if (!size || size.width < 300 || size.height < 150) {
     result.reasons.push(
       "Bildgröße oder Bildausrichtung nicht zuverlässig lesbar bzw. Auflösung zu gering.",

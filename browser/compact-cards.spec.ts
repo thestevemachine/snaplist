@@ -338,3 +338,30 @@ test("removes an unproven ic berlin titanium guess from an existing draft withou
   await expect(page.locator(".title-input")).toHaveValue("ic! berlin Metall Sonnenbrille");
   expect(counts()).toEqual({paid:0,writes:0});
 });
+test("recovers Lindberg 46 mm from stored demo-lens text without a paid reanalysis",async ({page})=>{
+ const counts=await setup(page);
+ await expect(page.getByRole("status")).toContainText("Auf diesem Gerät gespeichert");
+ await page.evaluate(async()=>{
+  await new Promise<void>((resolve,reject)=>{
+   const r=indexedDB.open("listing-writer-drafts");r.onsuccess=()=>{
+    const db=r.result,tx=db.transaction("workspace","readwrite"),store=tx.objectStore("workspace"),get=store.get("current");
+    get.onsuccess=()=>{const data=get.result,g=data.groups[0],l=g.listing;
+     l.brand="Lindberg";l.title="Lindberg Brille";l.item_specifics.Marke="Lindberg";
+     l.item_specifics.Scheibenbreite="";
+     l.eyewear.fields.modelNumber={value:"1257",source:"label",quote:"LINDBERG 1257 46",photos:[1]};
+     delete l.eyewear.fields.lensWidth;
+     g.preparation.aspects.push({name:"Scheibenbreite",mode:"FREE_TEXT",cardinality:"SINGLE",values:[],required:false,dataType:"NUMBER"});
+     store.put(data,"current");};
+    tx.oncomplete=()=>{db.close();resolve()};tx.onerror=()=>reject(tx.error);
+   };
+  });
+ });
+ await page.reload();
+ await expect(page.getByLabel("Scheibenbreite",{exact:true})).toHaveValue("46");
+ await page.getByText("Aufdrucke & Maße",{exact:true}).click();
+ await expect(page.getByRole("textbox",{name:/^Glasbreite \(mm\)/})).toHaveValue("46");
+ await expect(page.getByRole("status")).toContainText("Auf diesem Gerät gespeichert");
+ await page.reload();
+ await expect(page.getByLabel("Scheibenbreite",{exact:true})).toHaveValue("46");
+ expect(counts()).toEqual({paid:0,writes:0});
+});
