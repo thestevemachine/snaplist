@@ -373,6 +373,9 @@ test("missing-field warning jumps into a closed aspect section, and optical lens
    const r=indexedDB.open("listing-writer-drafts");r.onsuccess=()=>{
     const db=r.result,tx=db.transaction("workspace","readwrite"),store=tx.objectStore("workspace"),get=store.get("current");
     get.onsuccess=()=>{const d=get.result,g=d.groups[0];g.listing.item_specifics.Rahmenfarbe="";
+     delete g.listing.eyewear;
+     g.listing.frontMeasurement={method:"front-photo-ratio-v1",status:"unavailable",photoIndex:1,reasons:["Scheibenbreite fehlt"],imageSize:{width:1000,height:500},observation:{photoIndex:1,leftLens:{left:{x:.15,y:.4},right:{x:.4,y:.4},top:{x:.27,y:.2},bottom:{x:.27,y:.6}},rightLens:{left:{x:.6,y:.4},right:{x:.85,y:.4},top:{x:.73,y:.2},bottom:{x:.73,y:.6}},outerLeft:{x:.05,y:.4},outerRight:{x:.95,y:.4},frontal:true,groovesVisible:true,complete:true,samePlane:true,confidence:95,note:""}};
+     g.preparation.aspects.push({name:"Glashöhe",mode:"FREE_TEXT",cardinality:"SINGLE",values:[],required:false});
      g.preparation.aspects.push({name:"Rahmenfarbe",mode:"SELECTION_ONLY",cardinality:"SINGLE",values:["Schwarz","Braun"],required:true});store.put(d,"current");};
     tx.oncomplete=()=>{db.close();resolve()};tx.onerror=()=>reject(tx.error);
    };
@@ -382,6 +385,7 @@ test("missing-field warning jumps into a closed aspect section, and optical lens
  const width=page.getByRole("spinbutton",{name:"Glasbreite manuell (mm)"});
  await expect(width).toBeVisible();
  await width.fill("46");
+ await expect(page.getByLabel("Glashöhe",{exact:true})).toHaveValue("37 mm");
  await page.locator(".specifics-details > summary").click();
  await expect(page.getByLabel("Rahmenfarbe",{exact:true})).not.toBeVisible();
  await page.getByRole("button",{name:"Enter Rahmenfarbe",exact:true}).click();
@@ -391,6 +395,7 @@ test("missing-field warning jumps into a closed aspect section, and optical lens
  await expect(page.getByRole("status")).toContainText("Auf diesem Gerät gespeichert");
  await page.reload();
  await expect(width).toHaveValue("46");
+ await expect(page.getByLabel("Glashöhe",{exact:true})).toHaveValue("37 mm");
  expect(counts()).toEqual({paid:0,writes:0});
 });
 test("restored published cards start collapsed while the next unpublished card remains open",async ({page})=>{

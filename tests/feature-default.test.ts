@@ -65,3 +65,15 @@ it("treats whitespace as empty and honors the exact category spelling", () => {
     )?.item_specifics?.Besonderheiten,
   ).toBe("wasserfest");
 });
+
+it("prefers a supported visible rim or shape feature over the shop fallback",()=>{
+ const fields=[{...meta[0],values:["Vollrand","Eckig","Wasserfest"]}];
+ expect(eyewearFeatureDefaultPatch({...base,item_specifics:{Form:"Rechteckig",Stil:"Vollrand"}},fields)?.item_specifics?.Besonderheiten).toBe("Vollrand | Eckig");
+ expect(eyewearFeatureDefaultPatch({...base,item_specifics:{Stil:"Randlos"}},[{...meta[0],values:["Randlos","Vollrand"]}])?.item_specifics?.Besonderheiten).toBe("Randlos");
+});
+
+it("uses the seller-requested Vollrand default when the category offers it, without inventing photo evidence",()=>{
+ const patch=eyewearFeatureDefaultPatch(base,[{...meta[0],values:["Vollrand","LED"]}]);
+ expect(patch?.item_specifics?.Besonderheiten).toBe("Vollrand");
+ expect(patch?.evidence?.Besonderheiten).toBeUndefined();
+});

@@ -3,6 +3,7 @@ import { issueField, focusReviewField } from "@/lib/review-navigation";
 import { lindbergLensWidthPatch } from "@/lib/lindberg-lens-width";
 import { titanEvidencePatch, titanMetalPatch } from "@/lib/titan-evidence";
 import { eyewearStyleTagsPatch } from "@/lib/eyewear-style-tags";
+import { recalculateStoredMeasurement } from "@/lib/front-measurements";
 import { frontMeasurementFields } from "@/lib/front-measurement-fields";
 import {
   changeEyewearKind,
@@ -91,11 +92,14 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
     };
     const metalPatch = titanMetalPatch(updated, g.preparation.aspects);
     if (metalPatch) Object.assign(updated, metalPatch);
+    const recalculated = recalculateStoredMeasurement(updated);
+    const geometryChanged = recalculated && JSON.stringify(recalculated) !== JSON.stringify(updated.frontMeasurement);
+    if (geometryChanged) updated.frontMeasurement = recalculated;
     const measurementPatch = frontMeasurementFields(
       updated,
       g.preparation.aspects,
     );
-    if (featurePatch || materialPatch || stylePatch || measurementPatch || metalPatch)
+    if (featurePatch || materialPatch || stylePatch || measurementPatch || metalPatch || geometryChanged)
       onGroupEdit(g.id, { listing: { ...updated, ...measurementPatch } });
   }, [g.id, g.listing, g.preparation, g.postStatus, onGroupEdit]);
   if (!g.listing) return null;
