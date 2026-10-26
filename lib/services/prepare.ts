@@ -1,4 +1,4 @@
-import { titanEvidencePatch } from "@/lib/titan-evidence";
+import { titanEvidencePatch, titanMetalPatch } from "@/lib/titan-evidence";
 import { DEFAULT_AI_MODEL } from "@/lib/ai-defaults";
 import { eyewearStyleTagsPatch } from "@/lib/eyewear-style-tags";
 import { frontMeasurementFields } from "@/lib/front-measurement-fields";
@@ -259,6 +259,11 @@ export async function prepareListing(body: any, sealedConnection?: string) {
             );
             if (c) c.label = "Gebraucht – gut (3000)";
           }
+          const materialPatch = titanEvidencePatch({...listing,item_specifics:Object.fromEntries(Object.entries(aspects).map(([name,values])=>[name,values.join(" | ")]))});
+          if (materialPatch) {
+            Object.assign(listing,materialPatch);
+            for(const [name,value] of Object.entries(materialPatch.item_specifics ?? {})) aspects[name]=value.split(" | ").filter(Boolean);
+          }
           listing.category_id = id;
           listing.item_specifics = Object.fromEntries(
             Object.entries(aspects).map(([k, v]) => [k, v.join(" | ")]),
@@ -280,6 +285,11 @@ export async function prepareListing(body: any, sealedConnection?: string) {
             meta,
           );
           if (glasses) {
+            const metalPatch = titanMetalPatch(listing, meta);
+            if (metalPatch) {
+              Object.assign(listing, metalPatch);
+              for(const [name,value] of Object.entries(metalPatch.item_specifics ?? {})) aspects[name]=value.split(" | ").filter(Boolean);
+            }
             const patch = eyewearFeatureDefaultPatch(listing, meta);
             if (patch) {
               Object.assign(listing, patch);

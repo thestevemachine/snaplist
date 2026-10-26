@@ -1,9 +1,10 @@
 "use client";
+import { materialTitleIssues } from "@/lib/eyewear-inscriptions";
 import { originalSellerSku } from "@/lib/batch-sku";
 import { FrontMeasurementControls } from "./FrontMeasurementControls";
 
 import { EyewearDetails } from "./EyewearDetails";
-import { isGlasses, glassesTitleHints } from "@/lib/glasses-rules";
+import { isGlasses } from "@/lib/glasses-rules";
 import { DraftControls } from "./DraftControls";
 import { draftIssues } from "@/lib/client-review";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -235,15 +236,6 @@ export function ListingCard({
             <div className="copy-row">
               <CopyButton text={listing.title} label="Titel" />
             </div>
-            {isGlasses(listing) &&
-              group.preparation &&
-              glassesTitleHints(listing, group.preparation.aspects).map(
-                (hint) => (
-                  <p className="note" key={hint}>
-                    {hint}
-                  </p>
-                ),
-              )}
           </div>
 
           <div className="meta-row">
@@ -442,12 +434,7 @@ export function ListingCard({
           <button type="button" onClick={() => onRetry(group.id, analysisHint)}>
             Ausgewählte Fotos neu analysieren (ersetzt diesen Entwurf)
           </button>
-          <p className="note">
-            Verwendet die vorhandenen Fotos – kein erneutes Hochladen nötig.
-            Erstellt Titel, Beschreibung und Merkmale neu; auch manuelle
-            Änderungen daran werden ersetzt. SKU und ausgewählte Versandregeln
-            bleiben erhalten.
-          </p>
+          <div className="analysis-tools">
           <EyewearDetails
             listing={listing}
             meta={group.preparation?.aspects ?? []}
@@ -458,11 +445,13 @@ export function ListingCard({
             photoById={photoById}
             onEdit={onGroupEdit}
           />
+          </div>
           <DraftControls
             group={group}
             photoById={photoById}
             onGroupEdit={onGroupEdit}
           />
+          {materialTitleIssues(listing).map(warning => <p className="material-warning" key={warning}>{warning}</p>)}
           {group.postStatus !== "posted" && (
             <div className="draft-save-row">
               <button

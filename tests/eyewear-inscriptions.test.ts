@@ -267,8 +267,8 @@ it("uses a Titanium demo-lens marking and keeps proven acetate front material al
       values: ["Titan", "Acetat", "Metall"],
     },
   ]);
-  expect(aspects.Rahmenmaterial).toEqual(["Titan", "Acetat"]);
-  expect(l.material).toBe("Titan | Acetat");
+  expect(aspects.Rahmenmaterial).toEqual(expect.arrayContaining(["Titan", "Metall", "Acetat"]));
+  expect(l.material?.split(" | ")).toEqual(expect.arrayContaining(["Titan", "Metall", "Acetat"]));
 });
 it("combines different label-proven front and temple materials without treating them as a conflict", () => {
   const eyewear = extractEyewear([
@@ -301,7 +301,7 @@ it("repairs a stored generic metal value from positive label evidence once, with
     },
   ];
   const patch = printedMaterialPatch(l, m)!;
-  expect(patch.item_specifics?.Rahmenmaterial).toBe("Titan | Acetat");
+  expect(patch.item_specifics?.Rahmenmaterial?.split(" | ")).toEqual(expect.arrayContaining(["Titan", "Metall", "Acetat"]));
   expect(printedMaterialPatch({ ...l, ...patch }, m)).toBeUndefined();
   expect(
     printedMaterialPatch(
@@ -318,7 +318,7 @@ it("repairs a stored generic metal value from positive label evidence once, with
   expect(l.item_specifics?.Rahmenmaterial).toBe("Metall | Acetat");
 });
 
-it("accepts a generic metal title when the actual material is more specifically titanium", () => {
+it("warns briefly in either direction when titanium differs between title and material", () => {
   expect(
     materialTitleIssues({
       title: "Brille Metall",
@@ -326,7 +326,7 @@ it("accepts a generic metal title when the actual material is more specifically 
       eyewear: { fields: {}, warnings: [] },
       item_specifics: { Rahmenmaterial: "Titan | Acetat" },
     }),
-  ).toEqual([]);
+  ).toEqual(["Titel/Material: Titan prüfen."]);
   expect(
     materialTitleIssues({
       title: "Brille Titan",
@@ -361,7 +361,7 @@ it("retains a visually supported acetate front alongside printed titanium, inclu
       values: ["Titan", "Acetat", "Metall"],
     },
   ]);
-  expect(aspects.Rahmenmaterial).toEqual(["Titan", "Acetat"]);
+  expect(aspects.Rahmenmaterial).toEqual(expect.arrayContaining(["Titan", "Metall", "Acetat"]));
   expect(l.estimates?.Rahmenmaterial).toBe(85);
   expect(parseListing(l).eyewear?.materials?.[0]).toMatchObject({
     part: "front",

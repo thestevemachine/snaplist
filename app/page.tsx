@@ -1,4 +1,5 @@
 "use client";
+import { materialTitleIssues } from "@/lib/eyewear-inscriptions";
 import { withSunglassesWidth } from "@/lib/front-measurements";
 import { DEFAULT_AI_MODEL } from "@/lib/ai-defaults";
 import { AiUsageSummary } from "./AiUsageSummary";
@@ -1652,7 +1653,7 @@ export default function Home() {
                 Zweitkategorie:{" "}
                 {publicationConfirmation.preparation?.secondaryCategoryName ||
                   publicationConfirmation.listing.secondary_category_id}
-                . eBay kann dafür zusätzliche Gebühren berechnen.
+
               </p>
             )}
             <p>
@@ -1665,6 +1666,7 @@ export default function Home() {
               </strong>{" "}
               · Menge: 1
             </p>
+            {materialTitleIssues(publicationConfirmation.listing!).map(warning => <p className="material-warning" key={warning}>{warning}</p>)}
             <dl className="publication-specifics">
               <dt>Zustand</dt><dd>{publicationConfirmation.preparation?.conditions.find(c => c.value === publicationConfirmation.listing?.ebay_condition)?.label || publicationConfirmation.listing?.ebay_condition}</dd>
               {Object.entries(publicationConfirmation.listing?.item_specifics ?? {}).filter(([,value]) => value.trim()).map(([name,value]) => (

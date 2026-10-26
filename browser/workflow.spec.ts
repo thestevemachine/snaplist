@@ -697,7 +697,7 @@ test("sunglasses show both categories and send one confirmed listing", async ({
     .click();
   await page.getByRole("button", { name: /Entwürfe erstellen/i }).click();
   await expect(
-    page.getByText("Zweitkategorie: Damen > Sonnenbrillen (22)"),
+    page.getByText("Zweitkategorie: Damen · 22"),
   ).toBeVisible();
   await page.getByLabel("SKU", { exact: true }).fill("65-23537");
   await page.getByText("Versand und Rückgabe", { exact: true }).click();
@@ -1006,7 +1006,7 @@ test("inscription data remains editable, persists, and only explicitly rebuilds 
   );
   await draft(page);
   const panel = page.locator("details").filter({
-    has: page.getByText("Erkannte Bügelaufdrucke und Maße", { exact: true }),
+    has: page.getByText("Aufdrucke & Maße", { exact: true }),
   });
   await expect(panel.getByLabel("Glasbreite", { exact: false })).toHaveValue(
     "46",
@@ -1546,4 +1546,21 @@ test("late eBay research never replaces a seller's manually corrected price", as
   release!();
   await completed;
   await expect(page.getByLabel("Preis",{exact:true})).toHaveValue("69");
+});
+test("material mismatch stays advisory, can be reviewed in confirmation, and clears when the title is corrected", async ({page})=>{
+ await setup(page);
+ await draft(page);
+ await shipping(page);
+ await page.locator(".title-input").fill("Canon Titan Camera");
+ const card=page.locator(".listing-card");
+ await expect(card.locator(".material-warning")).toHaveText("Titel/Material: Titan prüfen.");
+ const publish=page.getByRole("button",{name:"Auf eBay.de veröffentlichen…"});
+ await expect(publish).toBeEnabled();
+ await publish.click();
+ const dialog=page.getByRole("dialog",{name:"Veröffentlichung bestätigen"});
+ await expect(dialog.locator(".material-warning")).toHaveText("Titel/Material: Titan prüfen.");
+ await dialog.getByRole("button",{name:"Abbrechen"}).click();
+ await page.locator(".title-input").fill("Canon Camera");
+ await expect(card.locator(".material-warning")).toHaveCount(0);
+ await expect(publish).toBeEnabled();
 });

@@ -160,12 +160,6 @@ export async function submitTradingListing(
   const issues = [
     ...validateAspects(aspects, meta),
     ...contentIssues(listing),
-    ...materialTitleIssues({
-      ...listing,
-      item_specifics: Object.fromEntries(
-        Object.entries(aspects).map(([k, v]) => [k, v.join(" | ")]),
-      ),
-    }),
   ];
   if (issues.length) throw new Error(issues.join("; "));
   // Description is editable plain text. Escape HTML first, then XML; preserve lines.
@@ -242,7 +236,7 @@ export async function submitTradingListing(
   const verifiedDuplicate = await recoverDuplicate(verification);
   if (verifiedDuplicate) return verifiedDuplicate;
   assertTradingSuccess(verification);
-  const warnings = tradingMessages(verification, "Warning");
+  const warnings = [...materialTitleIssues(listing), ...tradingMessages(verification, "Warning")];
   const fees = list(verification.Fees?.Fee).map((f) => ({
     name: f.Name || "",
     amount: typeof f.Fee === "string" ? f.Fee : f.Fee?.["#text"] || "0",

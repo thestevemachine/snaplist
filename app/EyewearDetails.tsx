@@ -21,12 +21,7 @@ export function EyewearDetails({
   const warnings = eyewearWarnings(listing);
   return (
     <details className="result-field eyewear-details">
-      <summary>Erkannte Bügelaufdrucke und Maße</summary>
-      <p>
-        Maße in mm. Leere Werte sind unbekannt. Hier stehen auch Lesedaten, für
-        die eBay kein eigenes Merkmal anbietet. Nur passende eBay-Felder werden
-        übertragen.
-      </p>
+      <summary>Aufdrucke & Maße</summary>
       {listing.frontMeasurement && (
         <section aria-label="Pixelmaße aus Frontfoto">
           <strong>
@@ -206,10 +201,6 @@ export function EyewearDetails({
           Aufdruck-Hinweise geprüft
         </button>
       )}
-      <p>
-        Manuelle Titel bleiben erhalten. Nach Korrekturen kannst du den Titel
-        ausdrücklich neu bilden.
-      </p>
       <button
         type="button"
         disabled={!meta.length}

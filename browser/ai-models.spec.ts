@@ -365,7 +365,7 @@ test("front-photo estimates remain visible and persisted without overwriting man
   await page.reload();
   const open = async () => {
     await page
-      .getByText("Erkannte Bügelaufdrucke und Maße", { exact: true })
+      .getByText("Aufdrucke & Maße", { exact: true })
       .click();
     const section = page.getByRole("region", {
       name: "Pixelmaße aus Frontfoto",
@@ -456,7 +456,7 @@ test("front-photo estimates remain visible and persisted without overwriting man
   );
   await page.reload();
   await page
-    .getByText("Nur Brillenmaße berechnen · Entwurf behalten", { exact: true })
+    .getByText("Maße berechnen", { exact: true })
     .click();
   page.once("dialog", (d) => d.dismiss());
   await page
