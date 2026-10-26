@@ -1,3 +1,4 @@
+import { isGlasses } from "@/lib/glasses-rules";
 import { withDeadline } from "@/lib/network";
 import { NextRequest, NextResponse } from "next/server";
 import { guardApiRequest } from "@/lib/api-guard";
@@ -43,7 +44,7 @@ export async function researchListing(input: unknown) {
     // The band stays raw market truth; the "use median" affordance carries the
     // deployment's storewide markup so it matches analysis-suggested pricing.
     const markup = priceMarkupPercent();
-    if (markup > 0 && comps.median !== undefined && comps.median > 0) {
+    if (!isGlasses(body.listing) && markup > 0 && comps.median !== undefined && comps.median > 0) {
       return NextResponse.json({
         ok: true,
         comps: { ...comps, listPrice: applyPriceMarkup(comps.median, markup) },

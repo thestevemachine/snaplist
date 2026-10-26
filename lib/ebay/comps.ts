@@ -1,3 +1,4 @@
+import { isGlasses } from "@/lib/glasses-rules";
 import { isApparel, apparelQuery, apparelMatchScore } from "./apparel-comps";
 import { boundedFetch } from "@/lib/network";
 // Comparable-listing price research via eBay's Browse API.
@@ -117,6 +118,10 @@ export function matchesApparelSize(
 
 export function buildCompQuery(listing: ListingResult): string {
   if (isApparel(listing)) return apparelQuery(listing);
+  if (isGlasses(listing)) {
+    return [listing.brand || listing.item_specifics?.Marke, ...compIdentifiers(listing), listing.item_type || "Brille"]
+      .filter(Boolean).join(" ").slice(0,100);
+  }
   const brand = String(listing.brand || "").trim();
   const usableBrand =
     brand && !/^(no\s?brand|unbranded|unknown)$/i.test(brand) ? brand : "";
@@ -141,6 +146,10 @@ export function buildCompQuery(listing: ListingResult): string {
 }
 
 export function compIdentifiers(listing: ListingResult): string[] {
+  if (isGlasses(listing)) {
+    const model = listing.eyewear?.fields.modelNumber?.value || listing.item_specifics?.Modellnummer || listing.item_specifics?.Modell || listing.item_specifics?.Model;
+    return model && !/^(unknown|unbekannt|nicht zutreffend|n\/?a)$/i.test(model) ? [model.trim()] : [];
+  }
   const fields = ["UPC", "ISBN", "EAN", "MPN", "Model"];
   return [
     ...new Set(
@@ -270,7 +279,7 @@ export async function searchComps(
   const params = new URLSearchParams({
     q: query,
     limit: "50",
-    filter: `buyingOptions:{FIXED_PRICE},conditions:{${wantNew ? "NEW" : "USED"}},priceCurrency:${EBAY_CURRENCY}`,
+    filter: `buyingOptions:{FIXED_PRICE},${isGlasses(listing) && /^(NEW_OTHER|NEW_NO_TAGS)$/i.test(selectedCondition || "") ? "conditionIds:{1500}" : `conditions:{${wantNew ? "NEW" : "USED"}}`},priceCurrency:${EBAY_CURRENCY}`,
   });
   if (listing.category_id) params.set("category_ids", listing.category_id);
   const requestSearch = async (p: URLSearchParams) => {
@@ -326,7 +335,14 @@ export async function searchComps(
       return false;
     // GTIN retrieval matches the product identifier even when sellers omit it
     // from their titles. Descriptive searches must retain distinguishing phrases.
+    if (isGlasses(listing) && /^(NEW_OTHER|NEW_NO_TAGS)$/i.test(selectedCondition || "") && it.conditionId !== "1500") return false;
     if (gtinMatched) return true;
+    if (isGlasses(listing)) {
+      const brand = listing.brand || listing.item_specifics?.Marke || "";
+      if (!brand || !norm(title).includes(norm(brand))) return false;
+      if (identifiers.length && !identifiers.every(id => norm(title).includes(norm(id)))) return false;
+      return true;
+    }
     const terms = comparisonTerms(listing);
     if (terms.length)
       return terms.every((term) =>
@@ -395,7 +411,7 @@ export async function searchComps(
         const u = new URL(it.url);
         return (
           u.protocol === "https:" &&
-          (u.hostname === "www.ebay.com" || u.hostname === "ebay.com")
+          ["www.ebay.com", "ebay.com", "www.ebay.de", "ebay.de"].includes(u.hostname)
         );
       } catch {
         return false;
@@ -405,16 +421,24 @@ export async function searchComps(
     .filter((s) => s.total !== undefined)
     .map((s) => s.total!);
   const stats = compStats(prices);
+  const itemStats = compStats(sources.map(s => s.price));
+  const eyewear = isGlasses(listing);
+  const canRecommend = eyewear && Boolean(listing.category_id) && identifiers.length > 0 && sources.length >= 3 &&
+    itemStats.low! > 0 && itemStats.high! / itemStats.low! <= 2;
   const summary: CompsSummary = {
-    ok: stats.count > 0,
+    ok: (eyewear ? itemStats.count : stats.count) > 0,
     query,
-    ...stats,
-    confidence: Math.min(stats.confidence, gtinMatched ? 0.8 : 0.3),
+    ...(eyewear ? itemStats : stats),
+    recommendedPrice: canRecommend ? itemStats.median : undefined,
+    recommendationBasis: canRecommend ? "Median passender aktiver eBay-Angebote für Marke, Modell und Zustand; Artikelpreis ohne Versand, keine verkauften Preise." : undefined,
+    confidence: Math.min((eyewear ? itemStats : stats).confidence, gtinMatched ? 0.8 : 0.3),
     sources,
     checkedAt: new Date().toISOString(),
     matchBasis: gtinMatched
       ? "GTIN-matched asking prices"
-      : isApparel(listing)
+      : eyewear
+        ? identifiers.length ? "brand and exact-model matched asking prices" : "brand-only asking prices, model unverified"
+        : isApparel(listing)
         ? "brand, garment, size and distinguishing-feature matched asking prices"
         : listing.search_terms?.length
           ? "distinctive-title asking-price research"
@@ -422,8 +446,8 @@ export async function searchComps(
             ? "identifier-filtered asking prices"
             : "broad asking-price research",
     basis:
-      stats.count > 0
-        ? `${stats.count} active ${wantNew ? "new" : "pre-owned"} listings matching “${queries.join(" / ")}” (item + known shipping; active asking prices, not sold; verify each match)`
+      (eyewear ? itemStats.count : stats.count) > 0
+        ? `${eyewear ? itemStats.count : stats.count} active ${wantNew ? "new" : "pre-owned"} listings matching “${queries.join(" / ")}” (${eyewear ? "item price excluding shipping" : "item + known shipping"}; active asking prices, not sold; verify each match)`
         : "",
   };
   if (compsCache.size > COMPS_CACHE_MAX) compsCache.clear();
