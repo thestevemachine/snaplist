@@ -72,6 +72,7 @@ export interface SortResponse {
 
 export interface Photo {
   separator?: boolean;
+  separatorManual?: boolean;
   id: string;
   previewUrl: string;
   mediaType: string;

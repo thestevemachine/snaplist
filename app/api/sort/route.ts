@@ -1,3 +1,4 @@
+import {recognizePhotoSeparators} from "@/lib/ai-photo-separators";
 import { DEFAULT_AI_MODEL } from "@/lib/ai-defaults";
 import { collectUsage, currentUsage } from "@/lib/ai-usage";
 import { NextRequest, NextResponse } from "next/server";
@@ -20,7 +21,7 @@ async function handle(req: NextRequest) {
   const denied = guardApiRequest(req);
   if (denied) return denied;
 
-  let body: { images?: WireImage[]; sortModel?: string };
+  let body: { images?: WireImage[]; sortModel?: string; action?: string };
   try {
     body = await req.json();
   } catch {
@@ -70,6 +71,10 @@ async function handle(req: NextRequest) {
   }
 
   try {
+    if(body.action === "detect-separators") {
+      const separatorIndices=await recognizePhotoSeparators(client,images,sortModel ?? DEFAULT_AI_MODEL);
+      return NextResponse.json({ok:true,separatorIndices,usage:currentUsage()});
+    }
     const result = await sortPhotos(client, images, sortModel);
     if (result.groups.length === 0) {
       return NextResponse.json(

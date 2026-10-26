@@ -446,7 +446,22 @@ export default function Home() {
     setSorting(true);
     setError(null);
     try {
-      const ordered = await Promise.all(photos.map(async photo=>({...photo,separator:photo.separator ?? await detectWhiteSeparator(photo.previewUrl)})));
+      const separators=new Set<string>();
+      // Scan the entire sequence first; a divider at a request boundary must
+      // still end the previous item. Never fall back silently after a failed scan.
+      for(let offset=0;offset<photos.length;offset+=20) {
+        const chunk=photos.slice(offset,offset+20);
+        setSortProgress(`KI prüft Trennbilder: Foto ${offset+1}–${offset+chunk.length} von ${photos.length}…`);
+        const response=await apiPost("/api/sort",{action:"detect-separators",sortModel:getSortModel() ?? DEFAULT_AI_MODEL,
+          images:chunk.map(photo=>({mediaType:photo.mediaType,data:photo.previewUrl.split(",")[1]}))});
+        const detected=await readJson(response,"Trennbilderkennung fehlgeschlagen. Bitte erneut starten.");
+        setSortUsage(prev=>[...prev,...(detected.usage ?? [])]);
+        if(!detected.ok || !Array.isArray(detected.separatorIndices) || detected.separatorIndices.some((i:unknown)=>typeof i!=="number" || !Number.isInteger(i) || i<0 || i>=chunk.length))
+          throw new Error(detected.error || "Trennbilderkennung unvollständig. Es wird nicht ungeprüft weiter sortiert.");
+        detected.separatorIndices.forEach((index:number)=>separators.add(chunk[index].id));
+      }
+      const ordered=photos.map(photo=>({...photo,separator:photo.separatorManual ? Boolean(photo.separator) : separators.has(photo.id)}));
+      setPhotos(ordered);
       if(ordered.some(photo=>photo.separator)) {
         const parts=splitAtSeparators(ordered);
         if(!parts.length) throw new Error("Nur Trennbilder vorhanden. Bitte auch Brillenfotos hinzufügen.");
@@ -1439,7 +1454,7 @@ export default function Home() {
               disabled={sorting || Boolean(importProgress)}
               onCapture={async (file) => (await addFiles([file])) === 1}
             />
-            {photos.some(photo=>photo.separator) && <p className="separator-note">Trennbilder erkannt: Jede Fotoserie dazwischen wird eine eigene Brille. Die Trennbilder werden nicht ins Angebot übernommen. Keine KI-Sortierkosten.</p>}
+            {photos.some(photo=>photo.separator) && <p className="separator-note">Mögliche Trennbilder markiert. Die KI prüft beim Sortieren alle Fotos in ihrer Reihenfolge. Ein leeres Trennbild beendet die vorherige Brille und wird nicht ins Angebot übernommen.</p>}
             {importProgress && <p aria-live="polite">{importProgress}</p>}
             {photos.length > 0 && (
               <div className="thumbs" aria-label="Ausgewählte Fotos">
@@ -1449,7 +1464,7 @@ export default function Home() {
                     <img src={p.previewUrl} alt={p.separator ? "Trennbild" : ""} />
                     <button type="button" className="separator-toggle" disabled={sorting || Boolean(importProgress)}
                       aria-label={p.separator ? "Trennbild als normales Foto verwenden" : "Als Trennbild markieren"}
-                      onClick={()=>setPhotos(prev=>prev.map(photo=>photo.id===p.id ? {...photo,separator:!photo.separator} : photo))}>
+                      onClick={()=>setPhotos(prev=>prev.map(photo=>photo.id===p.id ? {...photo,separator:!photo.separator,separatorManual:true} : photo))}>
                       {p.separator ? "Trennbild" : "Trennen"}
                     </button>
                     <button
@@ -1510,7 +1525,7 @@ export default function Home() {
                     {photos.length} photos…
                   </>
                 ) : (
-                  <>{photos.some(photo=>photo.separator) ? "Trennbilder anwenden" : `🔀 Sort ${photos.length || ""} photos into items`}</>
+                  <>{photos.some(photo=>photo.separator) ? "Trennbilder anwenden" : `🔀 ${photos.length || ""} Fotos mit KI sortieren`}</>
                 )}
               </button>
             </div>
