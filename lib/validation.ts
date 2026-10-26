@@ -48,6 +48,7 @@ export const listingSchema = z.object({
     .optional(),
   category_fields_version: z.number().int().min(0).max(100).optional(),
   feature_defaults_version: z.number().int().min(0).max(100).optional(),
+  style_tags_version: z.number().int().min(0).max(100).optional(),
   glasses_rules_version: z.number().int().min(0).max(100).optional(),
   title: z.string().trim().min(1).max(200),
   description: z.string().max(15000),

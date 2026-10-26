@@ -1,5 +1,9 @@
 import { it, expect } from "vitest";
-import { applyBatchSkus, planBatchSkus } from "@/lib/batch-sku";
+import {
+  applyBatchSkus,
+  planBatchSkus,
+  originalSellerSku,
+} from "@/lib/batch-sku";
 import type { ItemGroup } from "@/lib/types";
 const group = (id: string, patch: Partial<ItemGroup> = {}): ItemGroup => ({
   id,
@@ -50,4 +54,19 @@ it("does not lose precision for long numeric SKUs", () => {
   expect(
     planBatchSkus([group("a"), group("b")], "X-9007199254740999")[1].sku,
   ).toBe("X-9007199254741000");
+});
+
+it("keeps the seller example exact and increments only the numeric suffix", () => {
+  const rows = applyBatchSkus(
+    [group("one", { sku: "" }), group("two", { sku: "" })],
+    "65-23537",
+  );
+  expect(rows.map((g) => g.sku)).toEqual(["65-23537", "65-23538"]);
+  expect(rows.map((g) => g.id)).toEqual(["one", "two"]);
+});
+
+it("offers a seller-controlled repair for the screenshot SKU without stripping arbitrary SKUs", () => {
+  expect(originalSellerSku("65-23537-A-7cd44bf46731")).toBe("65-23537");
+  expect(originalSellerSku("65-23537")).toBeUndefined();
+  expect(originalSellerSku("MY-SKU-A-7cd44bf46731")).toBeUndefined();
 });

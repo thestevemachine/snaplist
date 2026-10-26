@@ -1409,3 +1409,84 @@ textarea {
   min-width: 0;
   flex: 1;
 }
+
+/* Compact review cards: label → value → optional evidence, then next field. */
+.draft-controls {
+  gap: 0.65rem;
+  padding: 0.85rem;
+}
+.draft-controls > legend {
+  width: max-content;
+  max-width: 100%;
+  padding: 0 0.25rem;
+}
+.draft-controls label {
+  margin: 0;
+  gap: 0.2rem;
+}
+.draft-controls p {
+  margin: 0.35rem 0;
+}
+.draft-controls textarea {
+  min-height: 3.4rem;
+  resize: vertical;
+}
+.draft-controls > details {
+  padding-top: 0.55rem;
+}
+.specific-edit {
+  padding: 0.25rem 0 0.7rem;
+}
+.specific-edit > legend {
+  padding: 0;
+  margin-bottom: 0.2rem;
+  font-size: 0.9rem;
+}
+.draft-controls .specific-edit > details {
+  border: 0;
+  padding-top: 0;
+}
+.draft-controls .specific-edit .aspect-evidence {
+  margin-top: 0.2rem;
+  font-size: 0.8rem;
+  color: var(--color-ink-soft);
+}
+.draft-controls .specific-edit .aspect-evidence summary {
+  padding: 0;
+}
+.draft-controls .specific-edit .note {
+  font-size: 0.8rem;
+  margin: 0.25rem 0 0;
+}
+.style-tag-note,
+.measurement-missing {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--color-ink-soft);
+}
+.measurement-missing {
+  color: #8b361b;
+}
+.category-fields {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+.draft-controls .category-id-field {
+  display: grid;
+  grid-template-columns: auto minmax(6rem, 12rem);
+  align-items: center;
+  justify-content: start;
+  gap: 0.6rem;
+}
+.draft-controls .category-id-field input {
+  min-width: 0;
+}
+.draft-controls .specific-optional {
+  margin-bottom: 0.65rem;
+}
+.draft-controls .custom-style-tags {
+  flex-basis: 100%;
+  display: grid;
+}

@@ -267,6 +267,7 @@ it("maps stored front-photo height into the actual category Glashöhe field", as
       values: [],
       cardinality: "SINGLE",
       usage: "OPTIONAL",
+      required: false,
     },
   ]);
   const data = await (

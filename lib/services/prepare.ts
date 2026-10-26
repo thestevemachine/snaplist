@@ -1,3 +1,4 @@
+import { eyewearStyleTagsPatch } from "@/lib/eyewear-style-tags";
 import { frontMeasurementFields } from "@/lib/front-measurement-fields";
 import { applyContentRules } from "@/lib/listing-content-rules";
 import { mapEyewear } from "@/lib/eyewear-inscriptions";
@@ -295,7 +296,13 @@ export async function prepareListing(body: any, sealedConnection?: string) {
                 aspects[name] = value.split(" | ").filter(Boolean);
             }
           }
-          if (glasses) listing = applyContentRules(listing, false);
+          if (glasses) {
+            Object.assign(listing, eyewearStyleTagsPatch(listing, meta));
+            listing = applyContentRules(listing, false);
+            for (const name of ["Thema", "Charakter"])
+              if (listing.item_specifics?.[name])
+                aspects[name] = listing.item_specifics[name].split(" | ");
+          }
           listing.category_fields_version = CATEGORY_FIELDS_VERSION;
           if (listing.evidence)
             listing.evidence = categorySpecifics(listing.evidence, meta);

@@ -13,6 +13,7 @@ export interface ListingResult {
   glasses_rules_version?: number;
   category_fields_version?: number;
   feature_defaults_version?: number;
+  style_tags_version?: number;
   title: string;
   category?: string;
   category_hint?: string;
@@ -124,7 +125,7 @@ export interface ItemGroup {
   shopBaseDescription?: string;
   cloudBatchId?: string;
   id: string;
-  sku: string; // bin reference, e.g. "K75-A"
+  sku: string; // Exact seller value, e.g. "65-23537"; blank until listing review.
   name: string;
   photoIds: string[];
   listing?: ListingResult;

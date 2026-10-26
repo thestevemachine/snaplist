@@ -175,7 +175,7 @@ Rules:
 ${alwaysEstimatePromptLine(unfilled.map((a) => a.name))}
 - Use ONLY the supplied eBay aspect names as keys, spelled exactly as given.
 - For "must be EXACTLY one of" aspects, copy the value verbatim from the list.
-- For "multiple values allowed" aspects return a SINGLE string containing values separated by " | ", never an array. For Besonderheiten, Thema and Charakter aim for 3–5 compatible choices from the supplied list, including plausible stylistic associations. Preserve already selected values. Never combine contradictory rim constructions or unrelated fictional characters. Decades describe visual style, not manufacturing dates.
+- For "multiple values allowed" aspects return a SINGLE string containing values separated by " | ", never an array. For Besonderheiten aim for compatible visible features. For Thema and Charakter supply five compatible style associations each where cardinality allows; use the supplied values for SELECTION_ONLY and concise original shape/color/style descriptions for FREE_TEXT. Preserve already selected values. Never combine contradictory rim constructions or unrelated fictional characters. Decades describe visual style, not manufacturing dates.
 - Never answer with placeholder text like "See photos", "Unknown", or "N/A" — omit the aspect instead.
 - Values must be short (under 65 characters each).
 

@@ -8,7 +8,6 @@ interface ReviewBoardProps {
   orphanIds: string[];
   photoById: (id: string) => Photo | undefined;
   onRename: (groupId: string, name: string) => void;
-  onRenameSku: (groupId: string, sku: string) => void;
   onMovePhoto: (photoId: string, toGroupId: string | "orphans") => void;
   onReorderPhoto: (groupId: string, fromIndex: number, toIndex: number) => void;
   onDeleteGroup: (groupId: string) => void;
@@ -168,7 +167,6 @@ export function ReviewBoard({
   orphanIds,
   photoById,
   onRename,
-  onRenameSku,
   onMovePhoto,
   onReorderPhoto,
   onDeleteGroup,
@@ -197,14 +195,6 @@ export function ReviewBoard({
         {groups.map((group) => (
           <article className="board-item" key={group.id}>
             <header className="board-item-head">
-              <input
-                type="text"
-                className="board-sku"
-                value={group.sku}
-                aria-label="Artikel-SKU / Lagerbox"
-                placeholder="SKU"
-                onChange={(e) => onRenameSku(group.id, e.target.value)}
-              />
               <input
                 type="text"
                 className="board-name"
