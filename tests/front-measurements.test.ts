@@ -61,7 +61,8 @@ describe("front photo pixel ratios", () => {
       lensHeightPx: 200,
       totalWidthPx: 900,
       lensHeightMm: 40,
-      totalWidthMm: 180,
+      totalWidthMm: 177,
+      totalWidthCorrectionMm: 3,
       referencePhotos: [2],
     });
     expect(m.reasons).toEqual([]);
@@ -75,7 +76,7 @@ describe("front photo pixel ratios", () => {
     expect(calculateFrontMeasurement(o, sizes, l)).toMatchObject({
       lensWidthPx: 250,
       lensHeightMm: 41,
-      totalWidthMm: 184,
+      totalWidthMm: 181,
     });
   });
   it("is invariant under proportional image resizing", () => {

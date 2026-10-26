@@ -103,7 +103,8 @@ it("makes exactly one selected-photo call, returns calculated values and usage, 
   expect(data.measurement).toMatchObject({
     photoIndex: 2,
     lensHeightMm: 40,
-    totalWidthMm: 180,
+    totalWidthMm: 177,
+    totalWidthCorrectionMm: 3,
     status: "uncertain",
     referencePhotos: [10],
   });
