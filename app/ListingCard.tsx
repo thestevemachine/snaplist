@@ -1,4 +1,7 @@
 "use client";
+import { issueField, focusReviewField } from "@/lib/review-navigation";
+import { manualLensWidth } from "@/lib/manual-lens-width";
+import { isSunglasses } from "@/lib/category-selection";
 import { materialTitleIssues } from "@/lib/eyewear-inscriptions";
 import { originalSellerSku } from "@/lib/batch-sku";
 import { FrontMeasurementControls } from "./FrontMeasurementControls";
@@ -86,7 +89,8 @@ export function ListingCard({
   onPost,
   onSaveDraft,
 }: ListingCardProps) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(group.postStatus !== "posted");
+  useEffect(() => { if (group.postStatus === "posted") setOpen(false); }, [group.id, group.postStatus]);
   const [analysisHint, setAnalysisHint] = useState("");
   const [savingDraft, setSavingDraft] = useState(false);
   const [draftNotice, setDraftNotice] = useState("");
@@ -109,6 +113,11 @@ export function ListingCard({
     } finally {
       setSavingDraft(false);
     }
+  };
+  const navigateIssue = (element:HTMLElement,message:string) => {
+    const card=element.closest<HTMLElement>(".listing-card");
+    const field=issueField(message,[...(group.preparation?.aspects.map(a=>a.name) ?? []),"Glasbreite"]);
+    if(card && field) focusReviewField(card,field);
   };
   const listing = group.listing;
   const titleRef = useRef<HTMLTextAreaElement>(null);
@@ -150,7 +159,7 @@ export function ListingCard({
     (priceNum === undefined || Number.isNaN(priceNum) || priceNum <= 0);
 
   return (
-    <article className={`listing-card status-${group.status}`}>
+    <article className={`listing-card status-${group.status}${group.postStatus === "posted" ? " is-posted" : ""}`}>
       <header className="listing-card-head" onClick={() => setOpen((o) => !o)}>
         {cover && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -190,6 +199,9 @@ export function ListingCard({
             )}
             {group.status === "idle" && "Wartet…"}
           </span>
+          {group.postStatus === "posted" && group.listingId && (
+            <a className="posted-summary-link" href={`https://www.ebay.de/itm/${group.listingId}`} target="_blank" rel="noopener noreferrer" onClick={event=>event.stopPropagation()}>Angebot bei eBay öffnen ↗</a>
+          )}
         </div>
         {group.status === "error" ? (
           <button
@@ -229,6 +241,7 @@ export function ListingCard({
               rows={3}
               ref={titleRef}
               aria-label="Titel bearbeiten"
+              data-review-field="Titel"
               className="title-input"
               value={listing.title}
               onChange={(e) => onEdit(group.id, { title: e.target.value })}
@@ -247,6 +260,7 @@ export function ListingCard({
               </label>
               <input
                 id={`sku-${group.id}`}
+                data-review-field="SKU"
                 type="text"
                 className="size-input"
                 value={group.sku}
@@ -281,6 +295,7 @@ export function ListingCard({
                 <span aria-hidden="true">€</span>
                 <input
                   id={`price-${group.id}`}
+                  data-review-field="Preis"
                   type="number"
                   min="0"
                   step="0.01"
@@ -410,10 +425,20 @@ export function ListingCard({
               nicht.
             </p>
           )}
+          {isGlasses(listing) && !isSunglasses(listing) && (
+            <label className="lens-width-control" data-review-field="Glasbreite">
+              Glasbreite (mm)
+              <input aria-label="Glasbreite manuell (mm)" type="number" min="20" max="90" step="1" inputMode="numeric"
+                value={(listing.eyewear?.fields.lensWidth?.value ?? Object.entries(listing.item_specifics ?? {}).find(([name])=>/^(Glasbreite|Scheibenbreite|Gläserbreite|Lens Width)$/i.test(name))?.[1] ?? "").replace(/\s*mm$/i,"")}
+                placeholder="z. B. 46"
+                onChange={event=>onEdit(group.id,manualLensWidth(listing,event.target.value,group.preparation?.aspects ?? []))} />
+            </label>
+          )}
           <div className="result-field">
             <label htmlFor={`description-${group.id}`}>Beschreibung</label>
             <textarea
               id={`description-${group.id}`}
+              data-review-field="Beschreibung"
               value={listing.description}
               onChange={(e) =>
                 onEdit(group.id, { description: e.target.value })
@@ -451,7 +476,7 @@ export function ListingCard({
             photoById={photoById}
             onGroupEdit={onGroupEdit}
           />
-          {materialTitleIssues(listing).map(warning => <p className="material-warning" key={warning}>{warning}</p>)}
+          {materialTitleIssues(listing).map(warning => <p className="material-warning" key={warning}><button type="button" className="issue-link" onClick={event=>navigateIssue(event.currentTarget,warning)}>{warning}</button></p>)}
           {group.postStatus !== "posted" && (
             <div className="draft-save-row">
               <button
@@ -474,19 +499,7 @@ export function ListingCard({
             <>
               <p className="post-result ok">
                 ✅ Bei eBay veröffentlicht
-                {group.listingId ? (
-                  <>
-                    {" "}
-                    ·{" "}
-                    <a
-                      href={`https://www.ebay.de/itm/${group.listingId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Angebot bei eBay öffnen ↗
-                    </a>
-                  </>
-                ) : null}
+
               </p>
               {(group.postWarnings ?? []).map((w) => (
                 <p className="post-result warn" key={w}>
@@ -573,7 +586,7 @@ export function ListingCard({
               </button>
               {group.postStatus === "error" && group.postError && (
                 <div className="post-result err">
-                  <p>⚠️ {group.postError}</p>
+                  <p>⚠️ {issueField(group.postError,[...(group.preparation?.aspects.map(a=>a.name) ?? []),"Glasbreite"]) ? <button type="button" className="issue-link" onClick={event=>navigateIssue(event.currentTarget,group.postError!)}>{group.postError}</button> : group.postError}</p>
                   {/eBay 488\b/.test(group.postError) && (
                     <p>
                       Diese Übertragungskennung wurde bereits verwendet. Bitte

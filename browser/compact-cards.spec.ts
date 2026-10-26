@@ -365,3 +365,55 @@ test("recovers Lindberg 46 mm from stored demo-lens text without a paid reanalys
  await expect(page.getByLabel("Scheibenbreite",{exact:true})).toHaveValue("46");
  expect(counts()).toEqual({paid:0,writes:0});
 });
+test("missing-field warning jumps into a closed aspect section, and optical lens width stays editable without a taxonomy field",async ({page})=>{
+ const counts=await setup(page);
+ await expect(page.getByRole("status")).toContainText("Auf diesem Gerät gespeichert");
+ await page.evaluate(async()=>{
+  await new Promise<void>((resolve,reject)=>{
+   const r=indexedDB.open("listing-writer-drafts");r.onsuccess=()=>{
+    const db=r.result,tx=db.transaction("workspace","readwrite"),store=tx.objectStore("workspace"),get=store.get("current");
+    get.onsuccess=()=>{const d=get.result,g=d.groups[0];g.listing.item_specifics.Rahmenfarbe="";
+     g.preparation.aspects.push({name:"Rahmenfarbe",mode:"SELECTION_ONLY",cardinality:"SINGLE",values:["Schwarz","Braun"],required:true});store.put(d,"current");};
+    tx.oncomplete=()=>{db.close();resolve()};tx.onerror=()=>reject(tx.error);
+   };
+  });
+ });
+ await page.reload();
+ const width=page.getByRole("spinbutton",{name:"Glasbreite manuell (mm)"});
+ await expect(width).toBeVisible();
+ await width.fill("46");
+ await page.locator(".specifics-details > summary").click();
+ await expect(page.getByLabel("Rahmenfarbe",{exact:true})).not.toBeVisible();
+ await page.getByRole("button",{name:"Enter Rahmenfarbe",exact:true}).click();
+ await expect(page.getByLabel("Rahmenfarbe",{exact:true})).toBeFocused();
+ await page.getByLabel("Rahmenfarbe",{exact:true}).selectOption("Schwarz");
+ await expect(page.getByRole("button",{name:"Enter Rahmenfarbe",exact:true})).toHaveCount(0);
+ await expect(page.getByRole("status")).toContainText("Auf diesem Gerät gespeichert");
+ await page.reload();
+ await expect(width).toHaveValue("46");
+ expect(counts()).toEqual({paid:0,writes:0});
+});
+test("restored published cards start collapsed while the next unpublished card remains open",async ({page})=>{
+ const counts=await setup(page);
+ await expect(page.getByRole("status")).toContainText("Auf diesem Gerät gespeichert");
+ await page.evaluate(async()=>{
+  await new Promise<void>((resolve,reject)=>{
+   const r=indexedDB.open("listing-writer-drafts");r.onsuccess=()=>{
+    const db=r.result,tx=db.transaction("workspace","readwrite"),store=tx.objectStore("workspace"),get=store.get("current");
+    get.onsuccess=()=>{const d=get.result,g=d.groups[0],next=structuredClone(g);next.id="next-card";next.sku="NEXT";next.listing.title="Noch nicht veröffentlicht";
+     g.postStatus="posted";g.listingId="123456789012";g.sku="DONE";d.groups.push(next);store.put(d,"current");};
+    tx.oncomplete=()=>{db.close();resolve()};tx.onerror=()=>reject(tx.error);
+   };
+  });
+ });
+ await page.reload();
+ await page.getByRole("button",{name:"Detailkarten",exact:true}).click();
+ const cards=page.locator(".listing-card");
+ await expect(cards.nth(0).locator(".listing-card-body")).toHaveCount(0);
+ await expect(cards.nth(0).getByRole("link",{name:/Angebot bei eBay öffnen/})).toBeVisible();
+ await expect(cards.nth(1).locator(".listing-card-body")).toBeVisible();
+ await cards.nth(0).locator(".listing-card-head").click();
+ await expect(cards.nth(0).locator(".listing-card-body")).toBeVisible();
+ await expect(cards.nth(1).locator(".listing-card-body")).toBeVisible();
+ expect(counts()).toEqual({paid:0,writes:0});
+});
