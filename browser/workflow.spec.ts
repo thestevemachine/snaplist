@@ -88,6 +88,8 @@ async function draft(page: Page) {
     .click();
   await page.getByRole("button", { name: /Entwürfe erstellen/i }).click();
   await expect(page.getByText("Cameras", { exact: true })).toBeVisible();
+  await page.getByLabel("SKU", { exact: true }).fill("65-23537");
+  await page.getByText("Versand und Rückgabe", { exact: true }).click();
 }
 async function shipping(page: Page) {
   await expect(
@@ -99,6 +101,8 @@ async function shipping(page: Page) {
   await page
     .getByRole("button", { name: "Meine eBay-Rahmenbedingungen laden" })
     .click();
+  if (!(await page.getByLabel("Versandregel", { exact: true }).isVisible()))
+    await page.getByText("Versand und Rückgabe", { exact: true }).click();
   await page.getByLabel("Versandregel", { exact: true }).selectOption("ship");
   await page.getByLabel("Zahlungsregel", { exact: true }).selectOption("pay");
   await page.getByLabel("Rückgaberegel", { exact: true }).selectOption("ret");
@@ -695,6 +699,8 @@ test("sunglasses show both categories and send one confirmed listing", async ({
   await expect(
     page.getByText("Zweitkategorie: Damen > Sonnenbrillen (22)"),
   ).toBeVisible();
+  await page.getByLabel("SKU", { exact: true }).fill("65-23537");
+  await page.getByText("Versand und Rückgabe", { exact: true }).click();
   for (const [label, value] of [
     ["Versandregel", "ship"],
     ["Zahlungsregel", "pay"],
@@ -913,6 +919,8 @@ test("only category fields appear and material supports multiple reviewed choice
   await expect(
     page.getByRole("checkbox", { name: "Kunststoff", exact: true }),
   ).toBeChecked();
+  if (!(await page.getByLabel("Versandregel", { exact: true }).isVisible()))
+    await page.getByText("Versand und Rückgabe", { exact: true }).click();
   await page.getByLabel("Versandregel", { exact: true }).selectOption("ship");
   await page.getByLabel("Zahlungsregel", { exact: true }).selectOption("pay");
   await page.getByLabel("Rückgaberegel", { exact: true }).selectOption("ret");

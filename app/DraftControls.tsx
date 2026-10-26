@@ -1,4 +1,5 @@
 "use client";
+import { eyewearStyleTagsPatch } from "@/lib/eyewear-style-tags";
 import { frontMeasurementFields } from "@/lib/front-measurement-fields";
 import {
   changeEyewearKind,
@@ -52,12 +53,26 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
       g.listing,
       g.preparation.aspects,
     );
-    const updated = { ...g.listing, ...featurePatch };
+    const withFeatures = { ...g.listing, ...featurePatch };
+    const stylePatch = eyewearStyleTagsPatch(
+      withFeatures,
+      g.preparation.aspects,
+    );
+    const updated = {
+      ...g.listing,
+      ...featurePatch,
+      ...stylePatch,
+      item_specifics: {
+        ...g.listing.item_specifics,
+        ...featurePatch?.item_specifics,
+        ...stylePatch?.item_specifics,
+      },
+    };
     const measurementPatch = frontMeasurementFields(
       updated,
       g.preparation.aspects,
     );
-    if (featurePatch || measurementPatch)
+    if (featurePatch || stylePatch || measurementPatch)
       onGroupEdit(g.id, { listing: { ...updated, ...measurementPatch } });
   }, [g.id, g.listing, g.preparation, g.postStatus, onGroupEdit]);
   if (!g.listing) return null;
@@ -251,33 +266,35 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
           </select>
         </label>
       )}
-      {!!g.preparation?.suggestions?.length && (
-        <label>
-          Vorgeschlagene Kategorie
-          <select
-            value={l.category_id || ""}
+      <div className="category-fields">
+        {!!g.preparation?.suggestions?.length && (
+          <label>
+            Vorgeschlagene Kategorie
+            <select
+              value={l.category_id || ""}
+              onChange={(e) =>
+                edit({ category_id: e.target.value, ebay_condition: "" })
+              }
+            >
+              {g.preparation.suggestions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.path}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <label className="category-id-field">
+          <span>Kategorie-ID</span>
+          <input
+            aria-label="Kategorie-ID"
+            value={l.category_id ?? ""}
             onChange={(e) =>
               edit({ category_id: e.target.value, ebay_condition: "" })
             }
-          >
-            {g.preparation.suggestions.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.path}
-              </option>
-            ))}
-          </select>
+          />
         </label>
-      )}
-      <label>
-        Kategorie-ID{" "}
-        <input
-          aria-label="Kategorie-ID"
-          value={l.category_id ?? ""}
-          onChange={(e) =>
-            edit({ category_id: e.target.value, ebay_condition: "" })
-          }
-        />
-      </label>
+      </div>
       <button type="button" onClick={prepare}>
         {busy
           ? "Wird vorbereitet…"
@@ -285,7 +302,9 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
             ? "Sonnenbrillen: Herren + Damen vorbereiten"
             : "Kategorie und Merkmale vorbereiten"}
       </button>
-      {g.preparation && <p>{g.preparation.categoryName}</p>}
+      {g.preparation && !g.preparation.suggestions?.length && (
+        <small>{g.preparation.categoryName}</small>
+      )}
       {g.preparation?.secondaryCategoryId && (
         <p>
           Zweitkategorie: {g.preparation.secondaryCategoryName} (
@@ -333,6 +352,7 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
       <label>
         Zustand und Hinweise
         <textarea
+          rows={2}
           aria-label="Zustand und Hinweise"
           value={
             l.condition_notes ?? (isGlasses(l) ? FIXED_CONDITION_NOTES : "")
@@ -361,66 +381,19 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
               auswählen.
             </p>
           )}
-        {g.preparation?.aspects.some((a) => /^Thema$/i.test(a.name)) &&
-          (l.item_specifics?.Thema ?? "").split(" | ").filter(Boolean).length <
-            5 && (
-            <p className="note">
-              Thema: möglichst fünf passende Stilthemen auswählen, soweit eBay
-              dies zulässt. Jahrzehnte bezeichnen hier den Stil, nicht das
-              Herstellungsjahr.
-            </p>
-          )}
         {names.map((name) => {
           const meta = g.preparation?.aspects.find((a) => a.name === name);
-          return (
+          if (
+            /^(Anzahl der Einheiten|Maßeinheit)$/i.test(name) &&
+            !meta?.required
+          )
+            return null;
+          const field = (
             <fieldset key={name} className="specific-edit">
               <legend>
                 {name}
                 {meta?.required ? " *" : ""}
               </legend>
-              {l.evidence?.[name]?.length || l.estimates?.[name] ? (
-                <details className="aspect-evidence">
-                  <summary>Analysehinweise</summary>
-                  <div>
-                    {l.evidence?.[name]?.length
-                      ? ` (KI verweist auf Foto ${l.evidence[name]
-                          .map((n) => {
-                            const id = g.evidencePhotoIds?.[n - 1];
-                            return id ? g.photoIds.indexOf(id) + 1 : n;
-                          })
-                          .join(", ")}; bitte prüfen)`
-                      : ""}
-                    {l.estimates?.[name] ? (
-                      <span className="estimate-tag">
-                        {" "}
-                        KI-Schätzung · {l.estimates[name]}% sicher
-                      </span>
-                    ) : null}
-                  </div>
-                </details>
-              ) : null}
-              {isSunglasses(l) &&
-                /^(gläsermaterial|glasmaterial|linsenmaterial)$/i.test(
-                  name,
-                ) && (
-                  <p className="note">
-                    Vorgabe für Sonnenbrillen: Kunststoff. Bitte für diese
-                    Brille prüfen und bei Bedarf ändern.
-                  </p>
-                )}
-              {isGlasses(l) && /^Besonderheiten$/i.test(name) && (
-                <p className="note">
-                  Shop-Vorgabe bei leerem Feld: Wasserfest. Bitte für diese
-                  Brille prüfen und bei Bedarf ändern; die Fotoanalyse prüft
-                  keine Wasserfestigkeit.
-                </p>
-              )}
-              {isSunglasses(l) && /^UV[- ]?Schutz$/i.test(name) && (
-                <p className="note">
-                  Shop-Vorgabe: UV400. Bitte für diese Brille prüfen; die
-                  Fotoanalyse misst keinen UV-Schutz.
-                </p>
-              )}
               {meta?.cardinality === "MULTI" && meta.values.length > 0 ? (
                 <details className="aspect-choices">
                   <summary aria-label={`${name}: Auswahl bearbeiten`}>
@@ -435,7 +408,14 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
                     role="group"
                     aria-label={name}
                   >
-                    {[...meta.values]
+                    {[
+                      ...new Set([
+                        ...meta.values,
+                        ...(meta.mode === "FREE_TEXT"
+                          ? (specifics[name] ?? "").split(" | ").filter(Boolean)
+                          : []),
+                      ]),
+                    ]
                       .sort(
                         (a, b) =>
                           Number(
@@ -472,6 +452,37 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
                           </label>
                         );
                       })}
+                    {meta.mode === "FREE_TEXT" &&
+                      /^(Thema|Charakter)$/i.test(name) && (
+                        <label className="custom-style-tags">
+                          Eigene Stilbegriffe (mit | trennen)
+                          <input
+                            aria-label={`${name}: eigene Stilbegriffe`}
+                            value={specifics[name] ?? ""}
+                            onChange={(e) =>
+                              edit({
+                                item_specifics: {
+                                  ...specifics,
+                                  [name]: e.target.value,
+                                },
+                              })
+                            }
+                            onBlur={(e) =>
+                              edit({
+                                item_specifics: {
+                                  ...specifics,
+                                  [name]: e.target.value
+                                    .split("|")
+                                    .map((v) => v.trim())
+                                    .filter(Boolean)
+                                    .slice(0, 5)
+                                    .join(" | "),
+                                },
+                              })
+                            }
+                          />
+                        </label>
+                      )}
                     <small>
                       Mehrere Werte können ausgewählt werden (höchstens 5).
                     </small>
@@ -526,7 +537,80 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
                     !/mm\s*$/i.test(specifics[name] ?? "") && <span>mm</span>}
                 </div>
               )}
+              {isMeasurement(name) &&
+                /rahmenbreite|fassungsbreite|gesamtbreite|glashöhe|scheibenhöhe/i.test(
+                  name,
+                ) &&
+                !specifics[name]?.trim() && (
+                  <small className="measurement-missing">
+                    {l.frontMeasurement?.reasons?.join(" ") ||
+                      "Noch kein berechnetes Maß vorhanden. Unter ‚Nur Brillenmaße berechnen‘ kannst du vorhandene Fotos gezielt prüfen; ein neuer KI-Aufruf erfolgt nur nach Bestätigung."}
+                  </small>
+                )}
+              {l.evidence?.[name]?.length ||
+              l.estimates?.[name] ||
+              (/^(Thema|Charakter)$/i.test(name) && l.style_tags_version) ? (
+                <details className="aspect-evidence">
+                  <summary>Analysehinweise</summary>
+                  {/^(Thema|Charakter)$/i.test(name) && (
+                    <small className="style-tag-note">
+                      Stilvorschläge aus Form, Farbe und Design · keine Angabe
+                      zum Herstellungsjahr.
+                      {meta?.mode === "SELECTION_ONLY" &&
+                        " Nur von eBay angebotene passende Werte sind möglich."}
+                    </small>
+                  )}
+                  <div>
+                    {l.evidence?.[name]?.length
+                      ? ` (KI verweist auf Foto ${l.evidence[name]
+                          .map((n) => {
+                            const id = g.evidencePhotoIds?.[n - 1];
+                            return id ? g.photoIds.indexOf(id) + 1 : n;
+                          })
+                          .join(", ")}; bitte prüfen)`
+                      : ""}
+                    {l.estimates?.[name] ? (
+                      <span className="estimate-tag">
+                        {" "}
+                        KI-Schätzung · {l.estimates[name]}% sicher
+                      </span>
+                    ) : null}
+                  </div>
+                </details>
+              ) : null}
+              {isSunglasses(l) &&
+                /^(gläsermaterial|glasmaterial|linsenmaterial)$/i.test(
+                  name,
+                ) && (
+                  <p className="note">
+                    Vorgabe für Sonnenbrillen: Kunststoff. Bitte für diese
+                    Brille prüfen und bei Bedarf ändern.
+                  </p>
+                )}
+              {isGlasses(l) && /^Besonderheiten$/i.test(name) && (
+                <p className="note">
+                  Shop-Vorgabe bei leerem Feld: Wasserfest. Bitte für diese
+                  Brille prüfen und bei Bedarf ändern; die Fotoanalyse prüft
+                  keine Wasserfestigkeit.
+                </p>
+              )}
+              {isSunglasses(l) && /^UV[- ]?Schutz$/i.test(name) && (
+                <p className="note">
+                  Shop-Vorgabe: UV400. Bitte für diese Brille prüfen; die
+                  Fotoanalyse misst keinen UV-Schutz.
+                </p>
+              )}
             </fieldset>
+          );
+          return /^Produktlinie$/i.test(name) && !meta?.required ? (
+            <details key={name} className="specific-optional">
+              <summary>
+                Produktlinie{specifics[name] ? ` · ${specifics[name]}` : ""}
+              </summary>
+              {field}
+            </details>
+          ) : (
+            field
           );
         })}
       </details>
@@ -577,7 +661,7 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
           ) : null;
         })}
       </details>
-      <details open>
+      <details>
         <summary>Versand und Rückgabe</summary>
         <p className="note">
           Gespeicherte Shop-Vorgaben werden für neue Angebote verwendet. Hier

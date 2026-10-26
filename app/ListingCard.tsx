@@ -1,4 +1,5 @@
 "use client";
+import { originalSellerSku } from "@/lib/batch-sku";
 import { FrontMeasurementControls } from "./FrontMeasurementControls";
 
 import { EyewearDetails } from "./EyewearDetails";
@@ -242,12 +243,26 @@ export function ListingCard({
                 type="text"
                 className="size-input"
                 value={group.sku}
+                placeholder="z. B. 65-23537"
+                autoComplete="off"
                 disabled={
                   group.postStatus === "posted" ||
                   group.postStatus === "posting"
                 }
                 onChange={(e) => onRenameSku(group.id, e.target.value)}
               />
+              {originalSellerSku(group.sku) &&
+                group.postStatus !== "posted" && (
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={() =>
+                      onRenameSku(group.id, originalSellerSku(group.sku)!)
+                    }
+                  >
+                    SKU {originalSellerSku(group.sku)} übernehmen
+                  </button>
+                )}
             </div>
             <div
               className={`stat editable${priceMissing ? " needs-attention" : ""}`}

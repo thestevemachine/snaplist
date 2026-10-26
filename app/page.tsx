@@ -32,7 +32,6 @@ import { draftIssues } from "@/lib/client-review";
 import { apiPost } from "@/lib/api-client";
 import { getAnalysisModel, getSortModel } from "@/lib/model-preferences";
 import { resizeImage } from "@/lib/resize";
-import { buildSku } from "@/lib/sku";
 import { chunkImagesForUpload } from "@/lib/uploadBatches";
 import { ShopSettings } from "./ShopSettings";
 import { loadAccountOptions } from "@/lib/account-options-client";
@@ -302,7 +301,7 @@ export default function Home() {
     if (!g?.listing) return;
     automaticAttempts.current.add(g.id);
     automaticBusy.current = true;
-    setAutomaticPreparing(g.sku);
+    setAutomaticPreparing(g.sku || g.name);
     const snapshot = g.listing;
     void (async () => {
       try {
@@ -429,26 +428,7 @@ export default function Home() {
     setSorting(true);
     setError(null);
     try {
-      // Continue bin lettering after any SKUs already on eBay for this bin.
-      let skuOffset = 0;
-      if (binPrefix.trim()) {
-        try {
-          const r = await apiPost("/api/ebay/next-sku", {
-            prefix: binPrefix.trim(),
-          });
-          const d = (await readJson(r)) as { ok?: boolean; nextIndex?: number };
-          if (
-            d.ok &&
-            Number.isInteger(d.nextIndex) &&
-            (d.nextIndex as number) > 0
-          ) {
-            skuOffset = d.nextIndex as number;
-          }
-        } catch {
-          /* not connected or lookup failed — start at A like before */
-        }
-      }
-
+      // SKU is entered once, after the listing is written. Draft identity uses g.id.
       // Sort in chunks so each request's thumbnail payload stays small.
       type RawGroup = { name: string; photoIds: string[] };
       const chunkResults: RawGroup[][] = [];
@@ -504,7 +484,7 @@ export default function Home() {
 
       const nextGroups: ItemGroup[] = merged.map((g, i) => ({
         id: newId(),
-        sku: `${buildSku(binPrefix, skuOffset + i).slice(0, 37)}-${newId().replace(/-/g, "").slice(0, 12)}`,
+        sku: "",
         name: g.name,
         photoIds: [...g.photoIds].sort(
           (a, b) =>
@@ -513,7 +493,6 @@ export default function Home() {
         ),
         status: "idle",
       }));
-      setSkuStart(skuOffset);
       setGroups(nextGroups);
       setOrphanIds([...orphanIdsAll, ...leftover]);
       setStep("review");
@@ -629,7 +608,7 @@ export default function Home() {
       ...prev,
       {
         id: newId(),
-        sku: `${buildSku(binPrefix, skuStart + prev.length).slice(0, 37)}-${newId().replace(/-/g, "").slice(0, 12)}`,
+        sku: "",
         name: `new-item-${prev.length + 1}`,
         photoIds: [],
         status: "idle",
@@ -1391,38 +1370,6 @@ export default function Home() {
               1 · Fotos hinzufügen
             </h2>
 
-            <div className="field bin-field">
-              <label htmlFor="bin">
-                Lagerbox / SKU-Kürzel{" "}
-                <span
-                  style={{
-                    fontWeight: 400,
-                    textTransform: "none",
-                    letterSpacing: 0,
-                  }}
-                >
-                  (Lagerort dieser Artikel)
-                </span>
-              </label>
-              <input
-                id="bin"
-                type="text"
-                placeholder="z. B. K75"
-                value={binPrefix}
-                onChange={(e) => setBinPrefix(e.target.value)}
-                autoCapitalize="characters"
-              />
-              <span className="field-hint">
-                Jeder Artikel erhält{" "}
-                {binPrefix
-                  ? `${binPrefix.trim()}-A, ${binPrefix.trim()}-B`
-                  : "A, B, C"}
-                … mit einer eindeutigen Ergänzung. Bereits verwendete Kürzel
-                werden berücksichtigt. Nach dem Sortieren kannst du jede SKU
-                bearbeiten.
-              </span>
-            </div>
-
             <div
               className={`dropzone${dragging ? " dragging" : ""}`}
               role="button"
@@ -1495,7 +1442,7 @@ export default function Home() {
                   setGroups([
                     {
                       id,
-                      sku: `${buildSku(binPrefix, 0).slice(0, 37)}-${id.replace(/-/g, "").slice(0, 12)}`,
+                      sku: "",
                       name: "Einzelner Artikel",
                       photoIds: photos.map((p) => p.id),
                       status: "idle",
@@ -1624,7 +1571,6 @@ export default function Home() {
           orphanIds={orphanIds}
           photoById={photoById}
           onRename={rename}
-          onRenameSku={renameSku}
           onMovePhoto={movePhoto}
           onReorderPhoto={reorderPhoto}
           onDeleteGroup={deleteGroup}

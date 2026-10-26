@@ -24,23 +24,28 @@ export function frontMeasurementFields(
     ],
   ] as const) {
     if (!value || !Number.isInteger(value) || value <= 0) continue;
-    // Preserve prior measurements under aliases too, including explicit clears.
-    if (
-      Object.entries(specifics).some(([k, v]) => pattern.test(k) && v.trim()) ||
-      listing.manual_measurement_fields?.some((k) => pattern.test(k))
-    )
+    // An alias is not the actual category field: populate the latter too.
+    // An explicit seller clear is preserved across aliases.
+    if (listing.manual_measurement_fields?.some((k) => pattern.test(k)))
       continue;
     const field = meta.find((f) => pattern.test(f.name));
-    if (!field) continue;
+    if (!field || specifics[field.name]?.trim()) continue;
+    const existing = Object.entries(specifics).find(
+      ([k, v]) => pattern.test(k) && v.trim(),
+    );
+    const projected = existing
+      ? Number(existing[1].replace(/\s*mm$/i, "").replace(",", "."))
+      : value;
+    if (!Number.isFinite(projected) || projected <= 0) continue;
     const choice = field.values.find(
       (v) =>
         /^\d+(?:\s*mm)?$/i.test(v) &&
-        Number(v.replace(/\s*mm$/i, "")) === value,
+        Number(v.replace(/\s*mm$/i, "")) === projected,
     );
-    if (!choice && (field.mode !== "FREE_TEXT" || field.values.length))
-      continue;
+    if (!choice && field.mode !== "FREE_TEXT") continue;
     specifics[field.name] =
-      choice ?? (field.dataType === "NUMBER" ? String(value) : `${value} mm`);
+      choice ??
+      (field.dataType === "NUMBER" ? String(projected) : `${projected} mm`);
     estimates[field.name] = Math.min(
       m.observation?.confidence ?? 60,
       m.status === "uncertain" ? 59 : 99,

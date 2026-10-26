@@ -10,6 +10,7 @@ const meta: AspectMeta[] = [
     values: [],
     cardinality: "SINGLE",
     usage: "OPTIONAL",
+    required: false,
   },
   {
     name: "Rahmenbreite",
@@ -17,6 +18,7 @@ const meta: AspectMeta[] = [
     values: [],
     cardinality: "SINGLE",
     usage: "OPTIONAL",
+    required: false,
   },
 ];
 const listing = (): ListingResult => ({
@@ -54,7 +56,11 @@ it("preserves manual positive values and cleared fields across aliases", () => {
     item_specifics: { Gesamtbreite: "141 mm", Glashöhe: "" },
     manual_measurement_fields: ["Scheibenhöhe"],
   };
-  expect(frontMeasurementFields(l, meta)).toBeUndefined();
+  expect(frontMeasurementFields(l, meta)?.item_specifics).toEqual({
+    Gesamtbreite: "141 mm",
+    Glashöhe: "",
+    Rahmenbreite: "141 mm",
+  });
 });
 it("marks uncertain calculations explicitly instead of pretending verified measurements", () => {
   const l = listing();
@@ -75,4 +81,20 @@ it("never fabricates unknown dimensions or unsupported dropdown sizes", () => {
       { ...meta[0], mode: "SELECTION_ONLY", values: ["40 mm"] },
     ])?.item_specifics?.Glashöhe,
   ).toBe("40 mm");
+});
+
+it("accepts calculated frame width in FREE_TEXT fields with suggested sizes", () => {
+  expect(
+    frontMeasurementFields(listing(), [
+      { ...meta[1], values: ["130 mm", "140 mm"] },
+    ])?.item_specifics?.Rahmenbreite,
+  ).toBe("138 mm");
+});
+it("does not undo an explicit seller clear of frame width", () => {
+  const l = {
+    ...listing(),
+    manual_measurement_fields: ["Rahmenbreite"],
+    item_specifics: { Rahmenbreite: "" },
+  };
+  expect(frontMeasurementFields(l, [meta[1]])).toBeUndefined();
 });

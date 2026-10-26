@@ -53,3 +53,9 @@ export function applyBatchSkus(
       : g,
   );
 }
+
+// Only offer an explicit repair for the historical numeric-prefix generator.
+// Never rename drafts automatically or strip arbitrary seller-entered suffixes.
+export function originalSellerSku(sku: string): string | undefined {
+  return /^(\d+-\d+)-[A-Z]+-[a-f\d]{12}$/i.exec(sku)?.[1];
+}

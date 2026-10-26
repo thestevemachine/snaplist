@@ -538,3 +538,12 @@ describe("parallel employees and retries", () => {
     expect(calls).toHaveLength(0);
   });
 });
+
+it("sends the exact seller SKU 65-23537 to the verification API with no generated suffix", async () => {
+  const draft = input();
+  draft.sku = "65-23537";
+  await submitTradingListing("private-token", draft, "verify");
+  const verified = calls.find((c) => c.call === "VerifyAddFixedPriceItem");
+  expect(verified?.body).toContain("<SKU>65-23537</SKU>");
+  expect(calls.some((c) => c.call === "AddFixedPriceItem")).toBe(false);
+});
