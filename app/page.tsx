@@ -180,7 +180,8 @@ export default function Home() {
         const d = await loadDraft(true);
         if (d && active) {
           setPhotos(d.photos);
-          setGroups(d.groups);
+          // Migrate before automatic preparation captures the listing snapshot.
+          setGroups(d.groups.map(migrateContentGroup));
           setSortUsage(d.sortUsage ?? []);
           setOrphanIds(d.orphanIds);
           setBinPrefix(d.binPrefix);

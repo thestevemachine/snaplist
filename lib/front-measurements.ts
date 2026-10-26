@@ -141,11 +141,12 @@ export function calculateFrontMeasurement(
     );
     return result;
   }
-  result.lensWidthPx = a.width;
-  result.lensHeightPx = a.height;
+  // Average both lens openings to reduce single-contour scale errors.
+  result.lensWidthPx = (a.width + b.width) / 2;
+  result.lensHeightPx = (a.height + b.height) / 2;
   result.totalWidthPx = right.x - left.x;
-  const height = (reference * a.height) / a.width;
-  const total = (reference * result.totalWidthPx) / a.width;
+  const height = (reference * result.lensHeightPx) / result.lensWidthPx;
+  const total = (reference * result.totalWidthPx) / result.lensWidthPx;
   if (
     !Number.isFinite(height) ||
     height < 10 ||
@@ -161,6 +162,24 @@ export function calculateFrontMeasurement(
   }
   result.lensHeightMm = Math.round(height);
   result.totalWidthMm = Math.round(total);
+  const bridge = listing.eyewear?.fields.bridgeWidth;
+  const bridgeMm = Number(
+    bridge?.value.replace(/\s*mm$/i, "").replace(",", "."),
+  );
+  if (
+    bridge?.source === "label" &&
+    bridge.quote &&
+    bridge.photos?.length &&
+    bridgeMm >= 5 &&
+    bridgeMm <= 40
+  ) {
+    const projectedBridge = (reference * (b.l.x - a.r.x)) / result.lensWidthPx;
+    if (Math.abs(projectedBridge - bridgeMm) > Math.max(3, bridgeMm * 0.2)) {
+      result.reasons.push(
+        "Referenzprüfung: Der Abstand zwischen den Gläsern passt nicht zur aufgedruckten Stegbreite. Konturen oder Perspektive sind unzuverlässig; diese Maße nicht automatisch übernehmen.",
+      );
+    }
+  }
   if (!o.frontal) result.reasons.push("Frontfoto ist perspektivisch verzerrt.");
   if (!o.groovesVisible)
     result.reasons.push(
@@ -216,4 +235,4 @@ export function attachFrontMeasurement(
     .slice(0, 500);
 }
 
-export const FRONT_MEASUREMENT_PROMPT = `\nFor eyewear return front_geometry using ONLY ONE existing front photo (not caliper/detail/temple/side photos). A front photo on millimetre paper is allowed, but ignore the grid as a scale; use the inscription reference only. No new photos or extra analysis calls. Choose the best existing front view even with moderate perspective, then mark frontal=false and explain the uncertainty. Do NOT return unavailable merely because a photo is not perfectly straight-on or groove edges are partly obscured: return the visible inner lens contour points, groovesVisible=false and lower confidence. photoIndex is its 1-based position among the supplied images, or 0 ONLY if no front view with locatable lens contours exists. Recognize contours ONLY; never calculate or guess mm here. Coordinates x,y are fractions of the entire displayed image width/height (0..1), origin top-left, NEVER a crop. leftLens and rightLens mean the lens on the image's left and right. For each, mark extreme left/right/top/bottom groove-to-groove points of the lens opening, EXCLUDING frame rim (boxing maximum width/height; not arbitrary diagonal chords). outerLeft/outerRight mark absolute outermost COMPLETE glasses including hinges and ALL visible temple parts, not just the front rim. frontal=true only for straight-on view without yaw/pitch or lens foreshortening. groovesVisible only if actual inner grooves can be located; thick rims, glare or blur must reduce confidence. complete only if every outer extremity is visible and uncropped. samePlane only if outer extremities lie effectively in the lens plane; projecting temples/depth make it false. confidence is contour confidence 0..100, not physical measurement accuracy. note is a short German reason for any uncertainty, otherwise empty. If unavailable use photoIndex=0, all points={x:0,y:0}, all booleans=false, confidence=0 and explain briefly. Read reference lens width from existing inscription facts only; do not infer reference mm from appearance. This front-photo ratio method replaces requests for caliper or millimetre-paper photos; never request additional measurement photos.`;
+export const FRONT_MEASUREMENT_PROMPT = `\nFor eyewear return front_geometry using ONLY ONE existing front photo (not caliper/detail/temple/side photos). A front photo on millimetre paper is allowed, but ignore the grid as a scale; use the inscription reference only. No new photos or extra analysis calls. Choose the best existing front view even with moderate perspective, then mark frontal=false and explain the uncertainty. Do NOT return unavailable merely because a photo is not perfectly straight-on or groove edges are partly obscured: return the visible inner lens contour points, groovesVisible=false and lower confidence. photoIndex is its 1-based position among the supplied images, or 0 ONLY if no front view with locatable lens contours exists. Recognize contours ONLY; never calculate or guess mm here. Coordinates x,y are fractions of the entire displayed image width/height (0..1), origin top-left, NEVER a crop. leftLens and rightLens mean the lens on the image's left and right. For each, mark extreme left/right/top/bottom groove-to-groove points of the lens opening, EXCLUDING frame rim (boxing maximum width/height; not arbitrary diagonal chords). outerLeft/outerRight mark absolute outermost COMPLETE glasses including hinges and ALL visible temple parts, not just the front rim. frontal=true only for straight-on view without yaw/pitch or lens foreshortening. groovesVisible only if actual inner grooves can be located; thick rims, glare or blur must reduce confidence. complete only if every outer extremity is visible and uncropped. samePlane only if outer extremities lie effectively in the lens plane; projecting temples/depth make it false. confidence is contour confidence 0..100, not physical measurement accuracy. note is a short German reason for any uncertainty, otherwise empty. If unavailable use photoIndex=0, all points={x:0,y:0}, all booleans=false, confidence=0 and explain briefly. Use both visible lens openings consistently; a too-small lens width inflates BOTH lens height and total width. Exclude the display stand and do not mistake a logo or demo-lens print for the lens contour. Read reference lens width from existing inscription facts only; do not infer reference mm from appearance. This front-photo ratio method replaces requests for caliper or millimetre-paper photos; never request additional measurement photos.`;

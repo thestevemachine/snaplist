@@ -43,6 +43,19 @@ export const listingSchema = z.object({
           photos: z.array(z.number().int().min(1).max(24)).max(24).optional(),
         }),
       ),
+      materials: z
+        .array(
+          z.object({
+            part: z.enum(["front", "temples"]),
+            value: z.string().max(500),
+            source: z.enum(["label", "estimate"]),
+            quote: z.string().max(2000),
+            photos: z.array(z.number().int().min(1).max(24)).max(24),
+            confidence: z.number().finite().min(0).max(100).optional(),
+          }),
+        )
+        .max(24)
+        .optional(),
       warnings: z.array(z.string().max(1000)).max(100),
     })
     .optional(),

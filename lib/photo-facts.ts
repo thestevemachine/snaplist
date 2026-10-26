@@ -63,9 +63,21 @@ export function acceptedPhotoFact(
       !/manufactured|made in \d{4}/i.test(s.quote)
     )
       return false;
+    // German material names are exact translations of printed material words,
+    // not invented extra claims. Keep other label matching strict.
+    const translatedMaterial = (v: string) =>
+      /material/i.test(s.name)
+        ? v
+            .replace(/\btitanium\b/gi, "Titan")
+            .replace(/\bacetate\b/gi, "Acetat")
+        : v;
     return s.value
       .split(" | ")
-      .every((v) => normalize(s.quote).includes(normalize(v)));
+      .every((v) =>
+        normalize(translatedMaterial(s.quote)).includes(
+          normalize(translatedMaterial(v)),
+        ),
+      );
   }
   if (s.basis !== "visible_feature" && s.basis !== "estimate") return false;
   if (

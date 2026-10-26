@@ -78,6 +78,19 @@ export function EyewearDetails({
           </small>
         </section>
       )}
+      {!!listing.eyewear.materials?.length && (
+        <section aria-label="Materialien von Front und Bügeln">
+          {listing.eyewear.materials.map((part, index) => (
+            <p key={index}>
+              {part.part === "front" ? "Front" : "Bügel"}: {part.value} ·{" "}
+              {part.source === "label"
+                ? `Aufdruck: ${part.quote}`
+                : "KI-Schätzung – bitte prüfen"}{" "}
+              · Foto {part.photos.join(", ")}
+            </p>
+          ))}
+        </section>
+      )}
       {listing.measurements && (
         <label style={{ display: "block" }}>
           Geschätzte Maße – bitte prüfen

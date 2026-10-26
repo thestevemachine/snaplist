@@ -15,6 +15,14 @@ export const eyewearLabels = {
 } as const;
 export type EyewearKey = keyof typeof eyewearLabels;
 export interface EyewearData {
+  materials?: {
+    part: "front" | "temples";
+    value: string;
+    source: "label" | "estimate";
+    quote: string;
+    photos: number[];
+    confidence?: number;
+  }[];
   fields: Partial<
     Record<
       EyewearKey,
@@ -64,8 +72,8 @@ export function parseBoxDimensions(text: string) {
 const materialName = (v: string) =>
   v
     .replace(/\boptyl\b/gi, "Optyl")
-    .replace(/\btitanium\b/gi, "Titan")
-    .replace(/\bacetate\b/gi, "Acetat")
+    .replace(/\btitan(?:ium)?\b/gi, "Titan")
+    .replace(/\bacetat(?:e)?\b/gi, "Acetat")
     .replace(/\bmetal\b/gi, "Metall")
     .replace(/\bplastic\b/gi, "Kunststoff");
 // Called only on fresh photo analysis. Category preparation never re-applies the shop assumption.
@@ -73,7 +81,18 @@ export function extractEyewear(facts: PhotoFact[]): EyewearData {
   const data: EyewearData = { fields: {}, warnings: [] };
   const set = (key: EyewearKey, value: string, fact: PhotoFact) => {
     const previous = data.fields[key];
-    if (previous && previous.value !== value) {
+    if (key === "material" && previous?.quote === fact.quote) {
+      // One printed compound (e.g. TITANIUM ACETATE) is not a conflict
+      // when its individual material words are encountered again below.
+      value = [
+        ...new Set([...previous.value.split(" | "), ...value.split(" | ")]),
+      ].join(" | ");
+    }
+    if (
+      previous &&
+      previous.value !== value &&
+      !(key === "material" && previous.quote === fact.quote)
+    ) {
       data.warnings.push(
         `${eyewearLabels[key]}: widersprüchliche Aufdrucke (${previous.value} / ${value}). Bitte prüfen.`,
       );
@@ -114,9 +133,13 @@ export function extractEyewear(facts: PhotoFact[]): EyewearData {
         fact,
       );
     }
-    const printed = fact.quote.match(
-      /\b(optyl|titanium|titan|acetate|acetat)\b/i,
-    );
+    const component =
+      /^(Bügelmaterial|Material Bügel|Temple Material|Frontmaterial|Material Front|Frame Front Material)$/i.test(
+        fact.name,
+      );
+    const printed =
+      !component &&
+      fact.quote.match(/\b(optyl|titanium|titan|acetate|acetat)\b/i);
     if (printed)
       set(
         "material",
@@ -126,6 +149,49 @@ export function extractEyewear(facts: PhotoFact[]): EyewearData {
           .replace(/^optyl$/i, "Optyl"),
         fact,
       );
+  }
+  const components = facts.filter(
+    (f) =>
+      (f.basis === "label" ||
+        (Number.isFinite(f.confidence) && f.confidence! >= 60)) &&
+      /^(Bügelmaterial|Material Bügel|Temple Material|Frontmaterial|Material Front|Frame Front Material)$/i.test(
+        f.name,
+      ),
+  );
+  if (components.length) {
+    data.materials = components.map((f) => ({
+      part: /bügel|temple/i.test(f.name)
+        ? ("temples" as const)
+        : ("front" as const),
+      value: materialName(f.value),
+      source: f.basis === "label" ? ("label" as const) : ("estimate" as const),
+      quote: f.quote,
+      photos: f.photoIndices,
+      confidence: f.confidence,
+    }));
+    const labeled = components.filter((f) => f.basis === "label");
+    const values = [
+      ...new Set([
+        ...(data.fields.material?.source === "label"
+          ? data.fields.material.value.split(" | ")
+          : []),
+        ...labeled.flatMap((f) => materialName(f.value).split(" | ")),
+      ]),
+    ].filter((v) => /^(Titan|Acetat|Metall|Kunststoff|Stahl|Optyl)$/i.test(v));
+    if (values.length && labeled.length)
+      data.fields.material = {
+        value: values.join(" | "),
+        source: "label",
+        quote: [data.fields.material?.quote, ...labeled.map((f) => f.quote)]
+          .filter(Boolean)
+          .join("; "),
+        photos: [
+          ...new Set([
+            ...(data.fields.material?.photos ?? []),
+            ...labeled.flatMap((f) => f.photoIndices),
+          ]),
+        ],
+      };
   }
   const ranges: Partial<Record<EyewearKey, number[]>> = {
     lensWidth: [35, 65],
@@ -174,6 +240,75 @@ export function mapEyewear(
         (key === "modelNumber" && m.name === "Modell"),
     )) {
       if (
+        key === "material" &&
+        (field.source === "label" || overwriteKey === "material")
+      ) {
+        const parts = overwriteKey ? [] : (l.eyewear?.materials ?? []);
+        const proven = field.value.split(" | ").map(materialName);
+        const supportedParts = parts.flatMap((p) => p.value.split(" | "));
+
+        const previous =
+          aspects[m.name] ??
+          (l.item_specifics?.[m.name] ?? "").split(" | ").filter(Boolean);
+        const all = [
+          ...new Set([
+            ...proven,
+            ...supportedParts,
+            ...(overwriteKey ? [] : previous),
+          ]),
+        ]
+          .filter(
+            (value) => !(proven.includes("Titan") && /^metall$/i.test(value)),
+          )
+          .filter(
+            (value) => !(proven.includes("Optyl") && /^acetat$/i.test(value)),
+          );
+        const mapped = all
+          .flatMap((value) => {
+            if (
+              /^optyl$/i.test(value) &&
+              !m.values.some((v) => /^optyl$/i.test(v))
+            )
+              value = "Kunststoff";
+            const choice = m.values.find(
+              (v) => v.toLowerCase() === value.toLowerCase(),
+            );
+            return choice
+              ? [choice]
+              : !m.values.length && m.mode === "FREE_TEXT"
+                ? [value]
+                : [];
+          })
+          .slice(0, m.cardinality === "MULTI" ? 5 : 1);
+        if (mapped.length) {
+          aspects[m.name] = mapped;
+          l.material = mapped.join(" | ");
+          const estimatedParts = parts.filter(
+            (p) =>
+              p.source === "estimate" &&
+              p.value.split(" | ").some((value) => mapped.includes(value)),
+          );
+          if (estimatedParts.length)
+            l.estimates = {
+              ...l.estimates,
+              [m.name]: Math.min(
+                ...estimatedParts.map((p) => p.confidence ?? 60),
+              ),
+            };
+          l.evidence = {
+            ...l.evidence,
+            [m.name]: [
+              ...new Set([
+                ...(l.evidence?.[m.name] ?? []),
+                ...(field.photos ?? []),
+                ...parts.flatMap((p) => p.photos),
+              ]),
+            ],
+          };
+        }
+        continue;
+      }
+      if (
         !overwriteKey &&
         field.value !== "Optyl" &&
         Object.hasOwn(l.item_specifics ?? {}, m.name)
@@ -220,7 +355,8 @@ export function eyewearWarnings(l: ListingResult) {
   for (const word of ["Titan", "Acetat", "Metall", "Kunststoff", "Stahl"]) {
     if (
       new RegExp(`\\b${word}(?:ium)?\\b`, "i").test(l.title) &&
-      !new RegExp(`\\b${word}\\b`, "i").test(material)
+      !new RegExp(`\\b${word}\\b`, "i").test(material) &&
+      !(word === "Metall" && /\b(Titan|Stahl)\b/i.test(material))
     )
       warnings.push(
         `Titel nennt ${word}, das Material-Artikelmerkmal stimmt damit noch nicht überein. Bitte prüfen.`,
@@ -228,7 +364,7 @@ export function eyewearWarnings(l: ListingResult) {
   }
   return [...new Set(warnings)];
 }
-export const INSCRIPTION_PROMPT = `\nOptyl printed on a lens or frame identifies Optyl plastic, NOT Acetat. Return a label fact Fassungsmaterial=Optyl with the exact quote and photo index. For eyewear transcribe all legible temple/bridge inscriptions as specifics named Bügelaufdruck (basis label, value and quote exact, photoIndices). Also classify separately Marke, Modellnummer, Modellname, Farbcode, Fassungsmaterial. Example fictitious Lindberg Air Titanium 1234 C02 52□18 140: brand Lindberg, model name Air Titanium, model number 1234, color code C02. Never label 52/18/140 as model. Inspect every photo for size markings on the bridge (Brücke/Steg), including its underside and inner surface, as well as temples and frame front. Size markings are NOT restricted to the temples. A bridge inscription such as 53-18 (for example on Bogner) means Glasbreite 53 mm and Stegbreite 18 mm; transcribe it exactly as a label fact named Brückenaufdruck with its photo index. Do not interpret it as a model number or infer temple length from it. Box dimensions are parsed deterministically from the exact inscription, never invent missing digits or infer total width. For unclear characters add a specific Prüfhinweis with a German review note and basis estimate, confidence 100, relevant photoIndices; do not invent readable values. Distinguish material assertions from model names. Preserve exact quotes for all label facts. Herstellernummer/MPN is NOT Modellnummer; omit MPN unless explicitly identified as a manufacturer part number. Bügellänge must include mm.`;
+export const INSCRIPTION_PROMPT = `\nInspect printed words on BOTH demo lenses as well as temples, bridge and front. Read a clear TITAN/TITANIUM material marking on a demo lens as positive titanium evidence; a demo-lens material marking is not just branding to ignore. Return the exact quote and photo index. Titanium is Titan, not merely Metall. Distinguish the FRONT material from the TEMPLE material: emit Frontmaterial and Bügelmaterial facts separately when identifiable, e.g. an acetate front and titanium temples means Fassungsmaterial Titan | Acetat, not Metall alone. Do not infer that the whole frame is titanium or acetate from a single component label. Visual front material is an estimate with actual confidence; do not call it a label unless printed. Do not transfer colors or materials from display stands, blue holders, background objects or demo-lens tint to the frame. The word TITANIUM in a model name alone is not component-specific proof. Optyl printed on a lens or frame identifies Optyl plastic, NOT Acetat. Return a label fact Fassungsmaterial=Optyl with the exact quote and photo index. For eyewear transcribe all legible temple/bridge inscriptions as specifics named Bügelaufdruck (basis label, value and quote exact, photoIndices). Also classify separately Marke, Modellnummer, Modellname, Farbcode, Fassungsmaterial. Example fictitious Lindberg Air Titanium 1234 C02 52□18 140: brand Lindberg, model name Air Titanium, model number 1234, color code C02. Never label 52/18/140 as model. Inspect every photo for size markings on the bridge (Brücke/Steg), including its underside and inner surface, as well as temples and frame front. Size markings are NOT restricted to the temples. A bridge inscription such as 53-18 (for example on Bogner) means Glasbreite 53 mm and Stegbreite 18 mm; transcribe it exactly as a label fact named Brückenaufdruck with its photo index. Do not interpret it as a model number or infer temple length from it. Box dimensions are parsed deterministically from the exact inscription, never invent missing digits or infer total width. For unclear characters add a specific Prüfhinweis with a German review note and basis estimate, confidence 100, relevant photoIndices; do not invent readable values. Distinguish material assertions from model names. Preserve exact quotes for all label facts. Herstellernummer/MPN is NOT Modellnummer; omit MPN unless explicitly identified as a manufacturer part number. Bügellänge must include mm.`;
 
 export function syncManualEyewear(
   previous: ListingResult,
@@ -261,4 +397,48 @@ export function materialTitleIssues(l: ListingResult) {
   return l.eyewear
     ? eyewearWarnings({ ...l, eyewear: { ...l.eyewear, warnings: [] } })
     : [];
+}
+
+// Reuse already stored, label-proven evidence without another paid photo call.
+// Seller-edited material has source=manual and is never automatically replaced.
+export function printedMaterialPatch(
+  l: ListingResult,
+  meta: AspectMeta[],
+): Partial<ListingResult> | undefined {
+  const field = l.eyewear?.fields.material;
+  if (field?.source !== "label") return;
+  const next: ListingResult = {
+    ...l,
+    evidence: { ...l.evidence },
+    eyewear: { ...l.eyewear, fields: { material: field }, warnings: [] },
+  };
+  const aspects = Object.fromEntries(
+    Object.entries(l.item_specifics ?? {}).map(([k, v]) => [
+      k,
+      v.split(" | ").filter(Boolean),
+    ]),
+  );
+  mapEyewear(next, aspects, meta);
+  const changed = meta
+    .filter((m) => names.material.includes(m.name))
+    .some(
+      (m) =>
+        (aspects[m.name] ?? []).join(" | ") !==
+        (l.item_specifics?.[m.name] ?? ""),
+    );
+  if (!changed && (next.material === undefined || next.material === l.material))
+    return;
+  return {
+    material: next.material,
+    evidence: next.evidence,
+    estimates: next.estimates,
+    item_specifics: {
+      ...l.item_specifics,
+      ...Object.fromEntries(
+        meta
+          .filter((m) => names.material.includes(m.name) && aspects[m.name])
+          .map((m) => [m.name, aspects[m.name].join(" | ")]),
+      ),
+    },
+  };
 }

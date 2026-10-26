@@ -147,3 +147,18 @@ it("accepts documented caliper estimates for lens height and total frame width",
       ),
     ).toBe(true);
 });
+
+it("accepts exact material translations printed on demo lenses without inventing another material", () => {
+  const fact = {
+    name: "Fassungsmaterial",
+    value: "Titan",
+    quote: "TITANIUM",
+    photoIndices: [1],
+    basis: "label",
+  };
+  expect(acceptedPhotoFact(fact, 1)).toBe(true);
+  expect(acceptedPhotoFact({ ...fact, value: "Acetat" }, 1)).toBe(false);
+  expect(
+    acceptedPhotoFact({ ...fact, name: "Modell", value: "Titan" }, 1),
+  ).toBe(false);
+});

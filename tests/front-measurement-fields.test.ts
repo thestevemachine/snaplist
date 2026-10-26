@@ -98,3 +98,12 @@ it("does not undo an explicit seller clear of frame width", () => {
   };
   expect(frontMeasurementFields(l, [meta[1]])).toBeUndefined();
 });
+
+it("does not automatically transfer measurements after a failed inscription scale check", () => {
+  const l = listing();
+  l.frontMeasurement!.status = "uncertain";
+  l.frontMeasurement!.reasons = [
+    "Referenzprüfung: Maßstab passt nicht zur Stegbreite.",
+  ];
+  expect(frontMeasurementFields(l, meta)).toBeUndefined();
+});

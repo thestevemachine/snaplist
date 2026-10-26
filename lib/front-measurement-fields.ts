@@ -8,7 +8,12 @@ export function frontMeasurementFields(
   meta: AspectMeta[],
 ): Partial<ListingResult> | undefined {
   const m = listing.frontMeasurement;
-  if (!m || m.status === "unavailable") return;
+  if (
+    !m ||
+    m.status === "unavailable" ||
+    m.reasons.some((reason) => reason.startsWith("Referenzprüfung:"))
+  )
+    return;
   const specifics = { ...listing.item_specifics };
   const estimates = { ...listing.estimates };
   const evidence = { ...listing.evidence };
