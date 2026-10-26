@@ -132,3 +132,13 @@ it("does not retry malformed responses or provider failures and retains charged 
   expect(data.usage).toHaveLength(1);
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });
+it("uses a seller-confirmed 46 mm demo-lens reference without demanding an AI label quote",async()=>{
+ const b=body();
+ b.listing.eyewear.fields.lensWidth={value:"46",source:"manual"} as any;
+ const geometry={photoIndex:1,leftLens:lens(.15,.4),rightLens:lens(.6,.85),outerLeft:{x:.05,y:.4},outerRight:{x:.95,y:.4},frontal:true,groovesVisible:true,complete:true,samePlane:true,confidence:95,note:""};
+ fetchMock.mockResolvedValue(Response.json({candidates:[{content:{parts:[{text:JSON.stringify({front_geometry:geometry})}]},finishReason:"STOP"}],usageMetadata:{promptTokenCount:100,candidatesTokenCount:20}}));
+ const data=await (await POST(request(b))).json();
+ expect(data.ok).toBe(true);
+ expect(data.measurement).toMatchObject({referenceMm:46,referenceSource:"manual",lensHeightMm:37,totalWidthMm:163});
+ expect(fetchMock).toHaveBeenCalledTimes(1);
+});

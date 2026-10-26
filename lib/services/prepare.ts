@@ -1,3 +1,4 @@
+import { lindbergLensWidthPatch } from "@/lib/lindberg-lens-width";
 import { titanEvidencePatch, titanMetalPatch } from "@/lib/titan-evidence";
 import { DEFAULT_AI_MODEL } from "@/lib/ai-defaults";
 import { eyewearStyleTagsPatch } from "@/lib/eyewear-style-tags";
@@ -69,6 +70,7 @@ export async function prepareListing(body: any, sealedConnection?: string) {
       withDeadline(150_000, async () => {
         try {
           let listing = parseListing(body.listing);
+          Object.assign(listing,lindbergLensWidthPatch(listing));
           Object.assign(listing, titanEvidencePatch(listing));
           if (listing.eyewear_kind === "uncertain")
             throw new Error(

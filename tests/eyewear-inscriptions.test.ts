@@ -376,3 +376,11 @@ it("keeps a model identifier and separate lens width read on a Lindberg demo len
   expect(data.fields.modelNumber?.value).toBe("1234");
   expect(data.fields.lensWidth).toMatchObject({value:"74",source:"label",photos:[1]});
 });
+it("extracts 46 mm from a complete Lindberg demo-lens print without a box separator",()=>{
+ const data=extractEyewear([fact("Marke","Lindberg"),fact("Scheibenaufdruck","1257 46","LINDBERG 1257 46")]);
+ expect(data.fields.modelNumber?.value).toBe("1257");
+ expect(data.fields.lensWidth).toMatchObject({value:"46",source:"label",quote:"LINDBERG 1257 46",photos:[1]});
+ const alias=extractEyewear([fact("Scheibenbreite","46 mm","46 mm")]);
+ expect(alias.fields.lensWidth?.value).toBe("46");
+ expect(extractEyewear([fact("Marke","ic! berlin"),fact("Scheibenaufdruck","1257 46")]).fields.lensWidth).toBeUndefined();
+});

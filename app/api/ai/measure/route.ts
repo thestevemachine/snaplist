@@ -34,16 +34,15 @@ export async function POST(req: NextRequest) {
     if (!isAllowedModel(body.model)) throw Error();
     const ref = listing.eyewear?.fields.lensWidth;
     if (
-      ref?.source !== "label" ||
-      !ref.quote ||
-      !ref.photos?.length ||
+      (ref?.source !== "label" && ref?.source !== "manual") ||
+      (ref.source === "label" && (!ref.quote || !ref.photos?.length)) ||
       !/^\d{2}(?:\s*mm)?$/i.test(ref.value)
     )
       return NextResponse.json(
         {
           ok: false,
           error:
-            "Die vom Aufdruck gelesene Scheibenbreite fehlt. Bitte zuerst den Bügel-/Brückenaufdruck prüfen.",
+            "Scheibenbreite fehlt. Demoscheiben-/Bügelaufdruck prüfen oder die Breite manuell bestätigen.",
         },
         { status: 400, headers },
       );
