@@ -223,7 +223,12 @@ export function eyewearFeatureDefaultPatch(
   if (!field) return;
   const patch: Partial<ListingResult> = { feature_defaults_version: 1 };
   if (listing.item_specifics?.[field.name]?.trim()) return patch;
-  const value = field.values.find((v) => /^wasserfest$/i.test(v));
+  const aspects=Object.fromEntries(Object.entries(listing.item_specifics ?? {}).map(([k,v])=>[k,v.split(" | ")]));
+  expandEyewearFeatures(aspects,meta);
+  const recognized=aspects[field.name]?.map(v=>v.trim()).filter(Boolean);
+  const construction = Object.entries(listing.item_specifics ?? {}).filter(([k])=>/Stil|Form|Fassungsart|Rahmentyp/i.test(k)).map(([,v])=>v).join(" ");
+  const sellerDefault = !/randlos|halbrand|halbrahmen|nylon/i.test(construction) ? field.values.find(v=>/^vollrand$/i.test(v)) : undefined;
+  const value = recognized?.length ? recognized.join(" | ") : sellerDefault ?? field.values.find((v) => /^wasserfest$/i.test(v));
   if (!value) return patch; // Never invent a category option or a different claim.
   return {
     ...patch,

@@ -187,7 +187,7 @@ it.each(["Titan", "Acetat", "Metall", "Kunststoff", "Stahl"])(
     ).toHaveLength(1);
   },
 );
-it("maps box dimensions only to matching existing eBay dropdown values", () => {
+it("maps printed dimensions to free text while respecting selection-only dropdowns", () => {
   const l = {
     title: "Brille",
     description: "",
@@ -211,7 +211,10 @@ it("maps box dimensions only to matching existing eBay dropdown values", () => {
   expect(a.Stegbreite).toEqual(["18 mm"]);
   const b = {};
   mapEyewear(l, b, [m("Glasbreite", ["50 mm"]), m("Stegbreite", [])]);
-  expect(b).toEqual({});
+  expect(b).toEqual({Glasbreite:["52"],Stegbreite:["18"]});
+  const restricted={};
+  mapEyewear(l,restricted,[{...m("Glasbreite",["50 mm"]),mode:"SELECTION_ONLY"}]);
+  expect(restricted).toEqual({});
 });
 
 it("keeps printed Optyl and maps it to plastic, never acetate", () => {

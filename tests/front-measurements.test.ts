@@ -1,3 +1,4 @@
+import {manualLensWidth} from "@/lib/manual-lens-width";
 import { describe, it, expect } from "vitest";
 import {
   calculateFrontMeasurement,
@@ -285,4 +286,19 @@ it("adds a labelled calculated total width to new sunglasses descriptions only w
 it("accepts an explicitly seller-confirmed 46 mm reference without claiming OCR evidence",()=>{
  const l=listing();l.eyewear!.fields.lensWidth={value:"46",source:"manual"};
  expect(calculateFrontMeasurement(observation(),sizes,l)).toMatchObject({referenceMm:46,referenceSource:"manual",referenceQuote:"Manuell bestätigte Scheibenbreite",referencePhotos:[],lensHeightMm:37,totalWidthMm:163});
+});
+
+it("retains contours and image dimensions until a manual reference arrives, then calculates height without another model call",()=>{
+ const l=listing();delete l.eyewear;
+ l.frontMeasurement=calculateFrontMeasurement(observation(),sizes,l);
+ expect(l.frontMeasurement.status).toBe("unavailable");
+ expect(l.frontMeasurement.imageSize).toEqual(sizes[0]);
+ const meta=[{name:"Glashöhe",mode:"FREE_TEXT" as const,cardinality:"SINGLE" as const,required:false,values:[]}];
+ const patch=manualLensWidth(l,"50",meta);
+ expect(patch.frontMeasurement).toMatchObject({lensHeightMm:40,totalWidthMm:177,referenceSource:"manual"});
+ expect(patch.item_specifics?.Glashöhe).toBe("40 mm");
+ expect(patch.estimates?.Glashöhe).toBeDefined();
+ expect(patch.description).toBeUndefined();
+ const manual={...l,...patch,manual_measurement_fields:["Glasbreite","Glashöhe"],item_specifics:{Glashöhe:"37 mm"}};
+ expect(manualLensWidth(manual,"51",meta).item_specifics?.Glashöhe).toBe("37 mm");
 });

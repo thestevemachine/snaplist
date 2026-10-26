@@ -30,6 +30,7 @@ export const frontMeasurementSchema = z.object({
   method: z.literal("front-photo-ratio-v1"),
   status: z.enum(["estimated", "uncertain", "unavailable"]),
   photoIndex: z.number().int().min(0).max(24),
+  imageSize: z.object({width:z.number().positive(),height:z.number().positive()}).optional(),
   referenceMm: z.number().positive().optional(),
   referenceSource: z.enum(["label", "manual"]).optional(),
   referenceQuote: z.string().max(2000).optional(),
@@ -74,6 +75,7 @@ export function calculateFrontMeasurement(
   result.photoIndex = o.photoIndex;
   result.observation = o;
   const size = sizes[o.photoIndex - 1];
+  if(size) result.imageSize = size;
   const ref = listing.eyewear?.fields.lensWidth;
   const reference = Number(ref?.value.replace(/\s*mm$/i, "").replace(",", "."));
   // Use label evidence or the seller's explicitly confirmed lens width;
@@ -250,4 +252,20 @@ export function withSunglassesWidth(listing: ListingResult): ListingResult {
       listing.manual_measurement_fields?.some(k => /gesamtbreite|rahmenbreite|fassungsbreite/i.test(k)) ||
       /gesamtbreite|rahmenbreite|fassungsbreite/i.test(listing.description)) return listing;
   return {...listing,description: `${listing.description.trim()}\nGesamtbreite: ca. ${m.totalWidthMm} mm (aus Frontfoto berechnet)`.trim()};
+}
+
+// Reuse saved contours when an inscription/manual scale becomes available later.
+export function recalculateStoredMeasurement(listing: ListingResult): FrontMeasurement | undefined {
+ const m=listing.frontMeasurement,o=m?.observation;
+ if(!m || !o || !o.photoIndex) return;
+ let size=m.imageSize;
+ if(!size && m.lensWidthPx && m.lensHeightPx) {
+  const w=((o.leftLens.right.x-o.leftLens.left.x)+(o.rightLens.right.x-o.rightLens.left.x))/2;
+  const h=((o.leftLens.bottom.y-o.leftLens.top.y)+(o.rightLens.bottom.y-o.rightLens.top.y))/2;
+  if(w>0 && h>0) size={width:m.lensWidthPx/w,height:m.lensHeightPx/h};
+ }
+ if(!size) return;
+ const sizes:(ImageSize|undefined)[]=Array(o.photoIndex).fill(undefined);
+ sizes[o.photoIndex-1]=size;
+ return calculateFrontMeasurement(o,sizes,listing);
 }

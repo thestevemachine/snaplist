@@ -335,7 +335,7 @@ export function mapEyewear(
         value = "Kunststoff";
       const dimension = ["lensWidth", "bridgeWidth"].includes(key);
       // Respect selection-only choices; explicitly confirmed free-text dimensions remain editable.
-      if (dimension && !m.values.length && !((overwriteKey === key || field.source === "manual") && m.mode === "FREE_TEXT")) continue;
+      if (dimension && !m.values.length && !((overwriteKey === key || field.source === "manual" || field.source === "label") && m.mode === "FREE_TEXT")) continue;
       if (m.values.length) {
         const allowed = m.values.find(
           (v) =>
@@ -346,7 +346,7 @@ export function mapEyewear(
         );
         if (allowed) value = allowed;
         else if (
-          (dimension && !((overwriteKey === key || field.source === "manual") && m.mode === "FREE_TEXT")) ||
+          (dimension && !((overwriteKey === key || field.source === "manual" || field.source === "label") && m.mode === "FREE_TEXT")) ||
           m.mode === "SELECTION_ONLY" ||
           /material|farbe/i.test(m.name)
         )
