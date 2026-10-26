@@ -1490,3 +1490,35 @@ textarea {
   flex-basis: 100%;
   display: grid;
 }
+
+/* A divider belongs after the whole aspect, never between its name and value. */
+.draft-controls .specific-edit {
+  border: 0;
+  border-bottom: 1px solid var(--color-border, #dce7df);
+  padding: 0.5rem 0;
+  margin: 0;
+}
+.draft-controls .specific-name {
+  margin: 0 0 0.2rem;
+  font-size: 0.9rem;
+}
+.draft-controls .specific-edit:last-child {
+  border-bottom: 0;
+}
+.draft-controls .specific-edit > .aspect-evidence,
+.draft-controls .specific-edit > .aspect-choices {
+  border: 0;
+}
+.draft-controls {
+  gap: 0.35rem;
+}
+.draft-controls > details {
+  margin: 0;
+  padding-top: 0.35rem;
+}
+.draft-controls > details > summary {
+  padding: 0.15rem 0;
+}
+.draft-controls > .note {
+  margin: 0.15rem 0;
+}

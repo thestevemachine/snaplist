@@ -819,10 +819,17 @@ test("restored sunglasses prepare automatically once, retain descriptions and ne
       };
     });
   });
+  const prepared = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/ebay/prepare") &&
+      response.request().postDataJSON()?.listing?.eyewear_kind === "sunglasses",
+  );
   await page.reload();
+  await prepared;
   await expect(
     page.getByRole("textbox", { name: /Titel / }).first(),
   ).toHaveValue("Test Sonnenbrille Herren Damen Braun");
+
   expect(prepares).toBe(1);
   await page.getByRole("button", { name: "Detailkarten", exact: true }).click();
   await expect(

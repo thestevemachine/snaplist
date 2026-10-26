@@ -5,7 +5,10 @@ import {
   changeEyewearKind,
   FIXED_CONDITION_NOTES,
 } from "@/lib/listing-content-rules";
-import { syncManualEyewear } from "@/lib/eyewear-inscriptions";
+import {
+  syncManualEyewear,
+  printedMaterialPatch,
+} from "@/lib/eyewear-inscriptions";
 import { isGlasses, controlledGlassesAspect } from "@/lib/glasses-rules";
 import { isSunglasses } from "@/lib/category-selection";
 import { useState, useRef, useEffect } from "react";
@@ -29,11 +32,13 @@ interface Props {
 }
 export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
   const [busy, setBusy] = useState(false);
+  const [shippingOpen, setShippingOpen] = useState(false);
   const [options, setOptions] = useState<AccountOptions>();
   const [error, setError] = useState("");
   const latest = useRef(g);
   latest.current = g;
   const defaultsRequested = useRef(false);
+  useEffect(() => setShippingOpen(false), [g.id]);
   useEffect(() => {
     if (g.listing && !defaultsRequested.current) {
       defaultsRequested.current = true;
@@ -53,7 +58,11 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
       g.listing,
       g.preparation.aspects,
     );
-    const withFeatures = { ...g.listing, ...featurePatch };
+    const materialPatch = printedMaterialPatch(
+      { ...g.listing, ...featurePatch },
+      g.preparation.aspects,
+    );
+    const withFeatures = { ...g.listing, ...featurePatch, ...materialPatch };
     const stylePatch = eyewearStyleTagsPatch(
       withFeatures,
       g.preparation.aspects,
@@ -61,10 +70,12 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
     const updated = {
       ...g.listing,
       ...featurePatch,
+      ...materialPatch,
       ...stylePatch,
       item_specifics: {
         ...g.listing.item_specifics,
         ...featurePatch?.item_specifics,
+        ...materialPatch?.item_specifics,
         ...stylePatch?.item_specifics,
       },
     };
@@ -72,7 +83,7 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
       updated,
       g.preparation.aspects,
     );
-    if (featurePatch || stylePatch || measurementPatch)
+    if (featurePatch || materialPatch || stylePatch || measurementPatch)
       onGroupEdit(g.id, { listing: { ...updated, ...measurementPatch } });
   }, [g.id, g.listing, g.preparation, g.postStatus, onGroupEdit]);
   if (!g.listing) return null;
@@ -383,17 +394,34 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
           )}
         {names.map((name) => {
           const meta = g.preparation?.aspects.find((a) => a.name === name);
+          const noPattern =
+            /^Muster$/i.test(name) &&
+            !(specifics[name] ?? "")
+              .split(" | ")
+              .some(
+                (value) =>
+                  value.trim() &&
+                  !/^(einfarbig|unifarben|ohne muster|kein muster|unbekannt|nicht zutreffend|nicht angegeben)$/i.test(
+                    value.trim(),
+                  ),
+              );
           if (
-            /^(Anzahl der Einheiten|Maßeinheit)$/i.test(name) &&
+            (/^(Anzahl der Einheiten|Maßeinheit|Produktlinie)$/i.test(name) ||
+              noPattern) &&
             !meta?.required
           )
             return null;
           const field = (
-            <fieldset key={name} className="specific-edit">
-              <legend>
+            <div
+              key={name}
+              className="specific-edit"
+              role="group"
+              aria-label={`Artikelmerkmal ${name}`}
+            >
+              <div className="specific-name" id={`aspect-name-${g.id}-${name}`}>
                 {name}
                 {meta?.required ? " *" : ""}
-              </legend>
+              </div>
               {meta?.cardinality === "MULTI" && meta.values.length > 0 ? (
                 <details className="aspect-choices">
                   <summary aria-label={`${name}: Auswahl bearbeiten`}>
@@ -600,18 +628,9 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
                   Fotoanalyse misst keinen UV-Schutz.
                 </p>
               )}
-            </fieldset>
+            </div>
           );
-          return /^Produktlinie$/i.test(name) && !meta?.required ? (
-            <details key={name} className="specific-optional">
-              <summary>
-                Produktlinie{specifics[name] ? ` · ${specifics[name]}` : ""}
-              </summary>
-              {field}
-            </details>
-          ) : (
-            field
-          );
+          return field;
         })}
       </details>
       <details>
@@ -661,8 +680,15 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
           ) : null;
         })}
       </details>
-      <details>
-        <summary>Versand und Rückgabe</summary>
+      <details open={shippingOpen} className="shipping-details">
+        <summary
+          onClick={(event) => {
+            event.preventDefault();
+            setShippingOpen((open) => !open);
+          }}
+        >
+          Versand und Rückgabe
+        </summary>
         <p className="note">
           Gespeicherte Shop-Vorgaben werden für neue Angebote verwendet. Hier
           kannst du sie für diese Brille ändern.

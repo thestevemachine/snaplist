@@ -247,3 +247,24 @@ describe("bounded image header sizes", () => {
     (data) => expect(imageSize(data)).toBeUndefined(),
   );
 });
+
+it("cross-checks the contour scale against a separately printed bridge width", () => {
+  const l = listing();
+  l.eyewear!.fields.bridgeWidth = {
+    value: "18",
+    source: "label",
+    quote: "50□18 140",
+    photos: [2],
+  };
+  const bad = calculateFrontMeasurement(observation(), sizes, l);
+  expect(bad.status).toBe("uncertain");
+  expect(bad.reasons.join(" ")).toContain("Referenzprüfung:");
+  const good = observation();
+  good.leftLens.left.x = 0.205;
+  good.leftLens.right.x = 0.455;
+  good.rightLens.left.x = 0.545;
+  good.rightLens.right.x = 0.795;
+  expect(
+    calculateFrontMeasurement(good, sizes, l).reasons.join(" "),
+  ).not.toContain("Referenzprüfung:");
+});

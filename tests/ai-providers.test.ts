@@ -318,8 +318,8 @@ it("calculates front-photo dimensions in the same paid analysis, preserves inscr
     ],
     front_geometry: {
       photoIndex: 1,
-      leftLens: contour(0.15, 0.4),
-      rightLens: contour(0.6, 0.85),
+      leftLens: contour(0.205, 0.455),
+      rightLens: contour(0.545, 0.795),
       outerLeft: { x: 0.05, y: 0.4 },
       outerRight: { x: 0.95, y: 0.4 },
       frontal: true,

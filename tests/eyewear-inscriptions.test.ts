@@ -235,9 +235,138 @@ it("keeps printed Optyl and maps it to plastic, never acetate", () => {
 
 it("extracts Bogner box dimensions from the bridge without temple markings", () => {
   const data = extractEyewear([fact("Brückenaufdruck", "53-18")]);
-  expect(data.fields.lensWidth).toMatchObject({ value: "53", source: "label", quote: "53-18", photos: [1] });
+  expect(data.fields.lensWidth).toMatchObject({
+    value: "53",
+    source: "label",
+    quote: "53-18",
+    photos: [1],
+  });
   expect(data.fields.bridgeWidth?.value).toBe("18");
   expect(data.fields.templeLength).toBeUndefined();
   expect(data.fields.modelNumber).toBeUndefined();
   expect(data.fields.totalWidth).toBeUndefined();
+});
+
+it("uses a Titanium demo-lens marking and keeps proven acetate front material alongside it", () => {
+  const eyewear = extractEyewear([
+    fact("Scheibenaufdruck", "TITANIUM", "TITANIUM"),
+  ]);
+  expect(eyewear.fields.material?.value).toBe("Titan");
+  const l: ListingResult = {
+    title: "Brille",
+    description: "",
+    eyewear,
+    item_specifics: { Rahmenmaterial: "Metall | Acetat" },
+  };
+  const aspects = { Rahmenmaterial: ["Metall", "Acetat"] };
+  mapEyewear(l, aspects, [
+    {
+      ...meta[0],
+      name: "Rahmenmaterial",
+      cardinality: "MULTI",
+      values: ["Titan", "Acetat", "Metall"],
+    },
+  ]);
+  expect(aspects.Rahmenmaterial).toEqual(["Titan", "Acetat"]);
+  expect(l.material).toBe("Titan | Acetat");
+});
+it("combines different label-proven front and temple materials without treating them as a conflict", () => {
+  const eyewear = extractEyewear([
+    fact("Bügelmaterial", "Titan", "TITAN"),
+    fact("Frontmaterial", "Acetat", "ACETAT"),
+  ]);
+  expect(eyewear.fields.material?.value).toBe("Titan | Acetat");
+  expect(eyewear.warnings).toEqual([]);
+});
+it("does not erase a compound material when its printed words are read again", () => {
+  expect(
+    extractEyewear([fact("Fassungsmaterial", "Titan | Acetat", "TITAN ACETAT")])
+      .fields.material?.value,
+  ).toBe("Titan | Acetat");
+});
+it("repairs a stored generic metal value from positive label evidence once, without overriding a seller edit", async () => {
+  const { printedMaterialPatch } = await import("@/lib/eyewear-inscriptions");
+  const l: ListingResult = {
+    title: "Mein Titel",
+    description: "Text",
+    eyewear: extractEyewear([fact("Scheibenaufdruck", "TITANIUM")]),
+    item_specifics: { Rahmenmaterial: "Metall | Acetat" },
+  };
+  const m = [
+    {
+      ...meta[0],
+      name: "Rahmenmaterial",
+      cardinality: "MULTI" as const,
+      values: ["Titan", "Acetat", "Metall"],
+    },
+  ];
+  const patch = printedMaterialPatch(l, m)!;
+  expect(patch.item_specifics?.Rahmenmaterial).toBe("Titan | Acetat");
+  expect(printedMaterialPatch({ ...l, ...patch }, m)).toBeUndefined();
+  expect(
+    printedMaterialPatch(
+      {
+        ...l,
+        eyewear: {
+          fields: { material: { value: "Metall", source: "manual" } },
+          warnings: [],
+        },
+      },
+      m,
+    ),
+  ).toBeUndefined();
+  expect(l.item_specifics?.Rahmenmaterial).toBe("Metall | Acetat");
+});
+
+it("accepts a generic metal title when the actual material is more specifically titanium", () => {
+  expect(
+    materialTitleIssues({
+      title: "Brille Metall",
+      description: "",
+      eyewear: { fields: {}, warnings: [] },
+      item_specifics: { Rahmenmaterial: "Titan | Acetat" },
+    }),
+  ).toEqual([]);
+  expect(
+    materialTitleIssues({
+      title: "Brille Titan",
+      description: "",
+      eyewear: { fields: {}, warnings: [] },
+      item_specifics: { Rahmenmaterial: "Metall" },
+    }),
+  ).toHaveLength(1);
+});
+
+it("retains a visually supported acetate front alongside printed titanium, including its estimate marker", () => {
+  const eyewear = extractEyewear([
+    fact("Scheibenaufdruck", "TITANIUM"),
+    {
+      ...fact("Frontmaterial", "Acetat", "Front aus Acetat"),
+      basis: "estimate",
+      confidence: 85,
+    },
+  ]);
+  const l: ListingResult = {
+    title: "Brille",
+    description: "",
+    eyewear,
+    item_specifics: { Rahmenmaterial: "Metall" },
+  };
+  const aspects = { Rahmenmaterial: ["Metall"] };
+  mapEyewear(l, aspects, [
+    {
+      ...meta[0],
+      name: "Rahmenmaterial",
+      cardinality: "MULTI",
+      values: ["Titan", "Acetat", "Metall"],
+    },
+  ]);
+  expect(aspects.Rahmenmaterial).toEqual(["Titan", "Acetat"]);
+  expect(l.estimates?.Rahmenmaterial).toBe(85);
+  expect(parseListing(l).eyewear?.materials?.[0]).toMatchObject({
+    part: "front",
+    value: "Acetat",
+    source: "estimate",
+    confidence: 85,
+  });
 });

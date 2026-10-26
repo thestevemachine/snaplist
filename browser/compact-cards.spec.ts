@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 const image =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=";
-async function setup(page: Page) {
+async function setup(page: Page, pattern = "") {
   let paid = 0,
     writes = 0;
   await page.route("**/api/**", (r) => {
@@ -23,111 +23,137 @@ async function setup(page: Page) {
   await expect(page.getByRole("status")).toContainText(
     "Auf diesem Gerät gespeichert",
   );
-  await page.evaluate(async (image) => {
-    const photo = {
-      id: "p1",
-      mediaType: "image/png",
-      previewUrl: image,
-      data: image.split(",")[1],
-    };
-    const meta = (name: string, extra = {}) => ({
-      name,
-      required: false,
-      usage: "OPTIONAL",
-      mode: "FREE_TEXT",
-      cardinality: "SINGLE",
-      values: [],
-      ...extra,
-    });
-    await new Promise<void>((resolve, reject) => {
-      const r = indexedDB.open("listing-writer-drafts");
-      r.onsuccess = () => {
-        const db = r.result,
-          tx = db.transaction("workspace", "readwrite");
-        tx.objectStore("workspace").put(
-          {
-            version: 1,
-            photos: [photo],
-            groups: [
-              {
-                id: "g1",
-                sku: "",
-                name: "CRH Brille",
-                photoIds: ["p1"],
-                status: "done",
-                evidencePhotoIds: ["p1"],
-                listing: {
-                  title: "CRH Brille Rund Panto Schwarz Silber",
-                  description: "Manueller Text",
-                  eyewear_kind: "optical",
-                  category_id: "180957",
-                  suggested_price: 69,
-                  glasses_rules_version: 4,
-                  category_fields_version: 4,
-                  item_specifics: {
-                    Marke: "CRH",
-                    Produktlinie: "",
-                    Rahmenbreite: "",
-                    Herstellungsjahr: "",
-                  },
-                  evidence: { Marke: [1] },
-                  estimates: { Marke: 90 },
-                  frontMeasurement: {
-                    method: "front-photo-ratio-v1",
-                    status: "uncertain",
-                    photoIndex: 1,
-                    lensHeightMm: 40,
-                    totalWidthMm: 138,
-                    reasons: ["Perspektive unsicher"],
-                  },
-                },
-                preparation: {
-                  categoryId: "180957",
-                  categoryName: "Brillenfassungen",
-                  suggestions: [
-                    {
-                      id: "180957",
-                      path: "Beauty & Gesundheit > Augenoptik > Brillenfassungen",
-                    },
-                  ],
-                  signature: "test",
-                  expiresAt: Date.now() + 3600000,
-                  conditions: [],
-                  issues: [],
-                  aspects: [
-                    meta("Marke"),
-                    meta("Thema", { cardinality: "MULTI", values: ["Retro"] }),
-                    meta("Charakter", {
-                      cardinality: "MULTI",
-                      values: ["Klassisch"],
-                    }),
-                    meta("Produktlinie"),
-                    meta("Anzahl der Einheiten"),
-                    meta("Maßeinheit"),
-                    meta("Rahmenbreite", { values: ["130 mm", "140 mm"] }),
-                    meta("Herstellungsjahr"),
-                  ],
-                },
-              },
-            ],
-            orphanIds: [],
-            binPrefix: "old-bin-value",
-            skuStart: 0,
-            step: "listings",
-            updatedAt: Date.now(),
-          },
-          "current",
-        );
-        tx.oncomplete = () => {
-          db.close();
-          resolve();
-        };
-        tx.onerror = () => reject(tx.error);
+  await page.evaluate(
+    async ({ image, pattern }) => {
+      const photo = {
+        id: "p1",
+        mediaType: "image/png",
+        previewUrl: image,
+        data: image.split(",")[1],
       };
-    });
-  }, image);
+      const meta = (name: string, extra = {}) => ({
+        name,
+        required: false,
+        usage: "OPTIONAL",
+        mode: "FREE_TEXT",
+        cardinality: "SINGLE",
+        values: [],
+        ...extra,
+      });
+      await new Promise<void>((resolve, reject) => {
+        const r = indexedDB.open("listing-writer-drafts");
+        r.onsuccess = () => {
+          const db = r.result,
+            tx = db.transaction("workspace", "readwrite");
+          tx.objectStore("workspace").put(
+            {
+              version: 1,
+              photos: [photo],
+              groups: [
+                {
+                  id: "g1",
+                  sku: "",
+                  name: "CRH Brille",
+                  photoIds: ["p1"],
+                  status: "done",
+                  evidencePhotoIds: ["p1"],
+                  listing: {
+                    title: "CRH Brille Rund Panto Schwarz Silber",
+                    description: "Manueller Text",
+                    eyewear_kind: "optical",
+                    category_id: "180957",
+                    suggested_price: 69,
+                    glasses_rules_version: 4,
+                    category_fields_version: 4,
+                    item_specifics: {
+                      Marke: "CRH",
+                      Muster: pattern,
+                      Rahmenmaterial: "Metall | Acetat",
+                      Produktlinie: "",
+                      Rahmenbreite: "",
+                      Herstellungsjahr: "",
+                    },
+                    eyewear: {
+                      fields: {
+                        material: {
+                          value: "Titan",
+                          source: "label",
+                          quote: "TITANIUM",
+                          photos: [1],
+                        },
+                      },
+                      warnings: [],
+                    },
+                    evidence: { Marke: [1] },
+                    estimates: { Marke: 90 },
+                    frontMeasurement: {
+                      method: "front-photo-ratio-v1",
+                      status: "uncertain",
+                      photoIndex: 1,
+                      lensHeightMm: 40,
+                      totalWidthMm: 138,
+                      reasons: ["Perspektive unsicher"],
+                    },
+                  },
+                  preparation: {
+                    categoryId: "180957",
+                    categoryName: "Brillenfassungen",
+                    suggestions: [
+                      {
+                        id: "180957",
+                        path: "Beauty & Gesundheit > Augenoptik > Brillenfassungen",
+                      },
+                    ],
+                    signature: "test",
+                    expiresAt: Date.now() + 3600000,
+                    conditions: [],
+                    issues: [],
+                    aspects: [
+                      meta("Marke"),
+                      meta("Thema", {
+                        cardinality: "MULTI",
+                        values: ["Retro"],
+                      }),
+                      meta("Charakter", {
+                        cardinality: "MULTI",
+                        values: ["Klassisch"],
+                      }),
+                      meta("Muster"),
+                      meta("Rahmenmaterial", {
+                        cardinality: "MULTI",
+                        values: ["Titan", "Acetat", "Metall"],
+                      }),
+                      meta("Produktlinie"),
+                      meta("Anzahl der Einheiten"),
+                      meta("Maßeinheit"),
+                      meta("Rahmenbreite", { values: ["130 mm", "140 mm"] }),
+                      meta("Herstellungsjahr"),
+                    ],
+                  },
+                },
+              ],
+              orphanIds: [],
+              binPrefix: "old-bin-value",
+              skuStart: 0,
+              step: "listings",
+              updatedAt: Date.now(),
+            },
+            "current",
+          );
+          tx.oncomplete = () => {
+            db.close();
+            resolve();
+          };
+          tx.onerror = () => reject(tx.error);
+        };
+      });
+    },
+    { image, pattern },
+  );
   await page.reload();
-  await expect(page.getByLabel("Marke", { exact: true })).toHaveValue("CRH");
+  await expect(
+    page.locator(".draft-controls").getByLabel("Marke", { exact: true }),
+  ).toHaveValue("CRH");
   return () => ({ paid, writes });
 }
 test("compact cards group values with labels, collapse rare sections, preserve exact SKU and suggestions on reload", async ({
@@ -138,9 +164,7 @@ test("compact cards group values with labels, collapse rare sections, preserve e
   await expect(
     card.getByLabel("Versandregel", { exact: true }),
   ).not.toBeVisible();
-  await expect(
-    card.getByLabel("Produktlinie", { exact: true }),
-  ).not.toBeVisible();
+  await expect(card.getByLabel("Produktlinie", { exact: true })).toHaveCount(0);
   await expect(
     card.getByLabel("Anzahl der Einheiten", { exact: true }),
   ).toHaveCount(0);
@@ -148,6 +172,14 @@ test("compact cards group values with labels, collapse rare sections, preserve e
   await expect(card.getByLabel("Rahmenbreite", { exact: true })).toHaveValue(
     "138 mm",
   );
+  await expect(card.getByLabel("Muster", { exact: true })).toHaveCount(0);
+  const materials = card.getByLabel("Rahmenmaterial: Auswahl bearbeiten");
+  await expect(materials).toContainText("Titan");
+  await expect(materials).toContainText("Acetat");
+  await expect(materials).not.toContainText("Metall");
+  await card.getByText("Versand und Rückgabe", { exact: true }).click();
+  await expect(card.getByLabel("Versandregel", { exact: true })).toBeVisible();
+
   await expect(card.getByLabel("Thema: Auswahl bearbeiten")).toContainText(
     "Panto",
   );
@@ -161,7 +193,9 @@ test("compact cards group values with labels, collapse rare sections, preserve e
     .locator(".specific-edit")
     .first()
     .evaluate((el) => {
-      const legend = el.querySelector("legend")!.getBoundingClientRect(),
+      const legend = el
+          .querySelector(".specific-name")!
+          .getBoundingClientRect(),
         input = el.querySelector("input")!.getBoundingClientRect(),
         hints = el.querySelector(".aspect-evidence")!.getBoundingClientRect();
       return {
@@ -171,6 +205,21 @@ test("compact cards group values with labels, collapse rare sections, preserve e
     });
   expect(positions.gap).toBeLessThanOrEqual(8);
   expect(positions.after).toBe(true);
+  const divider = await card
+    .locator(".specific-edit")
+    .first()
+    .evaluate((el) => {
+      const style = getComputedStyle(el),
+        hints = getComputedStyle(el.querySelector(".aspect-evidence")!);
+      return {
+        bottom: style.borderBottomStyle,
+        bottomWidth: parseFloat(style.borderBottomWidth),
+        hintsTop: parseFloat(hints.borderTopWidth),
+      };
+    });
+  expect(divider.bottom).toBe("solid");
+  expect(divider.bottomWidth).toBe(1);
+  expect(divider.hintsTop).toBe(0);
   const cat = await card.locator(".category-id-field").evaluate((el) => {
     const a = el.querySelector("span")!.getBoundingClientRect(),
       b = el.querySelector("input")!.getBoundingClientRect();
@@ -188,6 +237,9 @@ test("compact cards group values with labels, collapse rare sections, preserve e
   await card.getByLabel("Thema: Auswahl bearbeiten").click();
   await page.waitForTimeout(600);
   await page.reload();
+  await expect(
+    page.getByLabel("Versandregel", { exact: true }),
+  ).not.toBeVisible();
   await expect(page.getByLabel("SKU", { exact: true })).toHaveValue("65-23537");
   await expect(page.getByLabel("Rahmenbreite", { exact: true })).toHaveValue(
     "",
@@ -235,4 +287,13 @@ test("upload and photo sorting do not ask for a SKU", async ({ page }) => {
     .getByRole("button", { name: "Diese Fotos gehören zu einem Artikel" })
     .click();
   await expect(page.getByLabel("Artikel-SKU / Lagerbox")).toHaveCount(0);
+});
+
+test("retains an actual recognized pattern but omits empty or plain pattern fields", async ({
+  page,
+}) => {
+  await setup(page, "Gestreift | Geometrisch");
+  await expect(page.getByLabel("Muster", { exact: true })).toHaveValue(
+    "Gestreift | Geometrisch",
+  );
 });
