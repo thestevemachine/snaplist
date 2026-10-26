@@ -174,3 +174,15 @@ it("adds mm to free-text dimensions while preserving exact eBay choices and iden
  expect(categorySpecifics({Rahmenbreite:"140", Glashöhe:"38 mm", Bügellänge:"145", Modellnummer:"1234", Glasbreite:"52"}, meta)).toEqual({Rahmenbreite:"140 mm", Glashöhe:"38 mm", Bügellänge:"145 mm", Modellnummer:"1234", Glasbreite:"52"});
  expect(categorySpecifics({Rahmenbreite:["140"]}, meta)).toEqual({Rahmenbreite:["140 mm"]});
 });
+it("defaults unknown sunglasses lenses to grey and omits optional magnification, preserving known color", () => {
+  const meta: AspectMeta[] = [{...material, name:"Glasfarbe", values:["Grau","Braun"]}, {...material,name:"Vergrößerungsstärke",values:["0","2"]}];
+  const values: Record<string,string[]> = {Vergrößerungsstärke:["2"]};
+  applyEyewearSellerDefaults(values,meta,true,"");
+  expect(values.Glasfarbe).toEqual(["Grau"]);
+  expect(values.Vergrößerungsstärke).toBeUndefined();
+  values.Glasfarbe=["Braun"];
+  applyEyewearSellerDefaults(values,meta,true,"");
+  expect(values.Glasfarbe).toEqual(["Braun"]);
+  applyEyewearSellerDefaults(values,[{...meta[1],required:true}],true,"");
+  expect(values.Vergrößerungsstärke).toEqual(["0"]);
+});

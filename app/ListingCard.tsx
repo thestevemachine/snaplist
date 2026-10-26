@@ -6,7 +6,7 @@ import { EyewearDetails } from "./EyewearDetails";
 import { isGlasses, glassesTitleHints } from "@/lib/glasses-rules";
 import { DraftControls } from "./DraftControls";
 import { draftIssues } from "@/lib/client-review";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { SIZE_REQUIRED_CATEGORIES } from "@/lib/categories";
 import type { ItemGroup, ListingResult, Photo } from "@/lib/types";
 
@@ -66,7 +66,7 @@ interface ListingCardProps {
   onGroupEdit: (id: string, patch: Partial<ItemGroup>) => void;
   onEdit: (groupId: string, patch: Partial<ListingResult>) => void;
   onRenameSku: (groupId: string, sku: string) => void;
-  onRetry: (groupId: string) => void;
+  onRetry: (groupId: string, hint?: string) => void;
   onSaveDraft: () => Promise<void>;
   onPost: (
     groupId: string,
@@ -86,6 +86,7 @@ export function ListingCard({
   onSaveDraft,
 }: ListingCardProps) {
   const [open, setOpen] = useState(true);
+  const [analysisHint, setAnalysisHint] = useState("");
   const [savingDraft, setSavingDraft] = useState(false);
   const [draftNotice, setDraftNotice] = useState("");
   useEffect(
@@ -109,6 +110,18 @@ export function ListingCard({
     }
   };
   const listing = group.listing;
+  const titleRef = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const resize = () => {
+      const element = titleRef.current;
+      if (!element) return;
+      element.style.height = "auto";
+      element.style.height = `${element.scrollHeight + 4}px`;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, [listing?.title, open]);
   const cover = photoById(group.photoIds[0]);
 
   const specifics = useMemo(() => {
@@ -211,8 +224,10 @@ export function ListingCard({
                 {titleLen}/{TITLE_LIMIT}
               </span>
             </label>
-            <input
-              type="text"
+            <textarea
+              rows={3}
+              ref={titleRef}
+              aria-label="Titel bearbeiten"
               className="title-input"
               value={listing.title}
               onChange={(e) => onEdit(group.id, { title: e.target.value })}
@@ -414,7 +429,13 @@ export function ListingCard({
             </div>
           </div>
 
-          <button type="button" onClick={() => onRetry(group.id)}>
+          <label className="reanalysis-hint">
+            Hinweis für die Neuanalyse (optional)
+            <input value={analysisHint} maxLength={500}
+              placeholder="z. B. Das ist eine Sonnenbrille"
+              onChange={(e) => setAnalysisHint(e.target.value)} />
+          </label>
+          <button type="button" onClick={() => onRetry(group.id, analysisHint)}>
             Ausgewählte Fotos neu analysieren (ersetzt diesen Entwurf)
           </button>
           <p className="note">

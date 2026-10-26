@@ -404,7 +404,7 @@ export function germanGlassesTitle(l: ListingResult, meta: AspectMeta[]) {
     ),
   ].join(" ");
   const round = /^(rund|round|panto|rund panto)$/i.test(shape);
-  const shapeText = round ? "Rund Panto" : shape;
+  const shapeText = round ? "Rund Panto" : /oval|pilot|aviator/i.test(shape) ? "Pilot Oval" : shape;
   const material = categoryTitleValue(l, meta, [
     "Rahmenmaterial",
     "Fassungsmaterial",

@@ -293,3 +293,11 @@ it("uses two frame colors as separate title words and more than two as Mehrfarbi
     ),
   ).toContain("Mehrfarbig");
 });
+
+it("uses Pilot Oval for supported oval or pilot outlines without adding it to round frames", () => {
+  for(const shape of ["Oval","Pilot"]) {
+    const l={title:"Brille",description:"",brand:"Test",item_type:"Brille",item_specifics:{Form:shape}};
+    expect(germanGlassesTitle(l,[aspect("Form")])).toContain("Pilot Oval");
+  }
+  expect(germanGlassesTitle({title:"Brille",description:"",item_specifics:{Form:"Rund"}},[aspect("Form")])).not.toContain("Pilot Oval");
+});

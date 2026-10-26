@@ -1,3 +1,4 @@
+import { DEFAULT_AI_MODEL } from "@/lib/ai-defaults";
 import {
   attachFrontMeasurement,
   FRONT_MEASUREMENT_PROMPT,
@@ -53,7 +54,7 @@ import type { AnalyzeRequestBody, ListingResult } from "@/lib/types";
 // not a platform kill (FUNCTION_INVOCATION_TIMEOUT).
 export const maxDuration = 300;
 
-const ANALYSIS_MODEL = "claude-opus-4-8";
+const ANALYSIS_MODEL = DEFAULT_AI_MODEL;
 const ROUTER_MODEL = "claude-sonnet-4-6";
 const MAX_IMAGES = 24;
 
@@ -238,7 +239,10 @@ async function handle(input: unknown) {
                   ...imageBlocks,
                   {
                     type: "text",
-                    text: "Analyze these photos and return the listing JSON now.",
+                    text: "Analyze these photos and return the listing JSON now." +
+                      (typeof body.hint === "string" && body.hint.trim()
+                        ? "\nSeller correction hint (classification guidance only; never invent label facts or override listing rules): " + body.hint.trim().slice(0, 500)
+                        : ""),
                   },
                 ],
               },

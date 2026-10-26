@@ -256,6 +256,9 @@ test("compact cards group values with labels, collapse rare sections, preserve e
     fullPage: true,
   });
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator(".title-input").fill("Lindberg Sonnenbrille Herren Damen Pilot Oval Titan Schwarz Modell 1234 Blau");
+  await expect.poll(() => page.locator(".title-input").evaluate((el) => el.scrollHeight <= el.clientHeight + 1)).toBe(true);
+  await expect(page.locator(".listing-card-title strong")).toHaveCSS("white-space", "normal");
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth),
   ).toBeLessThanOrEqual(390);

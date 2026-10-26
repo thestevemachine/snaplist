@@ -1,3 +1,4 @@
+import { DEFAULT_AI_MODEL } from "@/lib/ai-defaults";
 import { NextResponse } from "next/server";
 import { getClient } from "@/lib/anthropic";
 import { isAllowedModel } from "@/lib/models";
@@ -23,8 +24,8 @@ const DESCRIPTIONS: Record<string, string> = {
     "Fastest and most affordable. Best for photo sorting only.",
 };
 
-const SORT_DEFAULT = "claude-sonnet-4-6";
-const ANALYSIS_DEFAULT = "claude-opus-4-8";
+const SORT_DEFAULT = DEFAULT_AI_MODEL;
+const ANALYSIS_DEFAULT = DEFAULT_AI_MODEL;
 
 export interface ModelOption {
   provider?: string;
@@ -140,12 +141,13 @@ export async function GET() {
     displayName: m.name,
     provider: m.provider,
     configured: providerConfigured(m.provider),
-    isDefault: false,
+    isDefault: m.id === DEFAULT_AI_MODEL,
     description: `Bilderkennung · Standardpreis pro 1 Mio. Token: $${m.input} Eingabe / $${m.output} Ausgabe. Stand ${m.priceDate}${m.priceUntil ? `, Aktionspreis bis ${m.priceUntil}` : ""}.`,
   }));
   const annotate = (m: ModelOption) => ({
     ...m,
     provider: "anthropic",
+    isDefault: false,
     configured: providerConfigured("anthropic"),
   });
   return NextResponse.json(

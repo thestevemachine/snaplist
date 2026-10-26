@@ -20,7 +20,7 @@ export function EyewearDetails({
   if (!listing.eyewear) return null;
   const warnings = eyewearWarnings(listing);
   return (
-    <details className="result-field">
+    <details className="result-field eyewear-details">
       <summary>Erkannte Bügelaufdrucke und Maße</summary>
       <p>
         Maße in mm. Leere Werte sind unbekannt. Hier stehen auch Lesedaten, für

@@ -78,12 +78,14 @@ export function ModelSelector() {
           data.sortModels[0]?.id ??
           "";
         setSortModel(savedSort || defaultSort);
+        if (!savedSort && defaultSort) saveSortModel(defaultSort);
 
         const defaultAnalysis =
           data.analysisModels.find((m) => m.isDefault)?.id ??
           data.analysisModels[0]?.id ??
           "";
         setAnalysisModel(savedAnalysis || defaultAnalysis);
+        if (!savedAnalysis && defaultAnalysis) saveAnalysisModel(defaultAnalysis);
       })
       .catch(() => {
         setLoadError(true);

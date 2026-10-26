@@ -81,12 +81,19 @@ export function applyEyewearSellerDefaults(
     const value = m.values.find(
       (v) => v.toLowerCase() === desired.toLowerCase(),
     );
-    if (value) aspects[m.name] = [value];
+    if (value || m.mode === "FREE_TEXT") aspects[m.name] = [value ?? desired];
   };
   set(/^Vintage$/i, "Nein");
   set(/^Abteilung$/i, "Unisex Erwachsene");
   set(/^Produktart$/i, sunglasses ? "Sonnenbrille" : "Brille", false);
   if (sunglasses) {
+    set(/^(Glasfarbe|Gläserfarbe|Linsenfarbe|Lens Colou?r)$/i, "Grau");
+    for (const field of meta) {
+      if (!/^(Vergrößerungsstärke|Vergrößerung|Dioptrien|Magnification Strength)$/i.test(field.name)) continue;
+      if (field.required && (field.mode === "FREE_TEXT" || field.values.includes("0")))
+        aspects[field.name] = ["0"];
+      else delete aspects[field.name];
+    }
     set(/^UV[- ]?Schutz$/i, "UV400");
     const lens = meta.find((a) =>
       /^(Gläsertechnologie|Glastechnologie|Linsentechnologie)$/i.test(a.name),
