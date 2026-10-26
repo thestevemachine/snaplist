@@ -1,6 +1,8 @@
+import { titanEvidencePatch } from "@/lib/titan-evidence";
 import { DEFAULT_AI_MODEL } from "@/lib/ai-defaults";
 import {
   attachFrontMeasurement,
+  withSunglassesWidth,
   FRONT_MEASUREMENT_PROMPT,
 } from "@/lib/front-measurements";
 import { imageSize } from "@/lib/image-size";
@@ -350,6 +352,7 @@ async function handle(input: unknown) {
             };
           }
         }
+        Object.assign(listing, titanEvidencePatch(listing));
         listing.description = cleanGeneratedDescription(listing.description);
         listing.item_profile = profile;
         listing.evidence = Object.fromEntries(
@@ -397,6 +400,7 @@ async function handle(input: unknown) {
         }
         if (isGlasses(listing))
           attachFrontMeasurement(listing, raw.front_geometry, imageSizes);
+        listing = withSunglassesWidth(listing);
         // Same principle for the optional storewide markup: applied pre-review,
         // so the price on the card is exactly the price that publishes.
         listing.suggested_price = applyPriceMarkup(

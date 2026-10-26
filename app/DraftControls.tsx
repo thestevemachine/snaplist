@@ -1,4 +1,5 @@
 "use client";
+import { titanEvidencePatch } from "@/lib/titan-evidence";
 import { eyewearStyleTagsPatch } from "@/lib/eyewear-style-tags";
 import { frontMeasurementFields } from "@/lib/front-measurement-fields";
 import {
@@ -54,6 +55,11 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
       g.postStatus === "posting"
     )
       return;
+    const titanPatch = titanEvidencePatch(g.listing);
+    if (titanPatch) {
+      onGroupEdit(g.id, {listing:{...g.listing,...titanPatch}});
+      return;
+    }
     const featurePatch = eyewearFeatureDefaultPatch(
       g.listing,
       g.preparation.aspects,

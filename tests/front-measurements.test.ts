@@ -269,3 +269,15 @@ it("cross-checks the contour scale against a separately printed bridge width", (
     calculateFrontMeasurement(good, sizes, l).reasons.join(" "),
   ).not.toContain("Referenzprüfung:");
 });
+it("adds a labelled calculated total width to new sunglasses descriptions only when reliable", async () => {
+ const {withSunglassesWidth}=await import("@/lib/front-measurements");
+ const measurement=calculateFrontMeasurement(observation(),sizes,listing());
+ const l={...listing(),eyewear_kind:"sunglasses" as const,frontMeasurement:measurement};
+ const updated=withSunglassesWidth(l);
+ expect(updated.description).toContain("Gesamtbreite: ca. 177 mm (aus Frontfoto berechnet)");
+ expect(withSunglassesWidth(updated)).toBe(updated);
+ expect(withSunglassesWidth({...l,frontMeasurement:{...measurement,status:"uncertain"}}).description).toBe(l.description);
+ expect(withSunglassesWidth({...l,eyewear_kind:"optical"}).description).toBe(l.description);
+ expect(withSunglassesWidth({...l,frontMeasurement:undefined}).description).toBe(l.description);
+ expect(withSunglassesWidth({...l,description:"Rahmenbreite: 140 mm"}).description).toBe("Rahmenbreite: 140 mm");
+});

@@ -1,4 +1,5 @@
 "use client";
+import { withSunglassesWidth } from "@/lib/front-measurements";
 import { DEFAULT_AI_MODEL } from "@/lib/ai-defaults";
 import { AiUsageSummary } from "./AiUsageSummary";
 import { analysisImages } from "@/lib/analysis-images";
@@ -679,7 +680,7 @@ export default function Home() {
         const shopOptions = await loadAccountOptions().catch(() => undefined);
         const shop = readShopPreferences(shopOptions?.sellerKey);
         const baseDescription = data.listing.description;
-        data.listing = applyShopListing(data.listing, shop);
+        data.listing = withSunglassesWidth(applyShopListing(data.listing, shop));
         setGroups((prev) =>
           prev.map((g) =>
             g.id === groupId

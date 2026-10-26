@@ -300,3 +300,34 @@ test("retains an actual recognized pattern but omits empty or plain pattern fiel
     "Gestreift | Geometrisch",
   );
 });
+test("removes an unproven ic berlin titanium guess from an existing draft without a new paid analysis", async ({page}) => {
+  const counts=await setup(page);
+  await expect(page.getByRole("status")).toContainText("Auf diesem Gerät gespeichert");
+  await page.evaluate(async()=>{
+    await new Promise<void>((resolve,reject)=>{
+      const r=indexedDB.open("listing-writer-drafts");
+      r.onsuccess=()=>{
+        const db=r.result,tx=db.transaction("workspace","readwrite"),store=tx.objectStore("workspace"),get=store.get("current");
+        get.onsuccess=()=>{
+          const data=get.result,l=data.groups[0].listing;
+          l.title="ic! berlin Titan Sonnenbrille";
+          l.brand="ic! berlin";l.content_rules_version=3;
+          l.material="Titan";l.item_specifics.Marke="ic! berlin";
+          l.item_specifics.Rahmenmaterial="Titan";
+          l.eyewear={fields:{},warnings:[]};
+          store.put(data,"current");
+        };
+        tx.oncomplete=()=>{db.close();resolve()};tx.onerror=()=>reject(tx.error);
+      };
+    });
+  });
+  await page.reload();
+  await expect(page.locator(".title-input")).toHaveValue("ic! berlin Metall Sonnenbrille");
+  await expect(page.getByLabel("Rahmenmaterial: Auswahl bearbeiten")).toContainText("Metall");
+  await expect(page.getByLabel("Rahmenmaterial: Auswahl bearbeiten")).not.toContainText("Titan");
+  await expect(page.getByLabel("Beschreibung",{exact:true})).toHaveValue("Manueller Text");
+  await expect(page.getByRole("status")).toContainText("Auf diesem Gerät gespeichert");
+  await page.reload();
+  await expect(page.locator(".title-input")).toHaveValue("ic! berlin Metall Sonnenbrille");
+  expect(counts()).toEqual({paid:0,writes:0});
+});

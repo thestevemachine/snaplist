@@ -1,3 +1,4 @@
+import { titanEvidencePatch } from "@/lib/titan-evidence";
 import { DEFAULT_AI_MODEL } from "@/lib/ai-defaults";
 import { eyewearStyleTagsPatch } from "@/lib/eyewear-style-tags";
 import { frontMeasurementFields } from "@/lib/front-measurement-fields";
@@ -68,6 +69,7 @@ export async function prepareListing(body: any, sealedConnection?: string) {
       withDeadline(150_000, async () => {
         try {
           let listing = parseListing(body.listing);
+          Object.assign(listing, titanEvidencePatch(listing));
           if (listing.eyewear_kind === "uncertain")
             throw new Error(
               "Brillenart unklar. Bitte Korrektionsfassung oder Sonnenbrille auswählen.",
