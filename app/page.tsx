@@ -1462,7 +1462,7 @@ export default function Home() {
                   <div className={`thumb${p.separator ? " separator-photo" : ""}`} key={p.id}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={p.previewUrl} alt={p.separator ? "Trennbild" : ""} />
-                    <button type="button" className="separator-toggle" disabled={sorting || Boolean(importProgress)}
+                    <button type="button" className="separator-toggle" aria-pressed={Boolean(p.separator)} disabled={sorting || Boolean(importProgress)}
                       aria-label={p.separator ? "Trennbild als normales Foto verwenden" : "Als Trennbild markieren"}
                       onClick={()=>setPhotos(prev=>prev.map(photo=>photo.id===p.id ? {...photo,separator:!photo.separator,separatorManual:true} : photo))}>
                       {p.separator ? "Trennbild" : "Trennen"}

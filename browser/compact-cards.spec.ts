@@ -438,6 +438,9 @@ test("draft defaults to a compact title/SKU/price and a warning expands directly
  await page.reload();
  const card=page.locator(".listing-card");
  await expect(card.getByRole("button",{name:"Angebotsdetails aufklappen"})).toHaveAttribute("aria-expanded","false");
+ await expect(card.getByRole("button",{name:"Angebotsdetails aufklappen"})).toContainText("Ausklappen");
+ await expect(card.locator(".card-toggle-arrow")).toHaveText("↓");
+ expect(await card.evaluate(el=>el.parentElement?.previousElementSibling?.classList.contains("sku-sequence"))).toBe(true);
  await expect(card.getByLabel("SKU",{exact:true})).toBeVisible();
  await expect(card.getByLabel("Preis",{exact:true})).toBeVisible();
  await expect(card.getByLabel("Beschreibung",{exact:true})).not.toBeVisible();
