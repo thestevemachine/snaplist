@@ -1,5 +1,5 @@
 "use client";
-import { titanEvidencePatch } from "@/lib/titan-evidence";
+import { titanEvidencePatch, titanMetalPatch } from "@/lib/titan-evidence";
 import { eyewearStyleTagsPatch } from "@/lib/eyewear-style-tags";
 import { frontMeasurementFields } from "@/lib/front-measurement-fields";
 import {
@@ -85,11 +85,13 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
         ...stylePatch?.item_specifics,
       },
     };
+    const metalPatch = titanMetalPatch(updated, g.preparation.aspects);
+    if (metalPatch) Object.assign(updated, metalPatch);
     const measurementPatch = frontMeasurementFields(
       updated,
       g.preparation.aspects,
     );
-    if (featurePatch || materialPatch || stylePatch || measurementPatch)
+    if (featurePatch || materialPatch || stylePatch || measurementPatch || metalPatch)
       onGroupEdit(g.id, { listing: { ...updated, ...measurementPatch } });
   }, [g.id, g.listing, g.preparation, g.postStatus, onGroupEdit]);
   if (!g.listing) return null;
@@ -247,7 +249,6 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
             <option value="sunglasses">Sonnenbrille</option>
             <option value="uncertain">Unklar – bitte prüfen</option>
           </select>
-          {l.classification_note && <small>{l.classification_note}</small>}
         </label>
       )}
       {!isGlasses(l) && (
@@ -324,14 +325,7 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
       )}
       {g.preparation?.secondaryCategoryId && (
         <p>
-          Zweitkategorie: {g.preparation.secondaryCategoryName} (
-          {g.preparation.secondaryCategoryId})
-        </p>
-      )}
-      {isSunglasses(l) && (
-        <p className="note">
-          Ein Angebot in beiden Kategorien: Herren und Damen. eBay kann für die
-          zweite Kategorie zusätzliche Gebühren berechnen.
+          Zweitkategorie: {isSunglasses(l) ? "Damen" : g.preparation.secondaryCategoryName?.split(">").pop()?.trim()} · {g.preparation.secondaryCategoryId}
         </p>
       )}
       {(error || g.preparationError) && (
@@ -376,15 +370,10 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
           }
           onChange={(e) => edit({ condition_notes: e.target.value })}
         />
-        <small>
-          Dieser Text steht beim Übertragen automatisch als erste Zeile der
-          Artikelbeschreibung.
-        </small>
       </label>
-      <details open>
+      <details open className="specifics-details">
         <summary>
-          Artikelmerkmale bearbeiten – KI-Schätzungen bitte vor dem
-          Veröffentlichen prüfen
+          Artikelmerkmale
         </summary>
         {!g.preparation && (
           <p>
@@ -579,7 +568,7 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
                 !specifics[name]?.trim() && (
                   <small className="measurement-missing">
                     {l.frontMeasurement?.reasons?.join(" ") ||
-                      "Noch kein berechnetes Maß vorhanden. Unter ‚Nur Brillenmaße berechnen‘ kannst du vorhandene Fotos gezielt prüfen; ein neuer KI-Aufruf erfolgt nur nach Bestätigung."}
+                      "Maß fehlt – unter ‚Maße berechnen‘ prüfen."}
                   </small>
                 )}
               {l.evidence?.[name]?.length ||

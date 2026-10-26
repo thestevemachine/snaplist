@@ -547,3 +547,12 @@ it("sends the exact seller SKU 65-23537 to the verification API with no generate
   expect(verified?.body).toContain("<SKU>65-23537</SKU>");
   expect(calls.some((c) => c.call === "AddFixedPriceItem")).toBe(false);
 });
+it("lets the seller publish despite a material mismatch, returning a short warning instead of a blocker", async()=>{
+ const draft=input();
+ draft.listing.title="Brille Titan";
+ draft.listing.eyewear={fields:{},warnings:[]};
+ const result=await submitTradingListing("private-token",draft,"publish");
+ expect(result.success).toBe(true);
+ expect(result.warnings).toContain("Titel/Material: Titan prüfen.");
+ expect(calls.some(c=>c.call === "AddFixedPriceItem")).toBe(true);
+});

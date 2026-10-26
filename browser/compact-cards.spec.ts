@@ -176,7 +176,7 @@ test("compact cards group values with labels, collapse rare sections, preserve e
   const materials = card.getByLabel("Rahmenmaterial: Auswahl bearbeiten");
   await expect(materials).toContainText("Titan");
   await expect(materials).toContainText("Acetat");
-  await expect(materials).not.toContainText("Metall");
+  await expect(materials).toContainText("Metall");
   await card.getByText("Versand und Rückgabe", { exact: true }).click();
   await expect(card.getByLabel("Versandregel", { exact: true })).toBeVisible();
 
@@ -256,6 +256,13 @@ test("compact cards group values with labels, collapse rare sections, preserve e
     fullPage: true,
   });
   await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByText("Artikelmerkmale", {exact:true})).toBeVisible();
+  await expect(page.getByText(/Verwendet die vorhandenen Fotos/)).toHaveCount(0);
+  await expect(page.getByText(/Ein Angebot in beiden Kategorien/)).toHaveCount(0);
+  const tools = page.locator(".analysis-tools > details");
+  const firstTool = await tools.nth(0).boundingBox();
+  const secondTool = await tools.nth(1).boundingBox();
+  expect(secondTool!.y - (firstTool!.y + firstTool!.height)).toBeLessThan(8);
   await page.locator(".title-input").fill("Lindberg Sonnenbrille Herren Damen Pilot Oval Titan Schwarz Modell 1234 Blau");
   await expect.poll(() => page.locator(".title-input").evaluate((el) => el.scrollHeight <= el.clientHeight + 1)).toBe(true);
   await expect(page.locator(".listing-card-title strong")).toHaveCSS("white-space", "normal");
@@ -314,7 +321,7 @@ test("removes an unproven ic berlin titanium guess from an existing draft withou
           l.brand="ic! berlin";l.content_rules_version=3;
           l.material="Titan";l.item_specifics.Marke="ic! berlin";
           l.item_specifics.Rahmenmaterial="Titan";
-          l.eyewear={fields:{},warnings:[]};
+          l.eyewear={fields:{material:{value:"Titan",source:"label",quote:"TITANIUM",photos:[1]}},warnings:[]};
           store.put(data,"current");
         };
         tx.oncomplete=()=>{db.close();resolve()};tx.onerror=()=>reject(tx.error);

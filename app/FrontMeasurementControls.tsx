@@ -92,8 +92,8 @@ export function FrontMeasurementControls({
     }
   }
   return (
-    <details className="note">
-      <summary>Nur Brillenmaße berechnen · Entwurf behalten</summary>
+    <details className="measurement-controls">
+      <summary>Maße berechnen</summary>
       <p>
         Ein Frontfoto auswählen. Die aufgedruckte Scheibenbreite dient als
         Referenz. Berechnete Werte füllen leere Maßfelder als Schätzung;

@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { titanEvidencePatch } from "@/lib/titan-evidence";
+import { titanEvidencePatch, titanMetalPatch } from "@/lib/titan-evidence";
 import { acceptedPhotoFact } from "@/lib/photo-facts";
 import type {ListingResult} from "@/lib/types";
 const l = ():ListingResult => ({title:"ic! berlin Titan Brille",brand:"ic! berlin",description:"Manueller Text",material:"Titan | Acetat",item_specifics:{Fassungsmaterial:"Titan | Acetat"}});
@@ -14,7 +14,7 @@ it("does not infer titanium from ic! berlin, and normalizes old generated guesse
 });
 it("preserves titanium proven by a readable material marking or explicit seller confirmation",()=>{
  for(const source of ["label","manual"] as const) {
-  const listing={...l(),eyewear:{fields:{material:{value:"Titan | Acetat",source,quote:"TITANIUM ACETATE",photos:[2]}},warnings:[]}};
+  const listing={...l(),brand:"Test",eyewear:{fields:{material:{value:"Titan | Acetat",source,quote:"TITANIUM ACETATE",photos:[2]}},warnings:[]}};
   expect(titanEvidencePatch(listing)).toBeUndefined();
  }
 });
@@ -28,4 +28,19 @@ it("rejects estimated titanium even at high model confidence and accepts exact p
  const fact={name:"Bügelmaterial",value:"Titan",basis:"estimate",quote:"",photoIndices:[1],confidence:100};
  expect(acceptedPhotoFact(fact,1)).toBe(false);
  expect(acceptedPhotoFact({...fact,basis:"label",quote:"TITANIUM"},1)).toBe(true);
+});
+
+it("requires explicit seller confirmation for ic berlin even if OCR claims a titanium label",()=>{
+ const item={...l(),eyewear:{fields:{material:{value:"Titan",source:"label" as const,quote:"TITANIUM",photos:[1]}},warnings:[]}};
+ expect(titanEvidencePatch(item)?.item_specifics?.Fassungsmaterial).toBe("Metall | Acetat");
+ expect(titanEvidencePatch({...item,brand:"Other",item_specifics:{...item.item_specifics,Marke:"Ic! Berlin"}})?.item_specifics?.Fassungsmaterial).toBe("Metall | Acetat");
+ expect(titanEvidencePatch({...item,eyewear:{...item.eyewear,fields:{material:{...item.eyewear.fields.material,source:"manual"}}}})).toBeUndefined();
+});
+it("selects metal alongside titanium only for a supported multi-value material field",()=>{
+ const meta={name:"Rahmenmaterial",required:false,usage:"OPTIONAL" as const,mode:"SELECTION_ONLY" as const,cardinality:"MULTI" as const,values:["Titan","Metall","Acetat"]};
+ const item={...l(),item_specifics:{Rahmenmaterial:"Titan | Acetat"}};
+ const patch=titanMetalPatch(item,[meta])!;
+ expect(patch.item_specifics?.Rahmenmaterial).toBe("Titan | Acetat | Metall");
+ expect(titanMetalPatch({...item,...patch},[meta])).toBeUndefined();
+ expect(titanMetalPatch(item,[{...meta,cardinality:"SINGLE"}])).toBeUndefined();
 });

@@ -1535,3 +1535,10 @@ textarea.title-input { min-height: 5rem; resize: vertical; line-height: 1.4; }
 .publication-specifics dt::after { content: ": "; }
 .publication-specifics dd { display: inline; margin: 0; overflow-wrap: anywhere; }
 .publication-specifics dd::after { content: ""; display: block; }
+
+.listing-card-body { gap: .5rem; }
+.analysis-tools { display: grid; gap: .15rem; margin: 0; padding: 0; }
+.analysis-tools > details { margin: 0; padding: .15rem 0; font-size: .85rem; }
+.analysis-tools summary { padding: .15rem 0; }
+.draft-controls .specifics-details > summary { white-space: nowrap; font-size: .9rem; }
+.material-warning { margin: .15rem 0; font-size: .85rem; color: #9a5a00; }
