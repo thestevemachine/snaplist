@@ -47,6 +47,7 @@ import {
 import { EbayConnect } from "./EbayConnect";
 import { ModelSelector } from "./ModelSelector";
 import { ReviewBoard } from "./ReviewBoard";
+import { CameraCapture } from "./CameraCapture";
 import { CloudBatch } from "./CloudBatch";
 import { ListingsView } from "./ListingsView";
 import type {
@@ -377,15 +378,15 @@ export default function Home() {
 
   // ── Upload ──────────────────────────────────────────────
   const addFiles = useCallback(
-    async (fileList: FileList | null) => {
-      if (!fileList || fileList.length === 0 || importing.current) return;
+    async (fileList: FileList | File[] | null) => {
+      if (!fileList || fileList.length === 0 || importing.current) return 0;
       setError(null);
       const files = Array.from(fileList)
         .filter((f) => f.type.startsWith("image/"))
         .sort((a, b) => a.name.localeCompare(b.name, "de", { numeric: true }));
       if (files.length === 0) {
         setError("Those didn't look like photos. Use JPG, PNG, or WebP.");
-        return;
+        return 0;
       }
       importing.current = true;
       let processed = 0;
@@ -407,8 +408,10 @@ export default function Home() {
         const resized = result.values;
         if (result.errors.length) setError(result.errors.join("; "));
         setPhotos((prev) => [...prev, ...resized].slice(0, MAX_PHOTOS));
+        return resized.length;
       } catch (e) {
         setError((e as Error).message);
+        return 0;
       } finally {
         importing.current = false;
         setImportProgress("");
@@ -1410,6 +1413,11 @@ export default function Home() {
               />
             </div>
 
+            <CameraCapture
+              remaining={MAX_PHOTOS - photos.length}
+              disabled={sorting || Boolean(importProgress)}
+              onCapture={async (file) => (await addFiles([file])) === 1}
+            />
             {importProgress && <p aria-live="polite">{importProgress}</p>}
             {photos.length > 0 && (
               <div className="thumbs" aria-label="Ausgewählte Fotos">
