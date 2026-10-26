@@ -303,6 +303,8 @@ export function ListingCard({
                 />
               </div>
               <small>Inklusive 19 % MwSt.</small>
+              {isGlasses(listing) && <small>{group.comps?.recommendedPrice === Number(listing.suggested_price)
+                ? "eBay-Angebotspreise · ohne Versand" : "Preis noch nicht durch passende eBay-Angebote belegt"}</small>}
               <label style={{ display: "block", marginTop: ".5rem" }}>
                 <input
                   type="checkbox"
@@ -315,7 +317,7 @@ export function ListingCard({
               </label>
               {group.comps?.ok && group.comps.median !== undefined && (
                 <span className="comps-line" title={group.comps.basis}>
-                  Markt: {group.comps.count} ähnliche aktive Angebote, €
+                  eBay: {group.comps.count} aktive Angebote (keine Verkaufspreise), €
                   {group.comps.low?.toFixed(0)}–€{group.comps.high?.toFixed(0)}
                   {" · "}
                   <button
@@ -324,12 +326,14 @@ export function ListingCard({
                     onClick={() =>
                       onEdit(group.id, {
                         suggested_price:
-                          group.comps!.listPrice ?? group.comps!.median,
+                          group.comps!.recommendedPrice ?? group.comps!.listPrice ?? group.comps!.median,
                       })
                     }
                   >
                     {/* listPrice = median + the deployment's storewide markup */}
-                    {group.comps.listPrice !== undefined
+                    {group.comps.recommendedPrice !== undefined
+                      ? `eBay-Vorschlag €${group.comps.recommendedPrice.toFixed(2)} übernehmen`
+                      : group.comps.listPrice !== undefined
                       ? `use €${group.comps.listPrice.toFixed(2)} (median + markup)`
                       : `use median €${group.comps.median.toFixed(2)}`}
                   </button>

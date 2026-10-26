@@ -87,6 +87,8 @@ export type PostStatus = "idle" | "posting" | "posted" | "error";
 // Market price check from active eBay comps (see lib/ebay/comps.ts). Advisory:
 // shown beside the AI's estimate so the seller prices with real data in view.
 export interface CompsSummary {
+  recommendedPrice?: number;
+  recommendationBasis?: string;
   ok: boolean;
   sources?: {
     id: string;

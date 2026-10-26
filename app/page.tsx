@@ -763,7 +763,8 @@ export default function Home() {
               setGroups((prev) =>
                 prev.map((g) =>
                   g.id === groupId && g.listing === researchListing
-                    ? { ...g, comps: d.comps, compsStatus: "ready" }
+                    ? { ...g, comps: d.comps, compsStatus: "ready",
+                        listing: d.comps?.recommendedPrice ? {...g.listing!, suggested_price: d.comps.recommendedPrice} : g.listing }
                     : g,
                 ),
               );

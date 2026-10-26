@@ -1522,3 +1522,28 @@ test("manual SKU changes after a failed attempt persist without rotating identit
   expect(lookups).toBe(1);
   expect(publishes).toBe(0);
 });
+test("new draft uses the eBay item-price recommendation instead of the provisional AI price", async ({page}) => {
+  await setup(page);
+  await page.route("**/api/ebay/comps", r => r.fulfill({json:{ok:true,comps:{ok:true,count:3,confidence:.3,query:"Canon R5",basis:"Active asking prices, not sold",median:75,recommendedPrice:75,low:60,high:90}}}));
+  await draft(page);
+  await expect(page.getByLabel("Preis",{exact:true})).toHaveValue("75");
+  await expect(page.getByText(/aktive Angebote \(keine Verkaufspreise\)/)).toBeVisible();
+});
+test("late eBay research never replaces a seller's manually corrected price", async ({page}) => {
+  await setup(page);
+  let release: (()=>void) | undefined;
+  let requested=false;
+  const wait=new Promise<void>(resolve=>{release=resolve});
+  await page.route("**/api/ebay/comps",async r=>{
+    requested=true;
+    await wait;
+    await r.fulfill({json:{ok:true,comps:{ok:true,count:3,confidence:.3,query:"Canon R5",basis:"Active asking prices",median:75,recommendedPrice:75}}});
+  });
+  await draft(page);
+  await expect.poll(()=>requested).toBe(true);
+  await page.getByLabel("Preis",{exact:true}).fill("69");
+  const completed=page.waitForResponse(r=>r.url().endsWith("/api/ebay/comps"));
+  release!();
+  await completed;
+  await expect(page.getByLabel("Preis",{exact:true})).toHaveValue("69");
+});

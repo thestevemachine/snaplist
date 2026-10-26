@@ -76,7 +76,7 @@ export function CloudBatch({
             latest.current.onResult(g.id, {
               status: "done",
               analysisModel: row.draft.analysisModel,
-              listing: prepared.listing,
+              listing: research?.comps?.recommendedPrice ? {...prepared.listing, suggested_price: research.comps.recommendedPrice} : prepared.listing,
               preparation: prepared.preparation,
               usage: [
                 ...(analysis.usage ?? []),
