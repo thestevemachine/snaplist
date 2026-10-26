@@ -89,7 +89,7 @@ export function ListingCard({
   onPost,
   onSaveDraft,
 }: ListingCardProps) {
-  const [open, setOpen] = useState(group.postStatus !== "posted");
+  const [open, setOpen] = useState(false);
   useEffect(() => { if (group.postStatus === "posted") setOpen(false); }, [group.id, group.postStatus]);
   const [analysisHint, setAnalysisHint] = useState("");
   const [savingDraft, setSavingDraft] = useState(false);
@@ -117,7 +117,8 @@ export function ListingCard({
   const navigateIssue = (element:HTMLElement,message:string) => {
     const card=element.closest<HTMLElement>(".listing-card");
     const field=issueField(message,[...(group.preparation?.aspects.map(a=>a.name) ?? []),"Glasbreite"]);
-    if(card && field) focusReviewField(card,field);
+    setOpen(true);
+    if(card && field) requestAnimationFrame(()=>focusReviewField(card,field));
   };
   const listing = group.listing;
   const titleRef = useRef<HTMLTextAreaElement>(null);
@@ -159,7 +160,7 @@ export function ListingCard({
     (priceNum === undefined || Number.isNaN(priceNum) || priceNum <= 0);
 
   return (
-    <article className={`listing-card status-${group.status}${group.postStatus === "posted" ? " is-posted" : ""}`}>
+    <article className={`listing-card status-${group.status}${group.postStatus === "posted" ? " is-posted" : !open ? " is-compact" : ""}`}>
       <header className="listing-card-head" onClick={() => setOpen((o) => !o)}>
         {cover && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -215,13 +216,16 @@ export function ListingCard({
             ↻ Erneut versuchen
           </button>
         ) : (
-          <span className="chevron" aria-hidden="true">
+          <button id={`expand-${group.id}`} type="button" className="chevron card-details-toggle"
+            aria-label={open ? "Angebotsdetails einklappen" : "Angebotsdetails aufklappen"}
+            aria-expanded={open} aria-controls={`details-${group.id}`}
+            onClick={event=>{event.stopPropagation();setOpen(value=>!value)}}>
             {open ? "▾" : "▸"}
-          </span>
+          </button>
         )}
       </header>
 
-      {open && listing && group.status === "done" && (
+      {(open || group.postStatus !== "posted") && listing && group.status === "done" && (
         <fieldset
           className="listing-card-body"
           disabled={
@@ -246,8 +250,13 @@ export function ListingCard({
               value={listing.title}
               onChange={(e) => onEdit(group.id, { title: e.target.value })}
             />
-            <div className="copy-row">
+            <div className="copy-row title-actions">
               <CopyButton text={listing.title} label="Titel" />
+              {group.postStatus !== "posted" && <button type="button" className="btn btn-primary" onClick={()=>onPost(group.id)}
+                aria-label={group.postStatus === "posting" ? "eBay-Anfrage läuft…" : "Auf eBay.de veröffentlichen…"}
+                disabled={!ebayConnected || group.postStatus === "posting" || draftIssues(group).length > 0}>
+                {group.postStatus === "posting" ? "Anfrage läuft…" : "Veröffentlichen…"}
+              </button>}
             </div>
           </div>
 
@@ -310,6 +319,7 @@ export function ListingCard({
                 />
               </div>
               <small>Inklusive 19 % MwSt.</small>
+              <div hidden={!open}>
               {isGlasses(listing) && <small>{group.comps?.recommendedPrice === Number(listing.suggested_price)
                 ? "eBay-Angebotspreise · ohne Versand" : "Preis noch nicht durch passende eBay-Angebote belegt"}</small>}
               <label style={{ display: "block", marginTop: ".5rem" }}>
@@ -346,7 +356,9 @@ export function ListingCard({
                   </button>
                 </span>
               )}
+              </div>
             </div>
+            <div className="extended-meta" hidden={!open}>
             <div className="stat editable">
               <label className="k" htmlFor={`cond-${group.id}`}>
                 Zustand
@@ -400,8 +412,16 @@ export function ListingCard({
                   />
                 </div>
               )}
+            </div>
           </div>
 
+          {!open && group.postStatus !== "posted" && draftIssues(group).length > 0 && <ul className="compact-issues" aria-label="Noch zu prüfen">
+            {draftIssues(group).map(message=><li key={message}><button type="button" className="issue-link" onClick={event=>{
+              navigateIssue(event.currentTarget,message);
+            }}>{message}</button></li>)}
+          </ul>}
+          {!open && group.postError && <p className="post-result err"><button type="button" className="issue-link" onClick={event=>navigateIssue(event.currentTarget,group.postError!)}>{group.postError}</button></p>}
+          <div id={`details-${group.id}`} className="listing-card-details" hidden={!open}>
           {sizeMissing && (
             <p className="size-warning" role="alert">
               ⚠️ No size found on the tag. eBay now blocks apparel listings
@@ -566,24 +586,6 @@ export function ListingCard({
               {group.verificationMessage && (
                 <p role="status">{group.verificationMessage}</p>
               )}
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => onPost(group.id)}
-                disabled={
-                  group.postStatus === "posting" ||
-                  draftIssues(group).length > 0
-                }
-              >
-                {group.postStatus === "posting" ? (
-                  <>
-                    <span className="spinner" aria-hidden="true" /> eBay-Anfrage
-                    läuft…
-                  </>
-                ) : (
-                  "Auf eBay.de veröffentlichen…"
-                )}
-              </button>
               {group.postStatus === "error" && group.postError && (
                 <div className="post-result err">
                   <p>⚠️ {issueField(group.postError,[...(group.preparation?.aspects.map(a=>a.name) ?? []),"Glasbreite"]) ? <button type="button" className="issue-link" onClick={event=>navigateIssue(event.currentTarget,group.postError!)}>{group.postError}</button> : group.postError}</p>
@@ -613,6 +615,7 @@ export function ListingCard({
               veröffentlichen.
             </p>
           )}
+          </div>
         </fieldset>
       )}
     </article>

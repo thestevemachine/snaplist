@@ -1,4 +1,8 @@
 import { test, expect, Page } from "@playwright/test";
+async function expandUnpostedCards(page: Page) {
+ await expect(page.getByRole("status").filter({hasText:"Auf diesem Gerät gespeichert"})).toBeVisible();
+ for(const button of await page.locator(".listing-card:not(.is-posted) .card-details-toggle[aria-expanded=false]").all()) await button.click();
+}
 const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=",
   "base64",
@@ -87,6 +91,7 @@ async function draft(page: Page) {
     .getByRole("button", { name: "Diese Fotos gehören zu einem Artikel" })
     .click();
   await page.getByRole("button", { name: /Entwürfe erstellen/i }).click();
+  await page.getByRole("button",{name:"Angebotsdetails aufklappen"}).click();
   await expect(page.getByText("Cameras", { exact: true })).toBeVisible();
   await page.getByLabel("SKU", { exact: true }).fill("65-23537");
   await page.getByText("Versand und Rückgabe", { exact: true }).click();
@@ -124,6 +129,7 @@ test("retains good photos when one cannot decode; preserves original blobs acros
     "Auf diesem Gerät gespeichert",
   );
   await page.reload();
+  await expandUnpostedCards(page);
   await expect(page.locator(".thumb")).toHaveCount(1);
 });
 test("restores edited drafts and blocks publication with missing facts", async ({
@@ -142,6 +148,7 @@ test("restores edited drafts and blocks publication with missing facts", async (
     "Auf diesem Gerät gespeichert",
   );
   await page.reload();
+  await expandUnpostedCards(page);
   await expect(page.locator(".title-input")).toHaveValue(
     "Seller reviewed camera",
   );
@@ -242,9 +249,12 @@ test("verification never publishes; a single publication requires confirmation w
   await expect(
     page.getByText(/Geschätzte Gebühren: InsertionFee: 0.35 EUR/),
   ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Auf eBay.de veröffentlichen…" })
-    .click();
+  await page.getByRole("button",{name:"Angebotsdetails einklappen"}).click();
+  await expect(page.getByLabel("Beschreibung",{exact:true})).not.toBeVisible();
+  await expect(page.getByLabel("SKU",{exact:true})).toBeVisible();
+  await expect(page.getByLabel("Preis",{exact:true})).toBeVisible();
+  await expect(page.locator(".copy-row").filter({has:page.getByRole("button",{name:"Titel kopieren"})}).getByRole("button",{name:"Auf eBay.de veröffentlichen…"})).toBeVisible();
+  await page.getByRole("button",{name:"Auf eBay.de veröffentlichen…"}).click();
   const confirmation = page.getByRole("dialog", {
     name: "Veröffentlichung bestätigen",
   });
@@ -252,8 +262,9 @@ test("verification never publishes; a single publication requires confirmation w
   await expect(confirmation).toContainText("9999.00 EUR");
   await expect(confirmation).toContainText("kein Entwurf");
   expect(published).toBe(0);
-  await confirmation.getByRole("button", { name: "Abbrechen" }).click();
+  await confirmation.getByRole("button", { name: "Zurück zum Bearbeiten" }).click();
   await expect(confirmation).not.toBeVisible();
+  await expect(page.getByLabel("Beschreibung",{exact:true})).toBeVisible();
   expect(published).toBe(0);
   await page
     .getByRole("button", { name: "Auf eBay.de veröffentlichen…" })
@@ -357,6 +368,7 @@ test("eBay sign-in uses an in-page access form and a user-clicked link", async (
     });
   });
   await page.reload();
+  await expandUnpostedCards(page);
   await page.getByRole("button", { name: "Open eBay" }).click();
   const dialog = page.getByRole("dialog", { name: "App access code" });
   await expect(dialog).toBeVisible();
@@ -390,6 +402,7 @@ test("cancelling access entry closes the form and allows another attempt", async
     }),
   );
   await page.reload();
+  await expandUnpostedCards(page);
   await page.getByRole("button", { name: "Open eBay" }).click();
   await page
     .getByRole("dialog")
@@ -449,6 +462,7 @@ test("defaults the seller policies and allows review without package measurement
   // Seller options are cached per document. Reload after replacing the API
   // fixture so this test starts with the intended seller, not setup's seller.
   await page.reload();
+  await expandUnpostedCards(page);
   await expect(page.getByRole("status")).toContainText(
     "Auf diesem Gerät gespeichert",
   );
@@ -499,6 +513,7 @@ test("start new batch warns about unposted drafts, then clears saved work across
     "Auf diesem Gerät gespeichert",
   );
   await page.reload();
+  await expandUnpostedCards(page);
   await expect(
     page
       .getByRole("status")
@@ -521,6 +536,7 @@ test("SNAPLIST saves an incomplete draft locally without an eBay connection", as
     return r.abort();
   });
   await page.reload();
+  await expandUnpostedCards(page);
   await expect(
     page.getByRole("heading", { name: "SNAPLIST", exact: true }),
   ).toBeVisible();
@@ -550,6 +566,7 @@ test("SNAPLIST saves an incomplete draft locally without an eBay connection", as
   ).toBeVisible();
   expect(ebayWrites).toBe(0);
   await page.reload();
+  await expandUnpostedCards(page);
   await expect(page.locator(".title-input")).toHaveValue(
     "Mein unvollständiger Brillenentwurf",
   );
@@ -606,6 +623,7 @@ test("shop preferences persist, fill future drafts and keep card overrides for e
     ),
   ).toBeVisible();
   await page.reload();
+  await expandUnpostedCards(page);
   await draft(page);
   await expect(page.getByLabel("Versandregel", { exact: true })).toHaveValue(
     "ship",
@@ -699,6 +717,7 @@ test("sunglasses show both categories and send one confirmed listing", async ({
     .getByRole("button", { name: "Diese Fotos gehören zu einem Artikel" })
     .click();
   await page.getByRole("button", { name: /Entwürfe erstellen/i }).click();
+  await page.getByRole("button",{name:"Angebotsdetails aufklappen"}).click();
   await expect(
     page.getByText("Zweitkategorie: Damen · 22"),
   ).toBeVisible();
@@ -828,6 +847,7 @@ test("restored sunglasses prepare automatically once, retain descriptions and ne
       response.request().postDataJSON()?.listing?.eyewear_kind === "sunglasses",
   );
   await page.reload();
+  await expandUnpostedCards(page);
   await prepared;
   await expect(
     page.getByRole("textbox", { name: /Titel / }).first(),
@@ -847,6 +867,7 @@ test("restored sunglasses prepare automatically once, retain descriptions and ne
   ).toBeVisible();
   await page.waitForTimeout(800);
   await page.reload();
+  await expandUnpostedCards(page);
   await expect(
     page.getByRole("textbox", { name: /Titel / }).first(),
   ).toHaveValue("Meine eigene deutsche Korrektur");
@@ -1042,6 +1063,7 @@ test("inscription data remains editable, persists, and only explicitly rebuilds 
     ),
   ).toBeVisible();
   await page.reload();
+  await expandUnpostedCards(page);
   await expect(page.locator(".title-input")).toHaveValue(
     "Mein geprüfter Titel",
   );
@@ -1223,6 +1245,7 @@ test("shows the current seller and saved policies without opening settings after
     ),
   );
   await page.reload();
+  await expandUnpostedCards(page);
   const summary = page.getByRole("region", {
     name: "Gespeicherte Shop-Vorgaben",
   });
@@ -1310,6 +1333,7 @@ test("eyewear condition notes can be edited and survive reload", async ({
       .filter({ hasText: "Auf diesem Gerät gespeichert" }),
   ).toBeVisible();
   await page.reload();
+  await expandUnpostedCards(page);
   await expect(
     page.getByRole("textbox", { name: "Zustand und Hinweise", exact: true }),
   ).toHaveValue("Ungetragen, mit Originaletui");
@@ -1388,6 +1412,7 @@ test("repairs a legacy UUID collision without losing the draft or publishing, an
     });
   });
   await page.reload();
+  await expandUnpostedCards(page);
   await page
     .getByRole("button", {
       name: "Veröffentlichungsstatus abgleichen",
@@ -1405,6 +1430,7 @@ test("repairs a legacy UUID collision without losing the draft or publishing, an
     page.getByRole("status").filter({ hasText: "Entwurf repariert" }),
   ).toBeVisible();
   await page.reload();
+  await expandUnpostedCards(page);
   const after = await page.evaluate(async () => {
     const db = await new Promise<IDBDatabase>((resolve) => {
       const r = indexedDB.open("listing-writer-drafts", 3);
@@ -1495,6 +1521,7 @@ test("manual SKU changes after a failed attempt persist without rotating identit
     return r.abort();
   });
   await page.reload();
+  await expandUnpostedCards(page);
   await page.getByLabel("SKU", { exact: true }).fill("65-99999");
   await expect(page.getByLabel("SKU", { exact: true })).toHaveValue("65-99999");
   await page
@@ -1511,6 +1538,7 @@ test("manual SKU changes after a failed attempt persist without rotating identit
       .filter({ hasText: "Auf diesem Gerät gespeichert" }),
   ).toBeVisible();
   await page.reload();
+  await expandUnpostedCards(page);
   await expect(page.getByLabel("SKU", { exact: true })).toHaveValue("65-99999");
   await page
     .getByRole("button", {
@@ -1564,7 +1592,7 @@ test("material mismatch stays advisory, can be reviewed in confirmation, and cle
  await publish.click();
  const dialog=page.getByRole("dialog",{name:"Veröffentlichung bestätigen"});
  await expect(dialog.locator(".material-warning")).toHaveText("Titel/Material: Titan prüfen.");
- await dialog.getByRole("button",{name:"Abbrechen"}).click();
+ await dialog.getByRole("button",{name:"Zurück zum Bearbeiten"}).click();
  await page.locator(".title-input").fill("Canon Camera");
  await expect(card.locator(".material-warning")).toHaveCount(0);
  await expect(publish).toBeEnabled();
