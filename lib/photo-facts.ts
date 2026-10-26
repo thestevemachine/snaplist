@@ -80,6 +80,7 @@ export function acceptedPhotoFact(
       );
   }
   if (s.basis !== "visible_feature" && s.basis !== "estimate") return false;
+  if (/material/i.test(s.name) && /\btitan(?:ium)?\b/i.test(s.value)) return false;
   if (
     /^(Scheibenhöhe|Glashöhe|Gläserhöhe|Gesamtbreite|Fassungsbreite|Rahmenbreite|Lichte Breite)$/i.test(
       s.name,

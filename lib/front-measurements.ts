@@ -1,3 +1,4 @@
+import { isSunglasses } from "./category-selection";
 import { z } from "zod";
 import type { ListingResult } from "./types";
 
@@ -239,3 +240,13 @@ export function attachFrontMeasurement(
 }
 
 export const FRONT_MEASUREMENT_PROMPT = `\nFor eyewear return front_geometry using ONLY ONE existing front photo (not caliper/detail/temple/side photos). A front photo on millimetre paper is allowed, but ignore the grid as a scale; use the inscription reference only. No new photos or extra analysis calls. Choose the best existing front view even with moderate perspective, then mark frontal=false and explain the uncertainty. Do NOT return unavailable merely because a photo is not perfectly straight-on or groove edges are partly obscured: return the visible inner lens contour points, groovesVisible=false and lower confidence. photoIndex is its 1-based position among the supplied images, or 0 ONLY if no front view with locatable lens contours exists. Recognize contours ONLY; never calculate or guess mm here. Coordinates x,y are fractions of the entire displayed image width/height (0..1), origin top-left, NEVER a crop. leftLens and rightLens mean the lens on the image's left and right. For each, mark extreme left/right/top/bottom groove-to-groove points of the lens opening, EXCLUDING frame rim (boxing maximum width/height; not arbitrary diagonal chords). outerLeft/outerRight mark absolute outermost COMPLETE glasses including hinges and ALL visible temple parts, not just the front rim. frontal=true only for straight-on view without yaw/pitch or lens foreshortening. groovesVisible only if actual inner grooves can be located; thick rims, glare or blur must reduce confidence. complete only if every outer extremity is visible and uncropped. samePlane only if outer extremities lie effectively in the lens plane; projecting temples/depth make it false. confidence is contour confidence 0..100, not physical measurement accuracy. note is a short German reason for any uncertainty, otherwise empty. If unavailable use photoIndex=0, all points={x:0,y:0}, all booleans=false, confidence=0 and explain briefly. Use both visible lens openings consistently; a too-small lens width inflates BOTH lens height and total width. Exclude the display stand and do not mistake a logo or demo-lens print for the lens contour. Read reference lens width from existing inscription facts only; do not infer reference mm from appearance. This front-photo ratio method replaces requests for caliper or millimetre-paper photos; never request additional measurement photos.`;
+
+// New analyses only: keep the width in the reviewed description even if the
+// sunglasses category provides no width aspect. Existing manual text is not rewritten.
+export function withSunglassesWidth(listing: ListingResult): ListingResult {
+  const m = listing.frontMeasurement;
+  if (!isSunglasses(listing) || m?.status !== "estimated" || !m.totalWidthMm ||
+      listing.manual_measurement_fields?.some(k => /gesamtbreite|rahmenbreite|fassungsbreite/i.test(k)) ||
+      /gesamtbreite|rahmenbreite|fassungsbreite/i.test(listing.description)) return listing;
+  return {...listing,description: `${listing.description.trim()}\nGesamtbreite: ca. ${m.totalWidthMm} mm (aus Frontfoto berechnet)`.trim()};
+}
