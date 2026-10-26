@@ -5,8 +5,10 @@ const point = {
   type: "object",
   additionalProperties: false,
   properties: {
-    x: { type: "number", minimum: 0, maximum: 1 },
-    y: { type: "number", minimum: 0, maximum: 1 },
+    // Claude does not support numeric bounds in raw output schemas.
+    // Enforce 0..1 with frontObservationSchema after the response.
+    x: { type: "number", description: "Image-width fraction from 0 to 1." },
+    y: { type: "number", description: "Image-height fraction from 0 to 1." },
   },
   required: ["x", "y"],
 };
