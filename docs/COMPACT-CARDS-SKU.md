@@ -60,3 +60,6 @@ Blank bright-white images are marked during existing intake using a conservative
 
 ### AI divider verification
 The local white-pixel mark is only a preview hint. Every sort action now scans all photos with the selected sort model in ordered batches of 20, using exact numbered images. The prompt recognizes empty white backgrounds despite gray exposure, shadows or a tabletop seam, while rejecting any visible product/detail as a separator. AI classification returns validated 1-based photo numbers, converted to batch-local indexes and then stable photo IDs. All batches finish before forming hard consecutive groups; a failed/invalid scan stops instead of silently falling back. No detected divider means the existing AI grouping pipeline runs normally. Explicit manual preview corrections override AI labels and persist. All scan calls use existing sort token/cost accounting and no automatic retries/model fallback.
+
+### Visible review controls
+Marked separator thumbnails use a red frame and red pressed-state button; ordinary thumbnails retain the blue Trennen action. Card toggles display Ausklappen ↓ / Einklappen ↑ with larger arrows and a 44px touch target. The single first-SKU sequence control now sits immediately before the card list (or table), after the toolbar and progress messages; numbering behavior is unchanged.

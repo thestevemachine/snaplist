@@ -174,41 +174,6 @@ export function ListingsView(props: ListingsViewProps) {
           {posted} veröffentlicht
         </span>
       </div>
-      <fieldset disabled={active} className="sku-sequence">
-        <legend>Fortlaufende SKU für diesen Stapel</legend>
-        <label htmlFor="first-batch-sku">Erste SKU</label>
-        <input
-          id="first-batch-sku"
-          value={firstSku}
-          placeholder="z. B. 5-23001"
-          onChange={(e) => {
-            setFirstSku(e.target.value);
-            setSkuMessage("");
-          }}
-        />
-        <p>
-          Die Zahl am Ende wird für jedes offene Angebot um 1 erhöht, in der
-          Reihenfolge des gesamten Stapels. Veröffentlichte oder bereits zur
-          Veröffentlichung gesendete Artikel bleiben unverändert.
-        </p>
-        {skuPreview && <p>{skuPreview}</p>}
-        <button
-          className="btn btn-ghost"
-          type="button"
-          disabled={!firstSku.trim()}
-          onClick={() => {
-            try {
-              const count = props.onNumberSkus(firstSku);
-              setSkuMessage(`SKU für ${count} offene Angebote übernommen.`);
-            } catch (e) {
-              setSkuMessage((e as Error).message);
-            }
-          }}
-        >
-          SKU fortlaufend übernehmen
-        </button>
-        {skuMessage && <p role="status">{skuMessage}</p>}
-      </fieldset>
       <div className="batch-toolbar">
         <button type="button" className={table ? "detail-view-button" : ""} onClick={() => setTable(!table)}>
           {table ? "Detailkarten" : "Stapeltabelle"}
@@ -401,6 +366,39 @@ export function ListingsView(props: ListingsViewProps) {
           prüfen und einzeln veröffentlichen.
         </p>
       )}
+      <fieldset disabled={active} className="sku-sequence">
+        <legend>Fortlaufende SKU für diesen Stapel</legend>
+        <label htmlFor="first-batch-sku">Erste SKU</label>
+        <input
+          id="first-batch-sku"
+          value={firstSku}
+          placeholder="z. B. 5-23001"
+          onChange={(e) => {
+            setFirstSku(e.target.value);
+            setSkuMessage("");
+          }}
+        />
+        <p>
+          Nummeriert offene Angebote in ihrer Reihenfolge. Veröffentlichte Angebote bleiben unverändert.
+        </p>
+        {skuPreview && <p>{skuPreview}</p>}
+        <button
+          className="btn btn-ghost"
+          type="button"
+          disabled={!firstSku.trim()}
+          onClick={() => {
+            try {
+              const count = props.onNumberSkus(firstSku);
+              setSkuMessage(`SKU für ${count} offene Angebote übernommen.`);
+            } catch (e) {
+              setSkuMessage((e as Error).message);
+            }
+          }}
+        >
+          SKU fortlaufend übernehmen
+        </button>
+        {skuMessage && <p role="status">{skuMessage}</p>}
+      </fieldset>
       {table ? (
         <div className="batch-table-scroll">
           <table className="batch-table">

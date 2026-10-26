@@ -220,7 +220,8 @@ export function ListingCard({
             aria-label={open ? "Angebotsdetails einklappen" : "Angebotsdetails aufklappen"}
             aria-expanded={open} aria-controls={`details-${group.id}`}
             onClick={event=>{event.stopPropagation();setOpen(value=>!value)}}>
-            {open ? "▾" : "▸"}
+            <span className="card-toggle-label">{open ? "Einklappen" : "Ausklappen"}</span>
+            <span className="card-toggle-arrow" aria-hidden="true">{open ? "↑" : "↓"}</span>
           </button>
         )}
       </header>
