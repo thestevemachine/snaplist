@@ -37,6 +37,7 @@ export const frontMeasurementSchema = z.object({
   totalWidthPx: z.number().positive().optional(),
   lensHeightMm: z.number().int().positive().optional(),
   totalWidthMm: z.number().int().positive().optional(),
+  totalWidthCorrectionMm: z.literal(3).optional(),
   reasons: z.array(z.string().max(1000)).max(30),
   observation: frontObservationSchema.optional(),
 });
@@ -161,7 +162,9 @@ export function calculateFrontMeasurement(
     return result;
   }
   result.lensHeightMm = Math.round(height);
-  result.totalWidthMm = Math.round(total);
+  // Seller-requested trial correction; this is not a calibrated perspective model.
+  result.totalWidthMm = Math.round(total - 3);
+  result.totalWidthCorrectionMm = 3;
   const bridge = listing.eyewear?.fields.bridgeWidth;
   const bridgeMm = Number(
     bridge?.value.replace(/\s*mm$/i, "").replace(",", "."),

@@ -63,6 +63,12 @@ export function EyewearDetails({
               Gesamtbreite: ca. {listing.frontMeasurement.totalWidthMm} mm
             </p>
           )}
+          {listing.frontMeasurement.totalWidthCorrectionMm && (
+            <p>
+              Gesamtbreite: pauschaler Testabzug von 3 mm bereits enthalten.
+              Die Scheibenhöhe bleibt unverändert.
+            </p>
+          )}
           {!!listing.frontMeasurement.reasons.length && (
             <ul>
               {listing.frontMeasurement.reasons.map((reason, i) => (

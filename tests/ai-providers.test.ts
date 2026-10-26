@@ -349,7 +349,8 @@ it("calculates front-photo dimensions in the same paid analysis, preserves inscr
   expect(data.listing.frontMeasurement).toMatchObject({
     status: "estimated",
     lensHeightMm: 40,
-    totalWidthMm: 180,
+    totalWidthMm: 177,
+    totalWidthCorrectionMm: 3,
     referencePhotos: [2],
   });
   expect(data.listing.measurements).toContain("Pixelberechnung");
