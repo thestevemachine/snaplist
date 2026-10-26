@@ -1,4 +1,5 @@
 "use client";
+import { issueField, focusReviewField } from "@/lib/review-navigation";
 import { lindbergLensWidthPatch } from "@/lib/lindberg-lens-width";
 import { titanEvidencePatch, titanMetalPatch } from "@/lib/titan-evidence";
 import { eyewearStyleTagsPatch } from "@/lib/eyewear-style-tags";
@@ -308,7 +309,7 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
         <label className="category-id-field">
           <span>Kategorie-ID</span>
           <input
-            aria-label="Kategorie-ID"
+            aria-label="Kategorie-ID" data-review-field="Kategorie"
             value={l.category_id ?? ""}
             onChange={(e) =>
               edit({ category_id: e.target.value, ebay_condition: "" })
@@ -339,6 +340,7 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
           eBay-Zustand{" "}
           <select
             aria-label="eBay-Zustand"
+            data-review-field="eBay-Zustand"
             value={l.ebay_condition ?? ""}
             onChange={(e) =>
               edit({
@@ -414,6 +416,7 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
             <div
               key={name}
               className="specific-edit"
+              data-review-field={name}
               role="group"
               aria-label={`Artikelmerkmal ${name}`}
             >
@@ -625,7 +628,7 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
           return field;
         })}
       </details>
-      <details>
+      <details data-review-field="Fotos">
         <summary>Fotos und Analysebelege ({g.photoIds.length})</summary>
         <p>
           Alle Artikelfotos werden beim Veröffentlichen übertragen. Wähle die
@@ -672,7 +675,7 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
           ) : null;
         })}
       </details>
-      <details open={shippingOpen} className="shipping-details">
+      <details open={shippingOpen} onToggle={event=>setShippingOpen(event.currentTarget.open)} className="shipping-details" data-review-field="Versand">
         <summary
           onClick={(event) => {
             event.preventDefault();
@@ -785,7 +788,14 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
       {draftIssues(g).length > 0 && (
         <ul aria-label="Noch zu prüfen">
           {draftIssues(g).map((i) => (
-            <li key={i}>{i}</li>
+            <li key={i}>{issueField(i,[...names,"Glasbreite"]) ? (
+              <button type="button" className="issue-link" onClick={event=>{
+                const card=event.currentTarget.closest<HTMLElement>(".listing-card");
+                const field=issueField(i,[...names,"Glasbreite"]);
+                if(field === "Versand") setShippingOpen(true);
+                if(card && field) focusReviewField(card,field);
+              }}>{i}</button>
+            ) : i}</li>
           ))}
         </ul>
       )}

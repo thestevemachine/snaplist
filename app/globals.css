@@ -1542,3 +1542,10 @@ textarea.title-input { min-height: 5rem; resize: vertical; line-height: 1.4; }
 .analysis-tools summary { padding: .15rem 0; }
 .draft-controls .specifics-details > summary { white-space: nowrap; font-size: .9rem; }
 .material-warning { margin: .15rem 0; font-size: .85rem; color: #9a5a00; }
+
+.issue-link { padding: 0; border: 0; background: transparent; color: inherit; text-align: left; text-decoration: underline; cursor: pointer; font: inherit; }
+.lens-width-control { display: grid; gap: .2rem; font-size: .9rem; }
+.lens-width-control input { width: 100%; }
+.posted-summary-link { display: block; margin-top: .25rem; font-size: .8rem; }
+.is-posted .listing-card-head { background: #edf8f2; }
+.is-posted .listing-card-sub { color: #086847; font-weight: 600; }

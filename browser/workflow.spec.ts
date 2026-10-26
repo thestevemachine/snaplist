@@ -191,7 +191,8 @@ test("partial image upload stops publication; retry preserves reviewed fields", 
   await page
     .getByRole("button", { name: "Jetzt verbindlich auf eBay veröffentlichen" })
     .click();
-  await expect(page.locator(".post-result.ok")).toBeVisible();
+  await expect(page.locator(".listing-card-body")).toHaveCount(0);
+  await expect(page.locator(".listing-card-head")).toContainText("Bei eBay veröffentlicht");
   expect(calls).toBe(1);
 });
 test("verification never publishes; a single publication requires confirmation with exact EUR price", async ({
@@ -263,6 +264,8 @@ test("verification never publishes; a single publication requires confirmation w
   await expect(
     page.getByRole("link", { name: "Angebot bei eBay öffnen" }),
   ).toHaveAttribute("href", "https://www.ebay.de/itm/123456789012");
+  await expect(page.locator(".listing-card-body")).toHaveCount(0);
+  await expect(page.locator(".listing-card-head")).toContainText("Bei eBay veröffentlicht");
   expect(published).toBe(1);
   expect(errors).toEqual([]);
 });
@@ -1515,6 +1518,8 @@ test("manual SKU changes after a failed attempt persist without rotating identit
       exact: true,
     })
     .click();
+  await expect(page.locator(".listing-card-body")).toHaveCount(0);
+  await page.locator(".listing-card-head").click();
   await expect(page.getByLabel("SKU", { exact: true })).toHaveValue(
     before.groups[0].sku,
   );
