@@ -118,7 +118,10 @@ export function extractEyewear(facts: PhotoFact[]): EyewearData {
     ((/^(Marke|Brand)$/i.test(f.name) && /^lindberg$/i.test(f.value.trim())) || /\blindberg\b/i.test(f.quote)));
 
   for (const fact of facts.filter((f) => f.basis === "label")) {
-    const dimensions = parseBoxDimensions(fact.quote);
+    const quotedDimensions = parseBoxDimensions(fact.quote);
+    const valueDimensions = /^(Größe|Kastenmaß|Kastenmass|Size|Bügelaufdruck|Brückenaufdruck)$/i.test(fact.name) ? parseBoxDimensions(fact.value) : undefined;
+    const dimensions = quotedDimensions && valueDimensions && quotedDimensions.lensWidth===valueDimensions.lensWidth && quotedDimensions.bridgeWidth===valueDimensions.bridgeWidth
+      ? {...valueDimensions,...quotedDimensions} : quotedDimensions ?? valueDimensions;
     if (lindberg && /^(Scheibenaufdruck|Demoscheibenaufdruck|Glasaufdruck|Lens Inscription)$/i.test(fact.name)) {
       const lens = parseLindbergDemoLens(fact.quote);
       if(lens) {set("modelNumber",lens.modelNumber,fact);set("lensWidth",lens.lensWidth,fact);}

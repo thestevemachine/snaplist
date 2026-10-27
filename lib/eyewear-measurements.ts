@@ -5,6 +5,13 @@ import {manualLensWidth} from "./manual-lens-width";
 const dimensionKeys=["lensWidth","bridgeWidth","templeLength"] as const;
 export function boxSizePatch(l:ListingResult,meta:AspectMeta[]):Partial<ListingResult>|undefined {
  const fields={...l.eyewear?.fields};let changed=false;
+ const storedBox=parseBoxDimensions(l.size ?? "");
+ if(storedBox) for(const key of dimensionKeys) {
+  const label=key==="lensWidth" ? "Glasbreite" : key==="bridgeWidth" ? "Stegbreite" : "Bügellänge";
+  if(!fields[key]?.value?.trim() && fields[key]?.source!=="manual" && !l.manual_measurement_fields?.includes(label) && storedBox[key]) {
+   fields[key]={value:storedBox[key]!,source:l.manual_measurement_fields?.includes("Größe") ? "manual" : "label",quote:l.size,photos:l.evidence?.Größe ?? l.evidence?.Kastenmaß ?? []};changed=true;
+  }
+ }
  const facts=Object.values(fields).filter(f=>f?.source==="label" && f.quote && f.photos?.length);
  for(const key of dimensionKeys) {
   if(fields[key]?.value?.trim() || fields[key]?.source==="manual") continue;

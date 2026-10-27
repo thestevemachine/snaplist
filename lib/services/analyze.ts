@@ -1,3 +1,4 @@
+import {boxSizePatch} from "@/lib/eyewear-measurements";
 import { titanEvidencePatch } from "@/lib/titan-evidence";
 import { DEFAULT_AI_MODEL } from "@/lib/ai-defaults";
 import {
@@ -398,8 +399,10 @@ async function handle(input: unknown) {
           )
             listing.condition_notes = "Ungetragen ohne Etui, ohne Demoscheiben";
         }
-        if (isGlasses(listing))
+        if (isGlasses(listing)) {
+          Object.assign(listing,boxSizePatch(listing,[]));
           attachFrontMeasurement(listing, raw.front_geometry, imageSizes);
+        }
         listing = withSunglassesWidth(listing);
         // Same principle for the optional storewide markup: applied pre-review,
         // so the price on the card is exactly the price that publishes.

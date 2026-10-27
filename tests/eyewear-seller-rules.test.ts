@@ -34,3 +34,16 @@ it("includes different front and temple colors in the title and actual color fie
  expect(patch.item_specifics?.Rahmenfarbe).toBe("Schwarz | Gold");
  expect(patch.title).toContain("Schwarz Gold");
 });
+
+it("restores stored box size into empty visible measurements without inventing photo evidence",()=>{
+ const l={title:"Brille",description:"",size:"48-23-145"};
+ const p=boxSizePatch(l,[])!;
+ expect(p.eyewear?.fields.lensWidth?.value).toBe("48");expect(p.eyewear?.fields.bridgeWidth?.value).toBe("23");expect(p.eyewear?.fields.templeLength?.value).toBe("145");
+ expect(p.eyewear?.fields.lensWidth?.photos).toEqual([]);
+ expect(boxSizePatch({...l,...p},[])).toBeUndefined();
+});
+it("puts dominant Lila before small gold accents and translates Lilac",()=>{
+ const l={title:"Ic! Berlin Brille Damen Gold Metall Alexandra N. Gold Lilac",description:"",brand:"Ic! Berlin",item_specifics:{Rahmenfarbe:"Gold | Lila",Hauptfarbe:"Lila",Form:"Rechteckig | Geometrisch",Farbcode:"Gold Lilac",Modell:"Alexandra N."}};
+ const m=[{...meta[0],values:["Gold","Lila"]}];
+ const title=germanGlassesTitle(l,m);expect(title).toContain("Lila Gold");expect(title).not.toMatch(/lilac|geometr/i);
+});
