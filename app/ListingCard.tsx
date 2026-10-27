@@ -1,4 +1,5 @@
 "use client";
+import {EyewearMeasurements} from "./EyewearMeasurements";
 import { issueField, focusReviewField } from "@/lib/review-navigation";
 import { manualLensWidth } from "@/lib/manual-lens-width";
 import { isSunglasses } from "@/lib/category-selection";
@@ -221,7 +222,7 @@ export function ListingCard({
             aria-expanded={open} aria-controls={`details-${group.id}`}
             onClick={event=>{event.stopPropagation();setOpen(value=>!value)}}>
             <span className="card-toggle-label">{open ? "Einklappen" : "Ausklappen"}</span>
-            <span className="card-toggle-arrow" aria-hidden="true">{open ? "↑" : "↓"}</span>
+            <svg className={`card-toggle-arrow${open ? " is-open" : ""}`} aria-hidden="true" viewBox="0 0 32 32"><path d="M5 10 L16 22 L27 10" /></svg>
           </button>
         )}
       </header>
@@ -247,7 +248,7 @@ export function ListingCard({
               ref={titleRef}
               aria-label="Titel bearbeiten"
               data-review-field="Titel"
-              className="title-input"
+              className={`title-input${!listing.title.trim() || titleLen>TITLE_LIMIT ? " missing-required-control" : ""}`}
               value={listing.title}
               onChange={(e) => onEdit(group.id, { title: e.target.value })}
             />
@@ -264,7 +265,7 @@ export function ListingCard({
           <div className="meta-row">
             {/* SKU stays editable up until the item is posted, so a SKU fix
                 never requires going back and re-writing listings (issue #30). */}
-            <div className="stat editable">
+            <div className={`stat editable${!group.sku.trim() ? " needs-attention" : ""}`}>
               <label className="k" htmlFor={`sku-${group.id}`}>
                 SKU
               </label>
@@ -394,14 +395,12 @@ export function ListingCard({
                 <div className="v">{listing.brand}</div>
               </div>
             )}
-            {(sizeRequired || listing.size) &&
-              (!isGlasses(listing) ||
-                group.preparation?.aspects.some((a) => a.name === "Größe")) && (
+            {(isGlasses(listing) || sizeRequired || listing.size) && (
                 <div
                   className={`stat editable${sizeMissing ? " needs-attention" : ""}`}
                 >
                   <label className="k" htmlFor={`size-${group.id}`}>
-                    Größe
+                    {isGlasses(listing) ? "Größe (Kastenmaß)" : "Größe"}
                   </label>
                   <input
                     id={`size-${group.id}`}
@@ -409,7 +408,7 @@ export function ListingCard({
                     className="size-input"
                     value={listing.size ?? ""}
                     placeholder={sizeRequired ? "e.g. M, 32x34, 10.5" : "—"}
-                    onChange={(e) => onEdit(group.id, { size: e.target.value })}
+                    onChange={(e) => onEdit(group.id, { size: e.target.value, ...(isGlasses(listing) ? {manual_measurement_fields:[...new Set([...(listing.manual_measurement_fields ?? []),"Größe"])]} : {}) })}
                   />
                 </div>
               )}
@@ -446,19 +445,12 @@ export function ListingCard({
               nicht.
             </p>
           )}
-          {isGlasses(listing) && !isSunglasses(listing) && (
-            <label className="lens-width-control" data-review-field="Glasbreite">
-              Glasbreite (mm)
-              <input aria-label="Glasbreite manuell (mm)" type="number" min="20" max="90" step="1" inputMode="numeric"
-                value={(listing.eyewear?.fields.lensWidth?.value ?? Object.entries(listing.item_specifics ?? {}).find(([name])=>/^(Glasbreite|Scheibenbreite|Gläserbreite|Lens Width)$/i.test(name))?.[1] ?? "").replace(/\s*mm$/i,"")}
-                placeholder="z. B. 46"
-                onChange={event=>onEdit(group.id,manualLensWidth(listing,event.target.value,group.preparation?.aspects ?? []))} />
-            </label>
-          )}
+          {isGlasses(listing) && <EyewearMeasurements listing={listing} meta={group.preparation?.aspects ?? []} onEdit={patch=>onEdit(group.id,patch)} />}
           <div className="result-field">
             <label htmlFor={`description-${group.id}`}>Beschreibung</label>
             <textarea
               id={`description-${group.id}`}
+              className={!listing.description.trim() ? "missing-required-control" : undefined}
               data-review-field="Beschreibung"
               value={listing.description}
               onChange={(e) =>
@@ -617,6 +609,13 @@ export function ListingCard({
             </p>
           )}
           </div>
+          {group.postStatus !== "posted" && <div className="bottom-publication">
+            <button type="button" className="btn btn-primary" onClick={()=>onPost(group.id)}
+              aria-label="Veröffentlichen am Kartenende"
+              disabled={!ebayConnected || group.postStatus === "posting" || draftIssues(group).length>0}>
+              {group.postStatus === "posting" ? "Anfrage läuft…" : "Veröffentlichen…"}
+            </button>
+          </div>}
         </fieldset>
       )}
     </article>

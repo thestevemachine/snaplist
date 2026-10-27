@@ -267,7 +267,7 @@ test("verification never publishes; a single publication requires confirmation w
   await expect(page.getByLabel("Beschreibung",{exact:true})).toBeVisible();
   expect(published).toBe(0);
   await page
-    .getByRole("button", { name: "Auf eBay.de veröffentlichen…" })
+    .getByRole("button", { name: "Veröffentlichen am Kartenende" })
     .click();
   await confirmation
     .getByRole("button", { name: "Jetzt verbindlich auf eBay veröffentlichen" })

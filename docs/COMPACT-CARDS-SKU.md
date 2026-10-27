@@ -63,3 +63,10 @@ The local white-pixel mark is only a preview hint. Every sort action now scans a
 
 ### Visible review controls
 Marked separator thumbnails use a red frame and red pressed-state button; ordinary thumbnails retain the blue Trennen action. Card toggles display Ausklappen ↓ / Einklappen ↑ with larger arrows and a 44px touch target. The single first-SKU sequence control now sits immediately before the card list (or table), after the toolbar and progress messages; numbering behavior is unchanged.
+
+### Measurement review and required fields
+Card expansion uses a fixed 32px stroked SVG chevron instead of a font arrow. A second publish action at the actual card end invokes the same guarded confirmation flow as the top action. Missing required taxonomy fields and empty required title/SKU/price/condition/shipping controls receive red borders.
+
+Glasses always expose an editable size/box-size field while expanded, including when empty or absent from taxonomy. A compact measurement grid always shows lens width, bridge width, temple length, lens height and total width for optical and sunglasses drafts. Manual values retain manual provenance; missing taxonomy fields do not hide local measurement inputs. Kastenmaß parsing supports additional square symbols, OCR brackets and complete numeric triplets, rejects implausible or contradictory pairs, and can recover missing values from stored quoted temple evidence without model calls.
+
+Perspective-uncertain total-width calculations are no longer copied to eBay aspects. Only previous automatic aspect values matching that rejected calculation are cleared; manual values remain. This does not calibrate unknown contour errors: an actual front photo and printed reference are still required to diagnose a particular oversized estimate. The two image paths supplied for the reported example were unavailable locally.
