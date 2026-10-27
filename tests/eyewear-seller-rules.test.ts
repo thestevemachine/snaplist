@@ -7,12 +7,12 @@ const meta:AspectMeta[]=[{name:"Rahmenfarbe",mode:"SELECTION_ONLY",cardinality:"
 const l={title:"Ic! Berlin Brille",description:"Original",brand:"Ic! Berlin",color:["Roségold","Schwarz"],condition_notes:"Ungetragen ohne Etui",item_specifics:{Rahmenfarbe:"Roségold | Schwarz",Form:"Rund",Abteilung:"Herren Damen",Modell:"Pluto",Rahmenbreite:"140 mm",Besonderheiten:"Strass"}};
 it("prioritizes base Gold and places Strass and L XL immediately after the shape within 80 characters",()=>{
  const title=germanGlassesTitle(l,meta);
- expect(title).toContain("Rund Panto Strass L XL Gold Schwarz");expect(title.length).toBeLessThanOrEqual(80);expect(title).toContain("Pluto");
+ expect(title).toContain("Rund Panto Strass groß L XL Gold Schwarz");expect(title.length).toBeLessThanOrEqual(80);expect(title).toContain("Pluto");
  expect(germanGlassesTitle({...l,item_specifics:{...l.item_specifics,Rahmenbreite:"139"}},meta)).not.toContain("L XL");
  expect(eyewearSellerRulePatch(l,meta)?.item_specifics?.Rahmenfarbe).toBe("Gold | Schwarz");
  expect(eyewearSellerRulePatch({...l,title_manually_edited:true},meta)?.title).toBeUndefined();
  expect(eyewearSellerRulePatch({...l,title:"Mein eigener Brillentitel"},meta)?.title).toBeUndefined();
- expect(eyewearSellerRulePatch({...l,title:"Ic! Berlin Brille Herren Damen Rund Panto Roségold Schwarz Pluto"},meta)?.title).toContain("Rund Panto Strass L XL Gold Schwarz");
+ expect(eyewearSellerRulePatch({...l,title:"Ic! Berlin Brille Herren Damen Rund Panto Roségold Schwarz Pluto"},meta)?.title).toContain("Rund Panto Strass groß L XL Gold Schwarz");
 });
 it("adds Roségold only when there is space, preserves condition details, and does not invent strass",()=>{
  const short={...l,brand:"X",color:["Roségold"],item_specifics:{Rahmenfarbe:"Roségold",Form:"Rund"},condition_notes:"Ungetragen ohne Etui ohne Demoscheiben"};
@@ -25,4 +25,12 @@ it("fills already recognized 44 square 20 150 into empty taxonomy fields even wh
  const dims:AspectMeta[]=["Glasbreite","Stegbreite","Bügellänge"].map(name=>({name,mode:"FREE_TEXT",cardinality:"SINGLE",dataType:"NUMBER",values:[],required:false}));
  const patch=boxSizePatch(listing,dims)!;expect(patch.item_specifics).toMatchObject({Glasbreite:"44",Stegbreite:"20",Bügellänge:"150"});
  expect(boxSizePatch({...listing,...patch},dims)).toBeUndefined();
+});
+
+it("includes different front and temple colors in the title and actual color field",()=>{
+ const listing={title:"X Brille Rund",brand:"X",description:"",item_specifics:{Form:"Rund",Frontfarbe:"Schwarz",Bügelfarbe:"Gold",Rahmenfarbe:"Schwarz"}};
+ expect(germanGlassesTitle(listing,meta)).toContain("Schwarz Gold");
+ const patch=eyewearSellerRulePatch(listing,meta)!;
+ expect(patch.item_specifics?.Rahmenfarbe).toBe("Schwarz | Gold");
+ expect(patch.title).toContain("Schwarz Gold");
 });
