@@ -1,3 +1,4 @@
+import {boxSizePatch} from "@/lib/eyewear-measurements";
 import {manualLensWidth} from "@/lib/manual-lens-width";
 import { describe, it, expect } from "vitest";
 import {
@@ -301,4 +302,11 @@ it("retains contours and image dimensions until a manual reference arrives, then
  expect(patch.description).toBeUndefined();
  const manual={...l,...patch,manual_measurement_fields:["Glasbreite","Glashöhe"],item_specifics:{Glashöhe:"37 mm"}};
  expect(manualLensWidth(manual,"51",meta).item_specifics?.Glashöhe).toBe("37 mm");
+});
+
+it("reuses front contours after restoring a photo-proven box size",()=>{
+ const l:ListingResult={title:"Brille",description:"",size:"48-23-145",evidence:{Größe:[2]}};
+ const restored={...l,...boxSizePatch(l,[])};
+ const result=calculateFrontMeasurement(observation(),sizes,restored);
+ expect(result.referenceMm).toBe(48);expect(result.lensHeightMm).toBeGreaterThan(0);expect(result.totalWidthMm).toBeGreaterThan(0);
 });

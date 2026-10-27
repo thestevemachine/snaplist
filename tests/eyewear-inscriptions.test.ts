@@ -387,3 +387,8 @@ it("extracts 46 mm from a complete Lindberg demo-lens print without a box separa
  expect(alias.fields.lensWidth?.value).toBe("46");
  expect(extractEyewear([fact("Marke","ic! berlin"),fact("Scheibenaufdruck","1257 46")]).fields.lensWidth).toBeUndefined();
 });
+
+it("reads box dimensions from a labeled size value when its quote has a different wrapper",()=>{
+ const e=extractEyewear([fact("Kastenmaß","48-23-145","48 □ 23 / Bügel 145")]);
+ expect(e.fields.lensWidth?.value).toBe("48");expect(e.fields.bridgeWidth?.value).toBe("23");expect(e.fields.templeLength?.value).toBe("145");
+});

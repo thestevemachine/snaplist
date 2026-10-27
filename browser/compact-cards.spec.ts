@@ -479,3 +479,17 @@ test("already recognized 44 box 20 150 fills the actual article fields without a
  for(const [name,value] of [["Glasbreite","44"],["Stegbreite","20"],["Bügellänge","150"]]) await expect(page.locator(".draft-controls").getByLabel(name,{exact:true})).toHaveValue(value);
  expect(counts()).toEqual({paid:0,writes:0});
 });
+
+test("stored size alone populates the visible measurement inputs",async({page})=>{
+ const counts=await setup(page);
+ await expect(page.getByRole("status")).toContainText("Auf diesem Gerät gespeichert");
+ await page.evaluate(async()=>{
+  const r=indexedDB.open("listing-writer-drafts");const db=await new Promise<IDBDatabase>(resolve=>r.onsuccess=()=>resolve(r.result));
+  const tx=db.transaction("workspace","readwrite"),store=tx.objectStore("workspace"),get=store.get("current");
+  get.onsuccess=()=>{const data=get.result,g=data.groups[0];g.listing.size="48-23-145";g.listing.eyewear={fields:{},warnings:[]};for(const n of ["Glasbreite","Stegbreite","Bügellänge"]) delete g.listing.item_specifics[n];store.put(data,"current");};
+  await new Promise<void>(resolve=>tx.oncomplete=()=>resolve());db.close();
+ });
+ await page.reload();await page.getByRole("button",{name:"Angebotsdetails aufklappen"}).click();
+ for(const [name,value] of [["Glasbreite","48"],["Stegbreite","23"],["Bügellänge","145"]]) await expect(page.getByRole("spinbutton",{name:`${name} manuell (mm)`,exact:true})).toHaveValue(value);
+ expect(counts()).toEqual({paid:0,writes:0});
+});
