@@ -58,16 +58,14 @@ const names: Record<EyewearKey, string[]> = {
   ],
 };
 export function parseBoxDimensions(text: string) {
-  const match = text.match(
-    /(?<![\p{L}\d])([1-9]\d)\s*[□◻▢/\-]\s*([1-9]\d)(?:\s*(?:[-/]\s*|\s+)([1-9]\d{2}))?(?![\p{L}\d])/u,
-  );
-  return match
-    ? {
-        lensWidth: match[1],
-        bridgeWidth: match[2],
-        ...(match[3] ? { templeLength: match[3] } : {}),
-      }
-    : undefined;
+  const normalized=text.normalize("NFKC");
+  const separated=/(?<![\p{L}\d])([1-9]\d)\s*(?:[□◻▢☐◽▫▯/×xX-]|\[\s*\])\s*([1-9]\d)(?:\s*(?:[-/]\s*|\s+)([1-9]\d{2}))?(?![\p{L}\d])/gu;
+  const plain=/(?<![\p{L}\d])([1-9]\d)\s+([1-9]\d)\s+([1-9]\d{2})(?![\p{L}\d])/gu;
+  const candidates=[...normalized.matchAll(separated),...normalized.matchAll(plain)]
+    .filter(m=>Number(m[1])>=30 && Number(m[1])<=75 && Number(m[2])>=5 && Number(m[2])<=35 && (!m[3] || (Number(m[3])>=100 && Number(m[3])<=180)))
+    .map(m=>({lensWidth:m[1],bridgeWidth:m[2],...(m[3]?{templeLength:m[3]}:{})}));
+  const distinct=[...new Map(candidates.map(value=>[JSON.stringify(value),value])).values()];
+  return distinct.length===1 ? distinct[0] : undefined;
 }
 // Lindberg demo lenses can print model + lens width without a box/bridge separator.
 export function parseLindbergDemoLens(text: string) {

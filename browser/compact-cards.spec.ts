@@ -175,9 +175,8 @@ test("compact cards group values with labels, collapse rare sections, preserve e
     card.getByLabel("Anzahl der Einheiten", { exact: true }),
   ).toHaveCount(0);
   await expect(card.getByLabel("Maßeinheit", { exact: true })).toHaveCount(0);
-  await expect(card.getByLabel("Rahmenbreite", { exact: true })).toHaveValue(
-    "138 mm",
-  );
+  // Perspective-uncertain total width must not be auto-filled.
+  await expect(card.getByLabel("Rahmenbreite", { exact: true })).toHaveValue("");
   await expect(card.getByLabel("Muster", { exact: true })).toHaveCount(0);
   const materials = card.getByLabel("Rahmenmaterial: Auswahl bearbeiten");
   await expect(materials).toContainText("Titan");
@@ -399,6 +398,7 @@ test("missing-field warning jumps into a closed aspect section, and optical lens
  await expect(page.getByLabel("Rahmenfarbe",{exact:true})).not.toBeVisible();
  await page.getByRole("button",{name:"Enter Rahmenfarbe",exact:true}).click();
  await expect(page.getByLabel("Rahmenfarbe",{exact:true})).toBeFocused();
+ await expect(page.getByRole("group",{name:"Artikelmerkmal Rahmenfarbe",exact:true})).toHaveCSS("border-top-color","rgb(220, 38, 38)");
  await page.getByLabel("Rahmenfarbe",{exact:true}).selectOption("Schwarz");
  await expect(page.getByRole("button",{name:"Enter Rahmenfarbe",exact:true})).toHaveCount(0);
  await expect(page.getByRole("status")).toContainText("Auf diesem Gerät gespeichert");
@@ -439,7 +439,9 @@ test("draft defaults to a compact title/SKU/price and a warning expands directly
  const card=page.locator(".listing-card");
  await expect(card.getByRole("button",{name:"Angebotsdetails aufklappen"})).toHaveAttribute("aria-expanded","false");
  await expect(card.getByRole("button",{name:"Angebotsdetails aufklappen"})).toContainText("Ausklappen");
- await expect(card.locator(".card-toggle-arrow")).toHaveText("↓");
+ await expect(card.locator("svg.card-toggle-arrow path")).toHaveAttribute("d","M5 10 L16 22 L27 10");
+ const arrow=await card.locator("svg.card-toggle-arrow").boundingBox();expect(arrow!.width).toBeGreaterThanOrEqual(32);
+ await expect(card.getByRole("button",{name:"Veröffentlichen am Kartenende"})).toBeVisible();
  expect(await card.evaluate(el=>el.parentElement?.previousElementSibling?.classList.contains("sku-sequence"))).toBe(true);
  await expect(card.getByLabel("SKU",{exact:true})).toBeVisible();
  await expect(card.getByLabel("Preis",{exact:true})).toBeVisible();
@@ -456,5 +458,7 @@ test("draft defaults to a compact title/SKU/price and a warning expands directly
  await card.getByRole("button",{name:/Rahmenbedingungen und Artikelstandort/}).click();
  await expect(card.getByLabel("Versandregel",{exact:true})).toBeFocused();
  await expect(card.getByLabel("Beschreibung",{exact:true})).toBeVisible();
+ await expect(card.getByLabel("Größe (Kastenmaß)",{exact:true})).toBeVisible();
+ for(const name of ["Glasbreite","Stegbreite","Bügellänge","Glashöhe","Gesamtbreite"]) await expect(card.getByRole("spinbutton",{name:`${name} manuell (mm)`,exact:true})).toBeVisible();
  expect(counts()).toEqual({paid:0,writes:0});
 });

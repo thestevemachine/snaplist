@@ -1580,3 +1580,21 @@ textarea.title-input { min-height: 5rem; resize: vertical; line-height: 1.4; }
 .card-toggle-label {font-size:.78rem;font-weight:700}
 .card-toggle-arrow {font-size:1.65rem;font-weight:800;line-height:1}
 .sku-sequence {margin:1rem 0 .5rem}
+
+.listing-card .card-details-toggle {min-height:52px;border-width:3px;padding:.5rem .7rem}
+.listing-card .card-toggle-arrow {display:block;width:32px;height:32px;flex:0 0 32px;fill:none;stroke:#1e40af;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+.card-toggle-arrow.is-open {transform:rotate(180deg)}
+.listing-card .card-toggle-label {font-size:.9rem}
+.draft-controls .specific-edit.missing-required {border:2px solid #dc2626;border-radius:8px;padding:.5rem;background:#fff5f5}
+.missing-required :is(input,select,textarea,.aspect-choices>summary), .stat.needs-attention :is(input,select,textarea) {border:2px solid #dc2626}
+.bottom-publication {display:flex;justify-content:flex-end;border-top:1px solid var(--color-border);padding-top:.6rem}
+.measurement-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem}
+.measurement-grid label {font-size:.85rem;display:grid;gap:.2rem;min-width:0}
+.measurement-grid input {width:100%;min-width:0;box-sizing:border-box}
+
+.listing-card .missing-required-control {border:2px solid #dc2626;background:#fff5f5}
+@media (max-width:600px) {
+  .listing-card-head {flex-wrap:wrap;align-items:flex-start}
+  .listing-card-head .listing-card-title {flex-basis:calc(100% - 76px)}
+  .listing-card-head .card-details-toggle {margin-left:auto}
+}

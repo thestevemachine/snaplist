@@ -1,4 +1,5 @@
 "use client";
+import {boxSizePatch} from "@/lib/eyewear-measurements";
 import { issueField, focusReviewField } from "@/lib/review-navigation";
 import { lindbergLensWidthPatch } from "@/lib/lindberg-lens-width";
 import { titanEvidencePatch, titanMetalPatch } from "@/lib/titan-evidence";
@@ -58,6 +59,8 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
       g.postStatus === "posting"
     )
       return;
+    const boxPatch=boxSizePatch(g.listing,g.preparation.aspects);
+    if(boxPatch) {onGroupEdit(g.id,{listing:{...g.listing,...boxPatch}});return;}
     const lensPatch = lindbergLensWidthPatch(g.listing,g.preparation.aspects);
     if(lensPatch) {onGroupEdit(g.id,{listing:{...g.listing,...lensPatch}});return;}
     const titanPatch = titanEvidencePatch(g.listing);
@@ -313,7 +316,7 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
         <label className="category-id-field">
           <span>Kategorie-ID</span>
           <input
-            aria-label="Kategorie-ID" data-review-field="Kategorie"
+            aria-label="Kategorie-ID" data-review-field="Kategorie" className={!l.category_id?.trim() ? "missing-required-control" : undefined}
             value={l.category_id ?? ""}
             onChange={(e) =>
               edit({ category_id: e.target.value, ebay_condition: "" })
@@ -344,6 +347,8 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
           eBay-Zustand{" "}
           <select
             aria-label="eBay-Zustand"
+            className={!g.preparation?.conditions.some(c=>c.value===l.ebay_condition) ? "missing-required-control" : undefined}
+            aria-invalid={!g.preparation?.conditions.some(c=>c.value===l.ebay_condition) || undefined}
             data-review-field="eBay-Zustand"
             value={l.ebay_condition ?? ""}
             onChange={(e) =>
@@ -419,7 +424,8 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
           const field = (
             <div
               key={name}
-              className="specific-edit"
+              className={`specific-edit${meta?.required && !specifics[name]?.trim() ? " missing-required" : ""}`}
+              aria-invalid={meta?.required && !specifics[name]?.trim() ? true : undefined}
               data-review-field={name}
               role="group"
               aria-label={`Artikelmerkmal ${name}`}
@@ -711,7 +717,7 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
         ).map(([kind, key, label]) => (
           <label key={key}>
             {label}
-            <select
+            <select className={!g.shipping?.[key] ? "missing-required-control" : undefined} aria-invalid={!g.shipping?.[key] || undefined}
               aria-label={label}
               value={g.shipping?.[key] ?? ""}
               onChange={(e) =>

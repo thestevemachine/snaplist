@@ -107,3 +107,10 @@ it("does not automatically transfer measurements after a failed inscription scal
   ];
   expect(frontMeasurementFields(l, meta)).toBeUndefined();
 });
+it("does not transfer perspective-uncertain total width and clears only its old automatic value",()=>{
+ const l=listing();l.frontMeasurement!.status="uncertain";
+ l.item_specifics={Rahmenbreite:"138 mm"};l.estimates={Rahmenbreite:59};
+ expect(frontMeasurementFields(l,meta)?.item_specifics?.Rahmenbreite).toBe("");
+ l.manual_measurement_fields=["Rahmenbreite"];
+ expect(frontMeasurementFields(l,meta)?.item_specifics?.Rahmenbreite).toBe("138 mm");
+});
