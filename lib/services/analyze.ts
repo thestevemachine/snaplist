@@ -385,7 +385,7 @@ async function handle(input: unknown) {
                 `${({ brand: "Marke", modelNumber: "Modellnummer", modelName: "Modellname", lensWidth: "Glasbreite", bridgeWidth: "Stegbreite", templeLength: "Bügellänge" } as Record<string, string>)[key]}: ${field!.value}`,
             );
           listing.description = ["Ungetragen ohne Etui", ...facts].join("\n");
-          listing.key_features = [];
+          listing.key_features = supported.some(f=>/strass|rhinestone/i.test(`${f.name} ${f.value}`) && !/kein|ohne|nicht|nein|without|no rhinestone|strassfrei/i.test(f.value)) ? ["Strass"] : [];
           listing = applyContentRules(listing);
           if (
             listing.eyewear_kind === "optical" &&
@@ -396,7 +396,7 @@ async function handle(input: unknown) {
                 (f.confidence ?? 0) >= 85,
             )
           )
-            listing.condition_notes = "Ungetragen ohne Etui ohne Demoscheiben";
+            listing.condition_notes = "Ungetragen ohne Etui, ohne Demoscheiben";
         }
         if (isGlasses(listing))
           attachFrontMeasurement(listing, raw.front_geometry, imageSizes);

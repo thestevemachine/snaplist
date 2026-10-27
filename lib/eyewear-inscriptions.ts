@@ -48,10 +48,11 @@ const names: Record<EyewearKey, string[]> = {
     "Frame Material",
   ],
   lensWidth: ["Glasbreite", "Gläserbreite", "Glasdurchmesser", "Scheibenbreite", "Scheibengröße", "Lens Width", "Lens Size"],
-  bridgeWidth: ["Stegbreite", "Brückenbreite", "Bridge Width"],
+  bridgeWidth: ["Stegbreite", "Brückenbreite", "Stegweite", "Bridge Width", "Bridge Size"],
   templeLength: ["Bügellänge", "Temple Length"],
   totalWidth: [
     "Gesamtbreite",
+    "Rahmenbreite",
     "Fassungsbreite",
     "Total Frame Width",
     "Frame Width",
@@ -247,7 +248,7 @@ export function mapEyewear(
     if (!field || (overwriteKey && key !== overwriteKey)) continue;
     for (const m of meta.filter(
       (m) =>
-        names[key].includes(m.name) ||
+        names[key].some(name=>name.toLowerCase()===m.name.replace(/\s*\(mm\)\s*$/i,"").toLowerCase()) ||
         (key === "modelNumber" && m.name === "Modell"),
     )) {
       if (
@@ -350,6 +351,7 @@ export function mapEyewear(
         )
           continue;
       }
+      if(m.dataType === "NUMBER" && ["lensWidth","bridgeWidth","templeLength","totalWidth"].includes(key)) value=value.replace(/\s*mm$/i,"");
       aspects[m.name] = value ? [value] : [];
     }
   }

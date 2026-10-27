@@ -71,6 +71,10 @@ const translations: Record<string, string> = {
   havana: "Braun",
   havanna: "Braun",
   gold: "Gold",
+  "roségold": "Gold",
+  "rosegold": "Gold",
+  "rose gold": "Gold",
+  "rose-gold": "Gold",
   "gold-tone": "Gold",
   silver: "Silber",
   grey: "Grau",
@@ -404,7 +408,7 @@ export function germanGlassesTitle(l: ListingResult, meta: AspectMeta[]) {
     ),
   ].join(" ");
   const round = /^(rund|round|panto|rund panto)$/i.test(shape);
-  const shapeText = round ? "Rund Panto" : /oval|pilot|aviator/i.test(shape) ? "Pilot Oval" : shape;
+  let shapeText = round ? "Rund Panto" : /oval|pilot|aviator/i.test(shape) ? "Pilot Oval" : shape;
   const material = categoryTitleValue(l, meta, [
     "Rahmenmaterial",
     "Fassungsmaterial",
@@ -413,14 +417,12 @@ export function germanGlassesTitle(l: ListingResult, meta: AspectMeta[]) {
   const width =
     measured(l, ["Glasbreite", "Lens Width"]) ??
     Number(l.eyewear?.fields.lensWidth?.value.replace(/\s*mm$/i, "") || NaN);
-  const total =
-    measured(l, [
-      "Gesamtbreite",
-      "Fassungsbreite",
-      "Total Frame Width",
-      "Frame Width",
-    ]) ??
-    Number(l.eyewear?.fields.totalWidth?.value.replace(/\s*mm$/i, "") || NaN);
+  const total = totalWidthForTitle(l);
+  const strass=hasStrass(l);
+  const formExtras=[strass ? "Strass" : "",total>139 ? "L XL" : ""].filter(Boolean).join(" ");
+  shapeText=[shapeText,formExtras].filter(Boolean).join(" ");
+  const roseGold=[...rawColors,...selectedColors].some(v=>/ros[eé][ -]?gold/i.test(v));
+  color=color.replace(/ros[eé][ -]?gold/gi,"Gold");
   const colorCode = fact(l, [
     "Farbcode",
     "Color Code",
@@ -434,9 +436,9 @@ export function germanGlassesTitle(l: ListingResult, meta: AspectMeta[]) {
   const extras = [
     extraModelName,
     provenColorCode,
-    ...verifiedTitleKeywords(l, meta).filter((v) => v !== "leicht"),
+    ...verifiedTitleKeywords(l, meta).filter((v) => v !== "leicht" && !/strass|rhinestone/i.test(v)),
     width !== undefined && width > 0 && width < 47 ? "kleine Gläser" : "",
-    total !== undefined && total > 139 ? "groß L XL" : "",
+    roseGold ? "Roségold" : "",
     ...verifiedTitleKeywords(l, meta).filter((v) => v === "leicht"),
   ];
   const type = isSunglasses(l) ? "Sonnenbrille" : "Brille";
@@ -468,4 +470,23 @@ export function germanGlassesTitle(l: ListingResult, meta: AspectMeta[]) {
   }
   return cleanListingText(parts.join(" ").replace(/\s+/g, " ")).slice(0, 80);
 }
-export const GERMAN_LISTING_PROMPT = `\n For eyewear: MPN/Herstellernummer is not the model number; leave it empty unless explicitly identified as a manufacturer part number. Default Abteilung to Unisex Erwachsene when unclear; Vintage to Nein when uncertain. Sonnenbrillen have Produktart Sonnenbrille. Determine shape from the LENS outline: round lenses mean Rund even in a rectangular outer frame. Temple length includes mm. For eBay.de write title, description, condition_notes, search terms, keywords, and item-specific names and values in German. Keep JSON keys and enum values unchanged. For eyewear use Marke, Modellnummer, Fassungsfarbe, Fassungsmaterial, Form, Abteilung, Glasbreite, Gesamtbreite. Brand/model identifiers and dimensions must be read from a label with an exact quote, never inferred. A lens width is not total frame width. Use Herren, Damen or Herren Damen in the title, never unisex, never xy. Title order: Marke Brille (or Sonnenbrille) Geschlecht Farbe Form Material (if supported) Modellnummer/model name keywords; round frames use Rund Panto before Farbe. Maximum 80 characters, prioritize brand and model. Prioritize exact model number, model name and manufacturer color code/name over generic adjectives. Read country of manufacture from inscriptions; never infer it from brand nationality. Prefer concise useful search terms shared across German and English when accurate (Pilot, Oval, Panto); no invented translations or arbitrary extra shapes. Avoid filler adjectives; use leicht only as a last-priority replacement for Leichtgewicht. For Besonderheiten supply every matching visible feature and at least one when supported. Randlos is not Halbrand: nylon-mounted semi-rimless frames may use Halbrand/Halbrahmen; do not label rimless frames Vollrand or Halbrand. Rectangular frames may also be Eckig. For Thema AND Charakter suggest five relevant style associations each when the category allows multiple values and free text; derive original descriptive associations from visible shape, color and design, e.g. Retro, Panto, Minimalistisch, Y2K, 80er-Stil, 90er-Stil, 2000er-Stil or 2010er-Stil only when visually compatible; decade themes (70er, 80er, 90er) describe style only, never the production year. Do not add incompatible themes just to reach five. Extract visible rim construction (Randlos, Halbrand, Vollrand) and all genuinely matching style/character values. Use multiple relevant values when supported; never invent licensed fictional characters, brand affiliations or actual production years; Charakter may describe a style persona, not a claimed affiliation. Standard colors (Tortoise becomes Braun). Inspect the colors of both front and temples, even when one is metal and another acetate: two colors must be two separate standard words/values, e.g. Grün | Gold, not Grün-Gold. More than two distinct frame colors become Mehrfarbig. Do not count lens color as frame color. Only add kleine Gläser for a proven lens width below 47 mm; groß L XL only for proven total width above 139 mm. Seller default: unworn without case, in German Ungetragen ohne Etui. Do not infer or describe condition from photos; use only the seller-provided condition. Do not add a generic sales template; that is supplied by the seller settings.`;
+export const GERMAN_LISTING_PROMPT = `\n For eyewear: MPN/Herstellernummer is not the model number; leave it empty unless explicitly identified as a manufacturer part number. Default Abteilung to Unisex Erwachsene when unclear; Vintage to Nein when uncertain. Sonnenbrillen have Produktart Sonnenbrille. Determine shape from the LENS outline: round lenses mean Rund even in a rectangular outer frame. Temple length includes mm. For eBay.de write title, description, condition_notes, search terms, keywords, and item-specific names and values in German. Keep JSON keys and enum values unchanged. For eyewear use Marke, Modellnummer, Fassungsfarbe, Fassungsmaterial, Form, Abteilung, Glasbreite, Gesamtbreite. Brand/model identifiers and dimensions must be read from a label with an exact quote, never inferred. A lens width is not total frame width. Use Herren, Damen or Herren Damen in the title, never unisex, never xy. Title order: Marke Brille (or Sonnenbrille) Geschlecht Farbe Form Material (if supported) Modellnummer/model name keywords; round frames use Rund Panto before Farbe. Maximum 80 characters, prioritize brand and model. Prioritize exact model number, model name and manufacturer color code/name over generic adjectives. Read country of manufacture from inscriptions; never infer it from brand nationality. Prefer concise useful search terms shared across German and English when accurate (Pilot, Oval, Panto); no invented translations or arbitrary extra shapes. Avoid filler adjectives; use leicht only as a last-priority replacement for Leichtgewicht. For Besonderheiten supply every matching visible feature and at least one when supported. Randlos is not Halbrand: nylon-mounted semi-rimless frames may use Halbrand/Halbrahmen; do not label rimless frames Vollrand or Halbrand. Rectangular frames may also be Eckig. For Thema AND Charakter suggest five relevant style associations each when the category allows multiple values and free text; derive original descriptive associations from visible shape, color and design, e.g. Retro, Panto, Minimalistisch, Y2K, 80er-Stil, 90er-Stil, 2000er-Stil or 2010er-Stil only when visually compatible; decade themes (70er, 80er, 90er) describe style only, never the production year. Do not add incompatible themes just to reach five. Extract visible rim construction (Randlos, Halbrand, Vollrand) and all genuinely matching style/character values. Use multiple relevant values when supported; never invent licensed fictional characters, brand affiliations or actual production years; Charakter may describe a style persona, not a claimed affiliation. Standard colors (Tortoise becomes Braun). Inspect the colors of both front and temples, even when one is metal and another acetate: two colors must be two separate standard words/values, e.g. Grün | Gold, not Grün-Gold. More than two distinct frame colors become Mehrfarbig. Do not count lens color as frame color. Only add kleine Gläser for a proven lens width below 47 mm. If total frame width is known and exceeds 139 mm, place L XL immediately after the shape, including when the width is a marked front-photo estimate. If rhinestones are visibly present, report Strass as a visible feature and put Strass immediately after the shape (before L XL if both apply). Gold is the primary color keyword for rose-gold frames; add Roségold only if room remains after useful identifiers. Never infer rhinestones from brand or style. Seller default: unworn without case, in German Ungetragen ohne Etui. Do not infer or describe condition from photos; use only the seller-provided condition. Do not add a generic sales template; that is supplied by the seller settings.`;
+
+function numericWidth(l:ListingResult,keys:string[]) {
+ const f=fact(l,keys);if(!f) return;
+ const match=f.value.match(/^(\d+(?:[.,]\d+)?)\s*(?:mm)?$/i);
+ return match ? Number(match[1].replace(",",".")) : undefined;
+}
+export function hasStrass(l:ListingResult) {
+ const physical=[...Object.entries(l.item_specifics ?? {}).filter(([k])=>/besonderheiten|verzierung|dekor|besatz|material/i.test(k)).map(([,v])=>v),...(l.key_features ?? [])];
+ return physical.some(v=>/\bstrass(?:besatz|steine)?\b|rhinestones?/i.test(v) && !/kein|ohne|nicht|nein|without|no rhinestone|strassfrei/i.test(v));
+}
+
+export function totalWidthForTitle(l:ListingResult):number {
+ const keys=["Gesamtbreite","Rahmenbreite","Fassungsbreite","Frame Width","Total Frame Width"];
+ const specific=numericWidth(l,keys);if(specific!==undefined) return specific;
+ const field=l.eyewear?.fields.totalWidth;
+ if(field?.value.trim()) return Number(field.value.replace(/\s*mm$/i,""));
+ if(field?.source==="manual" || l.manual_measurement_fields?.some(k=>keys.includes(k))) return NaN;
+ return l.frontMeasurement?.status!=="unavailable" ? l.frontMeasurement?.totalWidthMm ?? NaN : NaN;
+}

@@ -56,7 +56,7 @@ it("formats German titles and strict measurement boundaries without xy", () => {
     },
   };
   expect(germanGlassesTitle(l, meta)).toBe(
-    "Lindberg Brille Herren Damen Rund Panto Braun 1014 kleine Gläser groß L XL",
+    "Lindberg Brille Herren Damen Rund Panto L XL Braun 1014 kleine Gläser",
   );
   expect(
     germanGlassesTitle(

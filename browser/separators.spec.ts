@@ -53,16 +53,16 @@ test("without a divider the existing AI sorting runs; a failed scan never silent
  await expect(page.getByText("Trennerprüfung fehlgeschlagen",{exact:true})).toBeVisible();expect(normalCalls).toBe(1);expect(scanCalls).toBe(2);
 });
 
-test("manual divider toggles its button and frame red, and toggles back",async({page})=>{
+test("clicking the photo toggles its divider button and frame red, and toggles back",async({page})=>{
  await page.route("**/api/**",r=>r.fulfill({json:{ok:false,connected:false,enabled:false,sortModels:[],analysisModels:[]}}));
  await page.goto("/");
  const png=Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=","base64");
  await page.locator("input[type=file]").setInputFiles({name:"photo.png",mimeType:"image/png",buffer:png});
  await expect(page.locator(".thumb")).toHaveCount(1);
- await page.getByRole("button",{name:"Als Trennbild markieren"}).click();
+ await page.getByRole("button",{name:"Foto 1 als Trennbild markieren",exact:true}).click();
  await expect(page.locator(".separator-photo")).toHaveCSS("border-top-color","rgb(220, 38, 38)");
  const active=page.getByRole("button",{name:"Trennbild als normales Foto verwenden"});
  await expect(active).toHaveCSS("background-color","rgb(185, 28, 28)");await expect(active).toHaveAttribute("aria-pressed","true");
- await active.click();await expect(page.locator(".separator-photo")).toHaveCount(0);
- await expect(page.getByRole("button",{name:"Als Trennbild markieren"})).toHaveAttribute("aria-pressed","false");
+ await page.getByRole("button",{name:"Foto 1 als normales Foto verwenden",exact:true}).click();await expect(page.locator(".separator-photo")).toHaveCount(0);
+ await expect(page.getByRole("button",{name:"Als Trennbild markieren",exact:true})).toHaveAttribute("aria-pressed","false");
 });

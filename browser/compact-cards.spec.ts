@@ -175,8 +175,8 @@ test("compact cards group values with labels, collapse rare sections, preserve e
     card.getByLabel("Anzahl der Einheiten", { exact: true }),
   ).toHaveCount(0);
   await expect(card.getByLabel("Maßeinheit", { exact: true })).toHaveCount(0);
-  // Perspective-uncertain total width must not be auto-filled.
-  await expect(card.getByLabel("Rahmenbreite", { exact: true })).toHaveValue("");
+  // Seller explicitly wants the estimate retained for review, including uncertainty.
+  await expect(card.getByLabel("Rahmenbreite", { exact: true })).toHaveValue("138 mm");
   await expect(card.getByLabel("Muster", { exact: true })).toHaveCount(0);
   const materials = card.getByLabel("Rahmenmaterial: Auswahl bearbeiten");
   await expect(materials).toContainText("Titan");
@@ -460,5 +460,22 @@ test("draft defaults to a compact title/SKU/price and a warning expands directly
  await expect(card.getByLabel("Beschreibung",{exact:true})).toBeVisible();
  await expect(card.getByLabel("Größe (Kastenmaß)",{exact:true})).toBeVisible();
  for(const name of ["Glasbreite","Stegbreite","Bügellänge","Glashöhe","Gesamtbreite"]) await expect(card.getByRole("spinbutton",{name:`${name} manuell (mm)`,exact:true})).toBeVisible();
+ expect(counts()).toEqual({paid:0,writes:0});
+});
+
+test("already recognized 44 box 20 150 fills the actual article fields without another analysis",async({page})=>{
+ const counts=await setup(page);
+ await expect(page.getByRole("status")).toContainText("Auf diesem Gerät gespeichert");
+ await page.evaluate(async()=>{
+  const r=indexedDB.open("listing-writer-drafts");const db=await new Promise<IDBDatabase>(resolve=>r.onsuccess=()=>resolve(r.result));
+  const tx=db.transaction("workspace","readwrite"),store=tx.objectStore("workspace"),get=store.get("current");
+  get.onsuccess=()=>{const data=get.result,g=data.groups[0];g.listing.size="44 □ 20 150";
+   g.listing.eyewear={fields:Object.fromEntries([["lensWidth","44"],["bridgeWidth","20"],["templeLength","150"]].map(([key,value])=>[key,{value,source:"label",quote:"44 □ 20 150",photos:[1]}])),warnings:[]};
+   for(const name of ["Glasbreite","Stegbreite","Bügellänge"]) {g.listing.item_specifics[name]="";g.preparation.aspects.push({name,mode:"FREE_TEXT",cardinality:"SINGLE",values:[],dataType:"NUMBER",required:false});}
+   store.put(data,"current");};
+  await new Promise<void>(resolve=>tx.oncomplete=()=>resolve());db.close();
+ });
+ await page.reload();await page.getByRole("button",{name:"Angebotsdetails aufklappen"}).click();
+ for(const [name,value] of [["Glasbreite","44"],["Stegbreite","20"],["Bügellänge","150"]]) await expect(page.locator(".draft-controls").getByLabel(name,{exact:true})).toHaveValue(value);
  expect(counts()).toEqual({paid:0,writes:0});
 });

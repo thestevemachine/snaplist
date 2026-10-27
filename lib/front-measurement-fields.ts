@@ -33,16 +33,6 @@ export function frontMeasurementFields(
     // An explicit seller clear is preserved across aliases.
     if (listing.manual_measurement_fields?.some((k) => pattern.test(k)))
       continue;
-    if(pattern.test("Gesamtbreite") && m.status!=="estimated") {
-      // Perspective/depth uncertainty is not corrected by a universal 3 mm deduction.
-      // Clear only prior automatic values that match this rejected calculation.
-      for(const [name,existing] of Object.entries(specifics)) {
-        if(pattern.test(name) && estimates[name]!==undefined && Number(existing.replace(/\s*mm$/i,""))===m.totalWidthMm) {
-          specifics[name]="";delete estimates[name];delete evidence[name];changed=true;
-        }
-      }
-      continue;
-    }
     const field = meta.find((f) => pattern.test(f.name));
     if (!field || specifics[field.name]?.trim()) continue;
     const existing = Object.entries(specifics).find(

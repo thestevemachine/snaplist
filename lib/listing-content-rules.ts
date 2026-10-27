@@ -43,7 +43,7 @@ export function applyContentRules(
     description: cleanListingText(l.description),
     condition_notes: resetCondition
       ? FIXED_CONDITION_NOTES
-      : (l.condition_notes ?? FIXED_CONDITION_NOTES),
+      : normalizedEyewearCondition(l),
     item_specifics: Object.fromEntries(
       Object.entries(l.item_specifics ?? {}).map(([k, v]) => [
         k,
@@ -109,4 +109,13 @@ export function descriptionWithCondition(
   const body = description.trimStart();
   if (body === condition || body.startsWith(condition + "\n")) return body;
   return condition + "\n\n" + body;
+}
+
+export function normalizedEyewearCondition(l:ListingResult):string {
+ const current=l.condition_notes ?? FIXED_CONDITION_NOTES;
+ const absent=Object.entries(l.item_specifics ?? {}).some(([name,value])=>
+  /^(Demoscheiben|Demogläser)$/i.test(name) && /^(nicht vorhanden|ohne|keine|nein)$/i.test(value)) ||
+  /ohne (?:Demoscheiben|Demogläser)/i.test(l.item_specifics?.Besonderheiten ?? "");
+ if(/^Ungetragen ohne Etui(?:,? ohne Demoscheiben)?$/i.test(current) && (absent || /ohne Demoscheiben/i.test(current))) return "Ungetragen ohne Etui, ohne Demoscheiben";
+ return current;
 }

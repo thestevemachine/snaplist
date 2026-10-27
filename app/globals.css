@@ -1598,3 +1598,7 @@ textarea.title-input { min-height: 5rem; resize: vertical; line-height: 1.4; }
   .listing-card-head .listing-card-title {flex-basis:calc(100% - 76px)}
   .listing-card-head .card-details-toggle {margin-left:auto}
 }
+
+.thumb .photo-separator-target {position:static;width:100%;height:100%;padding:0;border:0;border-radius:0;background:transparent;display:block;cursor:pointer}
+.thumb .photo-separator-target:hover {background:transparent}
+.thumb .photo-separator-target:focus-visible {outline:3px solid #dc2626;outline-offset:-4px}
