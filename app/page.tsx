@@ -1461,7 +1461,12 @@ export default function Home() {
                 {photos.map((p) => (
                   <div className={`thumb${p.separator ? " separator-photo" : ""}`} key={p.id}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={p.previewUrl} alt={p.separator ? "Trennbild" : ""} />
+                    <button type="button" className="photo-separator-target" aria-pressed={Boolean(p.separator)}
+                      aria-label={`Foto ${photos.indexOf(p)+1} ${p.separator ? "als normales Foto verwenden" : "als Trennbild markieren"}`}
+                      disabled={sorting || Boolean(importProgress)}
+                      onClick={()=>setPhotos(prev=>prev.map(photo=>photo.id===p.id ? {...photo,separator:!photo.separator,separatorManual:true} : photo))}>
+                      <img src={p.previewUrl} alt={p.separator ? "Trennbild" : ""} />
+                    </button>
                     <button type="button" className="separator-toggle" aria-pressed={Boolean(p.separator)} disabled={sorting || Boolean(importProgress)}
                       aria-label={p.separator ? "Trennbild als normales Foto verwenden" : "Als Trennbild markieren"}
                       onClick={()=>setPhotos(prev=>prev.map(photo=>photo.id===p.id ? {...photo,separator:!photo.separator,separatorManual:true} : photo))}>

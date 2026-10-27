@@ -13,11 +13,12 @@ export function boxSizePatch(l:ListingResult,meta:AspectMeta[]):Partial<ListingR
  }
  const box=[fields.lensWidth?.value,fields.bridgeWidth?.value].filter(Boolean).join(" □ ")+(fields.templeLength?.value ? ` ${fields.templeLength.value}` : "");
  const sizeMissing=!l.size?.trim() && !l.manual_measurement_fields?.includes("Größe") && Boolean(fields.lensWidth?.value && fields.bridgeWidth?.value);
- if(!changed && !sizeMissing) return;
+
  const next:ListingResult={...l,eyewear:{...l.eyewear,fields,warnings:l.eyewear?.warnings ?? []}};
  const aspects=Object.fromEntries(Object.entries(l.item_specifics ?? {}).map(([k,v])=>[k,v.split(" | ").filter(Boolean)]));
  mapEyewear(next,aspects,meta);
  for(const key of dimensionKeys) mapEyewear(next,aspects,meta.filter(m=>!aspects[m.name]?.length && !l.manual_measurement_fields?.includes(m.name)),key);
+ if(!changed && !sizeMissing && JSON.stringify(aspects)===JSON.stringify(Object.fromEntries(Object.entries(l.item_specifics ?? {}).map(([k,v])=>[k,v.split(" | ").filter(Boolean)])))) return;
  return {eyewear:next.eyewear,item_specifics:Object.fromEntries(Object.entries(aspects).map(([k,v])=>[k,v.join(" | ")])),...(sizeMissing ? {size:box} : {})};
 }
 export const measurementDefinitions=[

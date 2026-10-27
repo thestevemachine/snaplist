@@ -1,3 +1,5 @@
+import {boxSizePatch} from "@/lib/eyewear-measurements";
+import {eyewearSellerRulePatch} from "@/lib/eyewear-seller-rules";
 import { lindbergLensWidthPatch } from "@/lib/lindberg-lens-width";
 import { titanEvidencePatch, titanMetalPatch } from "@/lib/titan-evidence";
 import { DEFAULT_AI_MODEL } from "@/lib/ai-defaults";
@@ -312,8 +314,11 @@ export async function prepareListing(body: any, sealedConnection?: string) {
             }
           }
           if (glasses) {
+            Object.assign(listing,boxSizePatch(listing,meta));
+            Object.assign(listing,eyewearSellerRulePatch(listing,meta));
             Object.assign(listing, eyewearStyleTagsPatch(listing, meta));
             listing = applyContentRules(listing, false);
+            for(const [name,value] of Object.entries(listing.item_specifics ?? {})) aspects[name]=value.split(" | ").filter(Boolean);
             for (const name of ["Thema", "Charakter"])
               if (listing.item_specifics?.[name])
                 aspects[name] = listing.item_specifics[name].split(" | ");

@@ -1,4 +1,5 @@
 "use client";
+import {eyewearSellerRulePatch} from "@/lib/eyewear-seller-rules";
 import {boxSizePatch} from "@/lib/eyewear-measurements";
 import { issueField, focusReviewField } from "@/lib/review-navigation";
 import { lindbergLensWidthPatch } from "@/lib/lindberg-lens-width";
@@ -102,8 +103,9 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
       updated,
       g.preparation.aspects,
     );
-    if (featurePatch || materialPatch || stylePatch || measurementPatch || metalPatch || geometryChanged)
-      onGroupEdit(g.id, { listing: { ...updated, ...measurementPatch } });
+    const sellerPatch=eyewearSellerRulePatch({...updated,...measurementPatch},g.preparation.aspects);
+    if (featurePatch || materialPatch || stylePatch || measurementPatch || metalPatch || geometryChanged || sellerPatch)
+      onGroupEdit(g.id, { listing: { ...updated, ...measurementPatch, ...sellerPatch } });
   }, [g.id, g.listing, g.preparation, g.postStatus, onGroupEdit]);
   if (!g.listing) return null;
   const l = g.listing;
