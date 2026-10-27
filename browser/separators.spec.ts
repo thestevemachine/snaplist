@@ -59,7 +59,9 @@ test("clicking the photo toggles its divider button and frame red, and toggles b
  const png=Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=","base64");
  await page.locator("input[type=file]").setInputFiles({name:"photo.png",mimeType:"image/png",buffer:png});
  await expect(page.locator(".thumb")).toHaveCount(1);
- await page.getByRole("button",{name:"Foto 1 als Trennbild markieren",exact:true}).click();
+ const upload=page.locator('[aria-labelledby="upload-heading"]');
+ expect(await upload.evaluate(el=>el.getBoundingClientRect().top)).toBeLessThan(600);
+ await page.locator(".photo-separator-target img").click({position:{x:15,y:30}});
  await expect(page.locator(".separator-photo")).toHaveCSS("border-top-color","rgb(220, 38, 38)");
  const active=page.getByRole("button",{name:"Trennbild als normales Foto verwenden"});
  await expect(active).toHaveCSS("background-color","rgb(185, 28, 28)");await expect(active).toHaveAttribute("aria-pressed","true");

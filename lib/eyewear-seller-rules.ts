@@ -1,6 +1,6 @@
 import type {ListingResult} from "./types";
 import type {AspectMeta} from "./ebay/taxonomy";
-import {germanGlassesTitle,hasStrass,totalWidthForTitle} from "./glasses-rules";
+import {germanGlassesTitle,hasStrass,totalWidthForTitle,componentFrameColors} from "./glasses-rules";
 import {normalizedEyewearCondition} from "./listing-content-rules";
 export function eyewearSellerRulePatch(l:ListingResult,meta:AspectMeta[]):Partial<ListingResult>|undefined {
  const patch:Partial<ListingResult>={};
@@ -14,10 +14,18 @@ export function eyewearSellerRulePatch(l:ListingResult,meta:AspectMeta[]):Partia
   patch.item_specifics={...l.item_specifics,[colorMeta.name]:[...new Set(colors.split(" | ").map(v=>/ros[eé][ -]?gold/i.test(v) ? gold : v))].join(" | ")};
   if(!l.color) patch.color=colors.split(" | ");
  }
+ const componentColors=componentFrameColors(l);
+ if(componentColors.length>1 && colorMeta?.cardinality==="MULTI") {
+  const allowed=componentColors.map(v=>colorMeta.values.find(c=>c.toLowerCase()===v.toLowerCase()) ?? (colorMeta.mode==="FREE_TEXT" ? v : "")).filter(Boolean);
+  if(allowed.length===componentColors.length) {
+   const combined=[...new Set(allowed)].join(" | ");
+   if(combined!==colors) patch.item_specifics={...l.item_specifics,...patch.item_specifics,[colorMeta.name]:combined};
+  }
+ }
  const total=totalWidthForTitle(l);
  const brand=l.item_specifics?.Marke || l.brand || "";
  const generatedStyle=Boolean(brand && l.title.toLowerCase().startsWith(brand.toLowerCase()) && /\b(?:rund|panto|oval|pilot|eckig|rechteckig|quadratisch|cat eye|katzenauge|butterfly|schmetterling)\b/i.test(l.title));
- if(!l.title_manually_edited && generatedStyle && (rose || hasStrass(l) || total>139)) {
+ if(!l.title_manually_edited && generatedStyle && (rose || hasStrass(l) || total>139 || componentColors.length>1)) {
   const title=germanGlassesTitle({...l,...patch},meta);
   if(title!==l.title) patch.title=title;
  }

@@ -1379,37 +1379,10 @@ export default function Home() {
           {automaticPreparing}…
         </p>
       )}
-      <ShopSettings
-        groups={groups}
-        disabled={
-          readOnly ||
-          !restored ||
-          queueBusy.current ||
-          inFlight.current.size > 0
-        }
-        onApply={(settings, options) => {
-          if (readOnly || queueBusy.current || inFlight.current.size)
-            throw new Error("Bitte laufende Verarbeitung abwarten.");
-          const current = groupsRef.current;
-          const next = current.map((g) => applyShopGroup(g, settings, options));
-          setGroups(next);
-          return next.filter((g, i) => g !== current[i]).length;
-        }}
-      />
+
 
       {step === "upload" && (
         <>
-          <section className="hero">
-            <h2>
-              Alle Fotos hochladen. <em>Wir sortieren sie.</em>
-            </h2>
-            <p>
-              Lade die Fotos des gesamten Stapels hoch. Die App ordnet sie
-              einzelnen Artikeln zu und erstellt für jeden einen prüfbaren
-              eBay-Entwurf.
-            </p>
-          </section>
-
           <section className="panel" aria-labelledby="upload-heading">
             <h2 id="upload-heading" className="section-label">
               1 · Fotos hinzufügen
@@ -1555,6 +1528,24 @@ export default function Home() {
           )}
         </>
       )}
+
+      <ShopSettings
+        groups={groups}
+        disabled={
+          readOnly ||
+          !restored ||
+          queueBusy.current ||
+          inFlight.current.size > 0
+        }
+        onApply={(settings, options) => {
+          if (readOnly || queueBusy.current || inFlight.current.size)
+            throw new Error("Bitte laufende Verarbeitung abwarten.");
+          const current = groupsRef.current;
+          const next = current.map((g) => applyShopGroup(g, settings, options));
+          setGroups(next);
+          return next.filter((g, i) => g !== current[i]).length;
+        }}
+      />
 
       {(step === "review" || step === "listings") && (
         <CloudBatch
