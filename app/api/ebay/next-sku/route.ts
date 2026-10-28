@@ -1,3 +1,4 @@
+import {withAccount} from "@/lib/accounts/server";
 import { withDeadline } from "@/lib/network";
 import { boundedFetch } from "@/lib/network";
 import { NextRequest, NextResponse } from "next/server";
@@ -88,6 +89,8 @@ async function handle(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   return withDeadline(25000, () => handle(req));
 }
+
+export const POST=withAccount(handlePOST);

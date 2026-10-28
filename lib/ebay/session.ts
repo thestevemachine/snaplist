@@ -1,3 +1,4 @@
+import {accountsEnabled,currentAccount} from "../accounts/context";
 // Encrypted eBay connection stored in an httpOnly cookie.
 //
 // We keep only the long-lived refresh token (encrypted with SESSION_SECRET).
@@ -110,6 +111,12 @@ export async function sellerAccessToken(
   sealed: string | undefined,
 ): Promise<string | null> {
   const { sharedAccessToken } = await import("./shared-connection");
+  if(accountsEnabled()) {
+    const account=currentAccount()!;
+    if(account.secrets.ebay) return accessTokenFromCookie(account.secrets.ebay);
+    if(account.owner) return sharedAccessToken();
+    return null;
+  }
   const hasSharedSettings = Boolean(
     process.env.SUPABASE_EU_URL ||
     process.env.SUPABASE_EU_SECRET_KEY ||

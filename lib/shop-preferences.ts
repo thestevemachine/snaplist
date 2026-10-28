@@ -1,3 +1,4 @@
+import {workspaceStorageKey} from "./workspace-scope";
 import { z } from "zod";
 import type { AccountOptions } from "./ebay/publish";
 import type { ListingResult, ItemGroup } from "./types";
@@ -24,7 +25,7 @@ export const emptyPreferences = (): ShopPreferences => ({
   shipping: {},
   descriptionTemplate: "",
 });
-const storageKey = (account: string) => `snaplist-shop-v1:${account}`;
+const storageKey = (account: string) => workspaceStorageKey(`snaplist-shop-v1:${account}`);
 export function readShopPreferences(account?: string): ShopPreferences {
   if (!account || typeof localStorage === "undefined")
     return emptyPreferences();

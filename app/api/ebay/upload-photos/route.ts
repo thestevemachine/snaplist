@@ -1,3 +1,4 @@
+import {withAccount} from "@/lib/accounts/server";
 import { withDeadline } from "@/lib/network";
 import { NextRequest, NextResponse } from "next/server";
 import { EBAY_COOKIE, sellerAccessToken } from "@/lib/ebay/session";
@@ -110,6 +111,8 @@ async function handle(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   return withDeadline(100000, () => handle(req));
 }
+
+export const POST=withAccount(handlePOST);

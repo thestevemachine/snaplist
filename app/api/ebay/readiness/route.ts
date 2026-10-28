@@ -1,3 +1,4 @@
+import {withAccount} from "@/lib/accounts/server";
 import { NextRequest, NextResponse } from "next/server";
 import { guardApiRequest } from "@/lib/api-guard";
 import {
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 const headers = { "Cache-Control": "no-store" };
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const denied = guardApiRequest(req);
   if (denied) {
     denied.headers.set("Cache-Control", "no-store");
@@ -42,3 +43,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST=withAccount(handlePOST);

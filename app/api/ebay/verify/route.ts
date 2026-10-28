@@ -1,3 +1,4 @@
+import {withAccount} from "@/lib/accounts/server";
 import { NextRequest, NextResponse } from "next/server";
 import { guardApiRequest } from "@/lib/api-guard";
 import { withDeadline } from "@/lib/network";
@@ -6,7 +7,7 @@ import { EBAY_COOKIE, sellerAccessToken } from "@/lib/ebay/session";
 import { submitTradingListing } from "@/lib/ebay/trading-publish";
 
 export const maxDuration = 120;
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const denied = guardApiRequest(req);
   if (denied) return denied;
   return withDeadline(100_000, async () => {
@@ -32,3 +33,5 @@ export async function POST(req: NextRequest) {
     }
   });
 }
+
+export const POST=withAccount(handlePOST);

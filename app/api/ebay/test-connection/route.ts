@@ -1,3 +1,7 @@
+import {accountsEnabled,currentAccount} from "@/lib/accounts/context";
+import {sellerAccessToken} from "@/lib/ebay/session";
+import {fetchAccountOptions} from "@/lib/ebay/publish";
+import {withAccount} from "@/lib/accounts/server";
 import { NextRequest, NextResponse } from "next/server";
 import { guardApiRequest } from "@/lib/api-guard";
 import {
@@ -11,14 +15,18 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 const headers = { "Cache-Control": "no-store" };
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const denied = guardApiRequest(req);
   if (denied) {
     denied.headers.set("Cache-Control", "no-store");
     return denied;
   }
   try {
-    await withDeadline(45_000, testSharedEbayConnection);
+    if(accountsEnabled() && !currentAccount()?.owner) {
+      const token=await sellerAccessToken(undefined);
+      if(!token) return NextResponse.json({ok:false,error:"Bitte zuerst deinen eigenen eBay-Zugang verbinden."},{status:400});
+      await fetchAccountOptions(token);
+    } else await withDeadline(45_000, testSharedEbayConnection);
     return NextResponse.json(
       {
         ok: true,
@@ -45,3 +53,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST=withAccount(handlePOST);

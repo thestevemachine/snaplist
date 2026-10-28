@@ -1,3 +1,4 @@
+import {pageAccount} from "@/lib/accounts/server";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
@@ -15,14 +16,15 @@ export const viewport: Viewport = {
   themeColor: "#1d6b5f",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const account=await pageAccount();
   return (
     <html lang="de">
-      <body>{children}</body>
+      <body data-account={account?.id} data-account-owner={account?.owner ? "true" : undefined}>{children}</body>
     </html>
   );
 }

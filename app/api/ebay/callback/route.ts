@@ -1,3 +1,6 @@
+import {accountsEnabled,currentAccount} from "@/lib/accounts/context";
+import {saveCredentials} from "@/lib/accounts/server";
+import {withAccount} from "@/lib/accounts/server";
 import { NextRequest, NextResponse } from "next/server";
 import { rateLimitRequest } from "@/lib/api-guard";
 import { exchangeCode } from "@/lib/ebay/oauth";
@@ -20,7 +23,7 @@ function appUrl(req: NextRequest, path: string): URL {
 // eBay redirects the user back here with ?code=... after they consent.
 // Must stay reachable without the access code (it's a browser redirect from
 // eBay), so it is protected by the state cookie below plus the rate limiter.
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   const limited = rateLimitRequest(req);
   if (limited) return limited;
 
@@ -31,7 +34,7 @@ export async function GET(req: NextRequest) {
   if (!code) {
     return NextResponse.redirect(appUrl(req, "/?ebay=error&msg=No+authorization+code"));
   }
-  if (!state || !expectedState || state !== expectedState) {
+  if (!state || !expectedState || state !== expectedState || (accountsEnabled() && !state.startsWith(currentAccount()!.id+":"))) {
     return NextResponse.redirect(appUrl(req, "/?ebay=error&msg=State+mismatch"));
   }
 
@@ -44,7 +47,8 @@ export async function GET(req: NextRequest) {
       connectionFromToken(token.refresh_token, token.refresh_token_expires_in)
     );
     const res = NextResponse.redirect(appUrl(req, "/?ebay=connected"));
-    res.cookies.set(EBAY_COOKIE, sealed, {
+    if(accountsEnabled()) await saveCredentials({...currentAccount()!.secrets,ebay:sealed});
+    else res.cookies.set(EBAY_COOKIE, sealed, {
       httpOnly: true,
       secure: true,
       sameSite: "lax",
@@ -58,3 +62,5 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(appUrl(req, `/?ebay=error&msg=${msg}`));
   }
 }
+
+export const GET=withAccount(handleGET);

@@ -1,4 +1,5 @@
 "use client";
+import {workspaceStorageKey} from "./workspace-scope";
 import { requestText } from "./text-dialog";
 
 let pendingCode: Promise<string | null> | null = null;
@@ -23,7 +24,7 @@ const STORAGE_KEY = "listing-writer:access-code";
 
 function storedCode(): string | null {
   try {
-    return window.localStorage.getItem(STORAGE_KEY);
+    return window.localStorage.getItem(workspaceStorageKey(STORAGE_KEY));
   } catch {
     return null;
   }
@@ -31,7 +32,7 @@ function storedCode(): string | null {
 
 function saveCode(code: string): void {
   try {
-    window.localStorage.setItem(STORAGE_KEY, code);
+    window.localStorage.setItem(workspaceStorageKey(STORAGE_KEY), code);
   } catch {
     /* private browsing — code just won't persist */
   }
@@ -39,7 +40,7 @@ function saveCode(code: string): void {
 
 export function clearAccessCode(): void {
   try {
-    window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.removeItem(workspaceStorageKey(STORAGE_KEY));
   } catch {
     /* noop */
   }
@@ -62,6 +63,7 @@ async function doFetch(
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
+  if(typeof document!=="undefined" && document.body.dataset.account) headers["x-snaplist-account"]=document.body.dataset.account;
   if (code) headers["x-app-secret"] = code;
   return fetch(path, { method: "POST", headers, body: JSON.stringify(body) });
 }
