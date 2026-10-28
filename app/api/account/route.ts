@@ -1,12 +1,12 @@
 import {NextRequest,NextResponse} from "next/server";
 import {z} from "zod";
-import {accountDb,ACCESS,REFRESH,authenticatedAccount,saveCredentials,sameOrigin,setSession,withAccount} from "@/lib/accounts/server";
-import {accountsEnabled,currentAccount} from "@/lib/accounts/context";
+import {accountDb,ACCESS,REFRESH,authenticatedAccount,saveCredentials,sameOrigin,setSession,withAccount,ensureVault,isOwner} from "@/lib/accounts/server";
+import {accountsEnabled,currentAccount,providerKey} from "@/lib/accounts/context";
 import {rateLimitRequest} from "@/lib/api-guard";
 export const dynamic="force-dynamic";
 export async function GET(req:NextRequest) {
  if(!accountsEnabled()) return NextResponse.json({enabled:false});
- return withAccount(async()=>{const u=currentAccount()!;return NextResponse.json({enabled:true,id:u.id,email:u.email,owner:u.owner,providers:Object.fromEntries(["google","openai","anthropic"].map(p=>[p,Boolean(u.secrets[p])]))});})(req);
+ return withAccount(async()=>{const u=currentAccount()!;return NextResponse.json({enabled:true,id:u.id,email:u.email,owner:u.owner,providers:Object.fromEntries(["google","openai","anthropic"].map(p=>[p,Boolean(providerKey(p))]))});})(req);
 }
 export async function POST(req:NextRequest) {
  if(!accountsEnabled()) return NextResponse.json({ok:false,error:"Kontenanmeldung noch nicht aktiviert."},{status:503});
@@ -39,7 +39,7 @@ export async function POST(req:NextRequest) {
     const provider=z.enum(["google","openai","anthropic"]).parse(body.provider);
     const key=z.string().max(512).parse(body.key).trim();
     if(key && (key.length<16 || /\s/.test(key))) return NextResponse.json({ok:false,error:"Bitte einen gültigen API-Schlüssel eingeben."},{status:400});
-    const next={...u.secrets};if(key)next[provider]=key;else delete next[provider];
+    const next={...u.secrets};if(key || u.owner)next[provider]=key;else delete next[provider];
     await saveCredentials(next);return NextResponse.json({ok:true});
    }
    if(body.action==="password") {
@@ -50,15 +50,17 @@ export async function POST(req:NextRequest) {
    if(body.action==="disable-member" && u.owner) {
     const id=z.string().uuid().parse(body.id);
     if(id===u.id)return NextResponse.json({ok:false,error:"Das Besitzerkonto kann hier nicht gesperrt werden."},{status:400});
-    const {error}=await accountDb().from("snaplist_accounts").update({disabled:true,sealed_credentials:null}).eq("user_id",id);
+    const db=accountDb();const target=await db.auth.admin.getUserById(id);
+    if(!target.data.user?.app_metadata?.snaplist || isOwner(target.data.user))return NextResponse.json({ok:false},{status:403});
+    const {error}=await db.auth.admin.updateUserById(id,{app_metadata:{...target.data.user.app_metadata,snaplist:{active:false}}});
     if(error)throw error;return NextResponse.json({ok:true});
    }
    if(body.action==="invite" && u.owner) {
     const email=z.string().email().max(254).parse(body.email).toLowerCase();
     const db=accountDb();const {data,error}=await db.auth.admin.generateLink({type:"invite",email});
     if(error || !data.user || !data.properties?.hashed_token)throw new Error("Invite failed");
-    const inserted=await db.from("snaplist_accounts").insert({user_id:data.user.id});
-    if(inserted.error)throw inserted.error;
+    const activated=await db.auth.admin.updateUserById(data.user.id,{app_metadata:{...data.user.app_metadata,snaplist:{active:true}}});
+    if(activated.error)throw activated.error;
     const url=new URL("/login",process.env.APP_URL || req.url);url.hash=`invite=${encodeURIComponent(data.properties.hashed_token)}`;
     return NextResponse.json({ok:true,url:url.toString()});
    }

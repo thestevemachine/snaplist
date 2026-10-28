@@ -1,65 +1,70 @@
-# Invitation-only accounts — staged implementation
+# Invitation-only accounts
 
-Do not enable publicly before the rollout checks below pass. Existing deployment
-continues in legacy single-owner mode when SNAPLIST_ACCOUNTS_ENABLED is unset.
-No keys/tables belonging to ebay-ki-tools are modified.
+Server-side Supabase Auth admin metadata (`app_metadata.snaplist.active`) grants
+app membership. Users cannot set this field through normal Auth APIs. An
+existing Supabase Auth signup without this marker cannot access the app.
+A separate public account table is no longer required. Do not run the old
+006_snaplist_accounts.sql migration from the earlier draft.
 
-## Required configuration (server secrets)
-- Apply db/006_snaplist_accounts.sql to the existing EU project. It adds only
-  snaplist_accounts, references auth.users, enables RLS and revokes client access.
-- Obtain the owner's chosen email; create a Supabase Auth invite for that person,
-  insert their exact auth user UUID into snaplist_accounts and set
-  SNAPLIST_OWNER_USER_ID to that verified UUID. Never use user-editable metadata.
-- Set APP_URL to the actual deployment origin. Configure Supabase Auth redirect
-  URLs for that origin. Keep public signup disabled in Supabase; application
-  membership is also required even if someone directly signs up through Auth.
-- Set SNAPLIST_PRIVACY_CONTACT to operator name, postal address and contact.
-- Existing SESSION_SECRET, SUPABASE_EU_URL and SUPABASE_EU_SECRET_KEY are reused.
-  Never rotate them or expose them while preparing this migration.
-- Invite generation uses admin.generateLink, not email delivery. The owner hands
-  the private single-use link to its intended recipient. No emails are sent by
-  this implementation. Link token is carried in a fragment and cleared before
-  verification so it is not sent as a URL/referrer. Recipient sets a password.
-- Members bring their own API keys through Mein Konto. All providers, including
-  Claude, use only that member's keys; no environment-key fallback. Keys are
-  encrypted with AES-GCM server-side and never returned by the account endpoint.
+Encrypted provider keys and eBay grants live under the verified Auth UUID in the
+private Storage bucket `snaplist-account-vault`; bucket initialization uses the
+Storage API from the trusted server, not SQL or browser automation. AES-GCM uses
+the existing SESSION_SECRET. No existing keys or ebay_oauth_tokens are changed.
 
-## Isolation and current limits
-- Every interactive API is wrapped in verified Supabase getUser + membership,
-  disabled-account and origin checks. Writes additionally bind the page account
-  id to the current session, preventing stale-tab writes after account changes.
-- Only the configured owner can use the legacy shared eBay database token.
-  Members authorize their own eBay seller via OAuth; callback state binds to
-  their user id, and refresh tokens are stored under that id. Legacy eBay
-  cookies cannot become a member's connection. Manual code-pasting is disabled
-  in account mode; it cannot provide the same callback account binding.
-- Draft IndexedDB and model/shop preferences are namespaced. Only the owner keeps
-  the existing namespace, preserving their old draft. These local browser files
-  are not encrypted; separate browser profiles are required on shared machines.
-  No cross-device synchronization is claimed.
-- Existing cloud jobs use shared identities: disabled in account mode. Drain any
-  active jobs before rollout. Do not turn background jobs back on until tenant
-  identity and provider credentials are carried and revalidated by the worker.
-- Price research is disabled in account mode pending review of current eBay
-  API entitlements/terms. eBay API keys stay with the operator and calls share
-  application quotas. Each seller consents through eBay, never supplies passwords.
-- Technical separation does not establish legal compliance. Before sharing,
-  review operator privacy/terms, subprocessors/DPAs, international AI transfers,
-  account-deletion notification requirements, retention and eBay application
-  requirements. Do not advertise full GDPR/eBay compliance without that review.
+## Owner setup
+Set SNAPLIST_ACCOUNTS_ENABLED=true, SNAPLIST_OWNER_EMAIL=stla030@web.de,
+APP_URL=https://snaplist-bay.vercel.app and the public operator contact.
+The optional SNAPLIST_OWNER_USER_ID can pin the exact UUID after setup; until
+then the fixed server owner email plus verified active app membership identifies
+the owner. A normal browser signup cannot grant this membership.
 
-## Verification before activation
-1. Deploy an isolated preview with its own APP_URL and enable accounts there.
-2. Verify owner login, original draft restoration and shared seller access.
-3. Invite two test users; test login/password, separate keys, missing-key failure,
-   revoked membership, session refresh, eBay callbacks, A/B swapped identifiers,
-   wrong origin and stale-tab writes. Test only read/verify actions at eBay.
-4. Confirm previous users' local files are not shown in the interface; use
-   separate browser profiles where local at-rest confidentiality is required.
-5. Complete the legal configuration above and then enable production deliberately.
-   Retain a rollback deployment; turning the flag off restores single-owner mode
-   and must never be treated as public guest access.
+The operator visits /login?setup=1, proves existing owner access using the legacy
+APP_SECRET (the browser can reuse its saved access code), and chooses their own
+new 12+ character password. The server creates only the configured owner's Auth
+account, with active admin metadata and confirmed email. This confirmation uses
+the previous operator credential rather than email delivery. Unique Auth email
+prevents another claim. Existing Auth accounts are never overwritten or reset.
+No password is generated by the assistant or supplied through chat. Setup can
+resume through regular login if Auth creation succeeded but login was interrupted.
 
-Current implementation is not an activated multi-user service. No migration,
-owner creation, external invitations, paid upgrade or production flag change
-is performed merely by adding these files.
+The existing owner's draft DB/model/shop namespaces stay unchanged. Existing
+server provider keys remain available to the verified owner only; members never
+fall back to them. Explicit empty key overrides disable a provider for the owner.
+The owner retains the legacy shared eBay grant; members connect their own seller.
+
+## Invitations
+Owner-only /api/account invite generates a single-use link for a specific email,
+sets app membership through the admin API, and returns the link privately to the
+owner for forwarding. No mail is sent. Token in URL fragment is removed before
+POST verification. Invited users set their password under Mein Konto.
+
+## Isolation and limits
+All interactive API routes require verified auth and active membership. Writes
+check origin and the page account id to reject stale tabs after account changes.
+Provider/eBay credentials are request-scoped; the original shared eBay grant is
+restricted to the owner. Local files are namespaced, not encrypted; use separate
+browser profiles on shared computers. No cross-device photo sync is promised.
+Existing shared-identity background jobs remain disabled; eBay price research for members remains disabled
+in account mode until their separate tenant/entitlement reviews are complete.
+
+## Verification / operational checks
+Unit tests cover unauthorized callers, revoked memberships, wrong origins,
+account switching, concurrent keys, owner-only fallback, own eBay grants and
+preserving owner storage namespaces. Existing workflow/browser tests must pass.
+Perform a real owner setup and a second invited-user connection test before
+sharing widely. The owner must enter the password; do not bypass that step.
+Keep an existing production deployment for rollback. No real eBay publications
+or paid AI reanalyses are part of migration tests.
+
+Technical controls do not certify legal compliance. Operator contact, privacy
+text, subprocessors/DPAs, AI international transfers, eBay deletion notifications,
+terms/consent and retention require the operator's review before broader use.
+
+## Personal eBay callback
+Set SNAPLIST_EBAY_RU_NAME only after registering a separate eBay RuName whose
+accepted URL is https://snaplist-bay.vercel.app/api/ebay/callback. Do not reuse
+the old callback automatically: it may exchange a grant in ebay-ki-tools and
+change its shared seller. The existing EBAY_RU_NAME, app credentials and shared
+owner grant remain untouched. Owner's existing connection and price research
+keep working; new personal seller authorizations fail closed until this separate
+redirect is configured. Do not claim the friend's eBay onboarding is ready yet.
