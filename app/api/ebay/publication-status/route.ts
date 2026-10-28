@@ -1,3 +1,4 @@
+import {withAccount} from "@/lib/accounts/server";
 import { NextRequest, NextResponse } from "next/server";
 import { guardApiRequest } from "@/lib/api-guard";
 import { sellerAccessToken, EBAY_COOKIE } from "@/lib/ebay/session";
@@ -7,7 +8,7 @@ import {
 } from "@/lib/ebay/publication-identity";
 import { validationMessage, skuSchema } from "@/lib/validation";
 export const maxDuration = 120;
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const denied = guardApiRequest(req);
   if (denied) return denied;
   try {
@@ -30,3 +31,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST=withAccount(handlePOST);

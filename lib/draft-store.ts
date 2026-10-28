@@ -1,3 +1,4 @@
+import {workspaceStorageKey} from "./workspace-scope";
 import { withPublicationIdentity } from "./publication-identity";
 import type { ItemGroup, Photo } from "./types";
 export interface WorkspaceDraft {
@@ -14,7 +15,7 @@ export interface WorkspaceDraft {
 const DB = "listing-writer-drafts";
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const r = indexedDB.open(DB, 3);
+    const r = indexedDB.open(workspaceStorageKey(DB), 3);
     r.onupgradeneeded = () => {
       if (!r.result.objectStoreNames.contains("workspace"))
         r.result.createObjectStore("workspace");

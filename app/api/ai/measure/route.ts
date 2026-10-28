@@ -1,3 +1,4 @@
+import {withAccount} from "@/lib/accounts/server";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { guardApiRequest } from "@/lib/api-guard";
@@ -22,7 +23,7 @@ const requestSchema = z.object({
   image: imageSchema,
   listing: z.unknown(),
 });
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const denied = guardApiRequest(req);
   if (denied) return denied;
   const headers = { "Cache-Control": "no-store" };
@@ -121,3 +122,5 @@ export async function POST(req: NextRequest) {
     { status: result.ok ? 200 : 502, headers },
   );
 }
+
+export const POST=withAccount(handlePOST);

@@ -1,3 +1,4 @@
+import {withAccount} from "@/lib/accounts/server";
 import {recognizePhotoSeparators} from "@/lib/ai-photo-separators";
 import { DEFAULT_AI_MODEL } from "@/lib/ai-defaults";
 import { collectUsage, currentUsage } from "@/lib/ai-usage";
@@ -111,7 +112,7 @@ async function handle(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const { result, usage } = await collectUsage(() => handle(req));
   if (!result.ok)
     return NextResponse.json(
@@ -120,3 +121,5 @@ export async function POST(req: NextRequest) {
     );
   return result;
 }
+
+export const POST=withAccount(handlePOST);

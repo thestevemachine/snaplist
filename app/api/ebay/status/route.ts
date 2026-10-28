@@ -1,3 +1,5 @@
+import {accountsEnabled,currentAccount} from "@/lib/accounts/context";
+import {withAccount} from "@/lib/accounts/server";
 import { NextRequest, NextResponse } from "next/server";
 import { rateLimitRequest } from "@/lib/api-guard";
 import { isEbayConfigured } from "@/lib/ebay/config";
@@ -9,12 +11,12 @@ export const dynamic = "force-dynamic";
 // Lightweight check the UI calls on load: is eBay set up + connected?
 // Returns booleans only, so it stays outside the access code — but not
 // outside the rate limiter.
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   const limited = rateLimitRequest(req);
   if (limited) return limited;
 
   const configured = isEbayConfigured();
-  const conn = await openConnection(req.cookies.get(EBAY_COOKIE)?.value);
+  const conn = await openConnection(accountsEnabled() ? currentAccount()?.secrets.ebay : req.cookies.get(EBAY_COOKIE)?.value);
   return NextResponse.json(
     {
       configured,
@@ -24,3 +26,5 @@ export async function GET(req: NextRequest) {
     { headers: { "Cache-Control": "no-store" } },
   );
 }
+
+export const GET=withAccount(handleGET);

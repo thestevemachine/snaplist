@@ -1,3 +1,5 @@
+import {accountsEnabled,currentAccount} from "@/lib/accounts/context";
+import {withAccount} from "@/lib/accounts/server";
 import { NextRequest, NextResponse } from "next/server";
 import { guardApiRequest } from "@/lib/api-guard";
 import { buildAuthorizeUrl } from "@/lib/ebay/oauth";
@@ -19,12 +21,12 @@ function setStateCookie(res: NextResponse, state: string): void {
 // Kick off the eBay connection after the app access code has been verified.
 // This cannot be a plain link/GET, because GET redirects cannot carry the
 // x-app-secret header stored by the browser.
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const denied = guardApiRequest(req);
   if (denied) return denied;
 
   try {
-    const state = crypto.randomUUID();
+    const state = (accountsEnabled() ? currentAccount()!.id+":" : "")+crypto.randomUUID();
     const url = buildAuthorizeUrl(state);
     const res = NextResponse.json({ ok: true, url });
     setStateCookie(res, state);
@@ -37,9 +39,12 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET() {
+async function handleGET() {
   return NextResponse.json(
     { ok: false, code: "ACCESS_CODE_REQUIRED", error: "Use the app to start eBay authorization." },
     { status: 401 }
   );
 }
+
+export const POST=withAccount(handlePOST);
+export const GET=withAccount(handleGET);

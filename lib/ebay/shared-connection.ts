@@ -1,3 +1,4 @@
+import {accountsEnabled,currentAccount} from "../accounts/context";
 // Server-only: node:crypto cannot be bundled into a browser component.
 // The shared database is a read-only credential source. Never update its row.
 import { createDecipheriv } from "node:crypto";
@@ -57,6 +58,7 @@ async function checkedStep<T>(
 }
 
 export function isSharedEbayConfigured(): boolean {
+  if(accountsEnabled() && !currentAccount()?.owner) return false;
   return Boolean(
     process.env.SUPABASE_EU_URL &&
     process.env.SUPABASE_EU_SECRET_KEY &&
@@ -103,6 +105,7 @@ export function decryptSharedRefreshToken(
 // Intentionally private: testing this connection must not enable publishing or
 // copy the shared refresh token into the existing browser-cookie OAuth flow.
 export async function sharedAccessToken(): Promise<string> {
+  if(accountsEnabled() && !currentAccount()?.owner) throw new Error("Shared seller access is restricted to the owner.");
   const url = process.env.SUPABASE_EU_URL?.trim();
   const secret = process.env.SUPABASE_EU_SECRET_KEY?.trim();
   const key = process.env.EBAY_TOKEN_ENCRYPTION_KEY?.trim();
@@ -241,7 +244,8 @@ export async function sharedAccessToken(): Promise<string> {
 }
 
 export async function testSharedEbayConnection(): Promise<void> {
-  const token = await sharedAccessToken();
+  const token = accountsEnabled() ? await (await import("./session")).sellerAccessToken(undefined) : await sharedAccessToken();
+  if(!token) throw new Error("Own eBay connection required.");
   const endpoint = new URL(`${EBAY_ACC_BASE}/fulfillment_policy`);
   endpoint.searchParams.set("marketplace_id", EBAY_MARKETPLACE_ID);
   const response = await checkedStep(
@@ -276,7 +280,8 @@ export async function testGermanEbayReadiness() {
       "Für diesen Test müssen EBAY_MARKETPLACE_ID=EBAY_DE, EBAY_CURRENCY=EUR und EBAY_CATEGORY_TREE_ID=77 im Vercel-Projekt snaplist eingestellt sein.",
     );
   }
-  const token = await sharedAccessToken();
+  const token = accountsEnabled() ? await (await import("./session")).sellerAccessToken(undefined) : await sharedAccessToken();
+  if(!token) throw new Error("Own eBay connection required.");
   const counts: Record<string, number> = {};
   for (const [kind, field, label] of [
     ["fulfillment", "fulfillmentPolicies", "Versandrichtlinien"],

@@ -1,3 +1,4 @@
+import {withAccount} from "@/lib/accounts/server";
 import { storeCloudDraft, restoreCloudDraft } from "@/lib/cloud/draft-sku";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -34,10 +35,10 @@ const groupSchema = z.object({
   photoIds: z.array(clientId).min(1).max(24),
   analysisPhotoIds: z.array(clientId).min(1).max(24).optional(),
 });
-export async function GET() {
+async function handleGET() {
   return NextResponse.json({ enabled: cloudEnabled() });
 }
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const denied = guardApiRequest(req);
   if (denied) return denied;
   if (!cloudEnabled())
@@ -354,3 +355,6 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const GET=withAccount(handleGET);
+export const POST=withAccount(handlePOST);

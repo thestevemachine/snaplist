@@ -1,3 +1,4 @@
+import {withAccount} from "@/lib/accounts/server";
 import { NextRequest, NextResponse } from "next/server";
 import { guardApiRequest } from "@/lib/api-guard";
 import { getClient } from "@/lib/anthropic";
@@ -6,7 +7,7 @@ import { collectUsage, measuredMessage } from "@/lib/ai-usage";
 import { AiProviderError } from "@/lib/ai-providers";
 export const runtime = "nodejs";
 export const maxDuration = 60;
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const denied = guardApiRequest(req);
   if (denied) return denied;
   let body: any;
@@ -61,3 +62,5 @@ export async function POST(req: NextRequest) {
     { status: result.ok ? 200 : 502, headers },
   );
 }
+
+export const POST=withAccount(handlePOST);

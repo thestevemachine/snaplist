@@ -1,3 +1,4 @@
+import {withAccount} from "@/lib/accounts/server";
 import { NextRequest, NextResponse } from "next/server";
 import { getClient, AnthropicAuthError } from "@/lib/anthropic";
 import { guardApiRequest, safeErrorResponse } from "@/lib/api-guard";
@@ -11,7 +12,7 @@ import type { WireImage } from "@/lib/images";
 
 export const maxDuration = 30;
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const denied = guardApiRequest(req);
   if (denied) return denied;
 
@@ -61,3 +62,5 @@ export async function POST(req: NextRequest) {
     return safeErrorResponse("merge-check", e, "Merge check failed.");
   }
 }
+
+export const POST=withAccount(handlePOST);

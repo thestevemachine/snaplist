@@ -1,3 +1,5 @@
+import {accountsEnabled} from "@/lib/accounts/context";
+import {withAccount} from "@/lib/accounts/server";
 import { DEFAULT_AI_MODEL } from "@/lib/ai-defaults";
 import { NextResponse } from "next/server";
 import { getClient } from "@/lib/anthropic";
@@ -118,22 +120,23 @@ function buildPayload(raw: ModelInfo[]): ModelsPayload {
 
 async function claudeModels() {
   const now = Date.now();
-  if (cache && now - cacheAt < CACHE_TTL) {
+  if (!accountsEnabled() && cache && now - cacheAt < CACHE_TTL) {
     return NextResponse.json(cache);
   }
 
   try {
     const client = getClient();
     const page = await client.models.list();
-    cache = buildPayload(page.data);
+    const payload=buildPayload(page.data);
+    if(!accountsEnabled()) cache=payload;
     cacheAt = now;
-    return NextResponse.json(cache);
+    return NextResponse.json(payload);
   } catch {
     return NextResponse.json(FALLBACK);
   }
 }
 
-export async function GET() {
+async function handleGET() {
   const response = await claudeModels();
   const payload = (await response.json()) as ModelsPayload;
   const extras = AI_MODELS.map((m) => ({
@@ -158,3 +161,5 @@ export async function GET() {
     { headers: { "Cache-Control": "no-store" } },
   );
 }
+
+export const GET=withAccount(handleGET);

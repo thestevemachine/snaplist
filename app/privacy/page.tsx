@@ -1,63 +1,9 @@
-import type { Metadata } from "next";
-
-export const metadata: Metadata = {
-  title: "Privacy Policy — Listing Writer",
-  description: "How Listing Writer handles your data.",
-};
-
-export default function PrivacyPage() {
-  return (
-    <main className="wrap">
-      <article className="panel" style={{ lineHeight: 1.7 }}>
-        <h1 style={{ fontFamily: "var(--font-display)" }}>Privacy Policy</h1>
-        <p style={{ color: "var(--color-ink-soft)" }}>
-          Listing Writer is a personal tool for creating eBay listings from item
-          photos. This policy explains what it does and does not do with your
-          data.
-        </p>
-
-        <h2 className="section-label">What we collect</h2>
-        <ul>
-          <li>
-            <strong>Photos you upload.</strong> They are resized in your browser
-            and sent to our server only to generate listing text. They are{" "}
-            <strong>not stored</strong> after the listing is written.
-          </li>
-          <li>
-            <strong>Your eBay connection.</strong> If you connect eBay, we store
-            an encrypted token in a cookie in your browser so the app can post
-            listings on your behalf. We never see your eBay password.
-          </li>
-        </ul>
-
-        <h2 className="section-label">What we share</h2>
-        <ul>
-          <li>
-            Photos and listing text are sent to <strong>Anthropic</strong> (the
-            AI that writes the listing) and, when you choose to post, to{" "}
-            <strong>eBay</strong> to create your listing.
-          </li>
-          <li>
-            We do not sell your data or share it with anyone else.
-          </li>
-        </ul>
-
-        <h2 className="section-label">Your control</h2>
-        <ul>
-          <li>
-            You can disconnect eBay at any time, which deletes the stored token.
-          </li>
-          <li>
-            Clearing your browser cookies removes your saved eBay connection.
-          </li>
-        </ul>
-
-        <h2 className="section-label">Contact</h2>
-        <p>
-          Questions about this policy can be directed to the account owner who
-          operates this tool.
-        </p>
-      </article>
-    </main>
-  );
-}
+import {accountsEnabled} from "@/lib/accounts/context";
+export default function PrivacyPage(){return <main className="wrap"><article className="panel"><h1>Datenschutz bei SNAPLIST</h1>
+<p>SNAPLIST verarbeitet Produktfotos und Artikeldaten, um Entwürfe zu erstellen. Angebote werden erst nach deiner ausdrücklichen Bestätigung an eBay übermittelt.</p>
+<h2>Fotos und Entwürfe</h2><p>Fotos, Entwürfe und Einstellungen werden im verwendeten Browser gespeichert. In der Kontoversion erhält jeder Nutzer einen eigenen Arbeitsbereich. Auf gemeinsam genutzten Computern bitte getrennte Browserprofile verwenden: Browserdaten sind kein geschützter Online-Tresor. Es findet in dieser Kontoversion keine automatische geräteübergreifende Foto-Synchronisierung oder Hintergrundverarbeitung statt.</p>
+<h2>Anmeldung und Verbindungen</h2><p>{accountsEnabled() ? "E-Mail-Adresse und Anmeldedaten werden über Supabase Auth verarbeitet. eBay-Verbindungen und eigene KI-Schlüssel werden verschlüsselt in der EU-Datenbank gespeichert und ausschließlich serverseitig benutzt. Sie werden nicht an andere Nutzer ausgegeben." : "Der bestehende Zugang wird vom Betreiber eingerichtet. Bitte den Zugangslink und Zugangscode nicht an andere Personen weitergeben."} Wir fragen niemals nach deinem eBay-Passwort; die Freigabe erfolgt auf der eBay-Seite.</p>
+<h2>KI-Anbieter und eBay</h2><p>Zur Analyse werden die ausgewählten Fotos und Artikelangaben an den gewählten KI-Anbieter (Google Gemini, OpenAI oder Anthropic) gesendet. Dessen Verarbeitung kann außerhalb der EU erfolgen. Es gelten dessen Vertragsbedingungen und Datenschutzhinweise. Ein eigener API-Schlüssel bedeutet nicht automatisch, dass keine Datenübermittlung stattfindet. Hosting und technische Verarbeitung erfolgen über Vercel; die Kontodatenbank liegt bei Supabase in der EU.</p>
+<h2>Kontrolle und Löschung</h2><p>Du kannst deine KI-Schlüssel und persönliche eBay-Verbindung in SNAPLIST entfernen und die eBay-Freigabe zusätzlich direkt bei eBay widerrufen. Lokale Entwürfe lassen sich über „Neuen Stapel beginnen“ beziehungsweise die Browserdaten löschen. Kontolöschung und Auskunft können beim Betreiber angefordert werden; eine Löschung bei SNAPLIST beendet keine bereits veröffentlichten eBay-Angebote.</p>
+<h2>Verantwortlicher und Kontakt</h2><p>{process.env.SNAPLIST_PRIVACY_CONTACT || "Vor Freischaltung für weitere Nutzer müssen Name, Anschrift und Datenschutzkontakt des verantwortlichen Betreibers sowie die erforderlichen Vertragsinformationen ergänzt werden. Die Mehrbenutzerversion ist noch nicht freigegeben."}</p>
+<p>Diese technische Beschreibung ersetzt keine Prüfung der erforderlichen Datenschutzinformationen, Rechtsgrundlagen, Auftragsverarbeitungsverträge und Nutzungsbedingungen des konkreten Betriebs.</p><a href="/">Zurück zu SNAPLIST</a></article></main>}

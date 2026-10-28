@@ -1,3 +1,4 @@
+import {accountsEnabled,providerKey} from "./accounts/context";
 import Anthropic from "@anthropic-ai/sdk";
 import { providerFor } from "./ai-catalog";
 import { externalClient } from "./ai-providers";
@@ -6,12 +7,13 @@ let client: Anthropic | null = null;
 
 export function getClient(model?: string): Anthropic {
   if (model && providerFor(model) !== "anthropic") return externalClient(model);
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = providerKey("anthropic");
   if (!apiKey) {
     throw new Error(
-      "ANTHROPIC_API_KEY is not set. Add it in Vercel → Settings → Environment Variables (or in .env.local for local dev).",
+      accountsEnabled() ? "Bitte deinen eigenen Claude-Schlüssel unter Mein Konto hinterlegen." : "ANTHROPIC_API_KEY is not set. Add it in Vercel → Settings → Environment Variables (or in .env.local for local dev).",
     );
   }
+  if(accountsEnabled()) return new Anthropic({apiKey});
   if (!client) {
     client = new Anthropic({ apiKey });
   }

@@ -1,3 +1,4 @@
+import {accountsEnabled,providerKey} from "./accounts/context";
 // Server-only provider adapters. Reuse the existing image/prompt/schema pipeline.
 import "node:crypto";
 import type Anthropic from "@anthropic-ai/sdk";
@@ -23,13 +24,7 @@ export function isAiTerminal(error: unknown): boolean {
   );
 }
 export function providerConfigured(provider: string) {
-  return Boolean(
-    provider === "google"
-      ? process.env.GEMINI_API_KEY
-      : provider === "openai"
-        ? process.env.OPENAI_API_KEY
-        : process.env.ANTHROPIC_API_KEY,
-  );
+  return Boolean(providerKey(provider));
 }
 type Params = Anthropic.MessageCreateParamsNonStreaming;
 type Block = Anthropic.ContentBlockParam;
@@ -96,14 +91,10 @@ export async function providerMessage(
   if (!meta)
     throw new AiProviderError("Dieses Modell ist nicht freigegeben.", 400);
   const provider = providerFor(params.model);
-  const key = (
-    provider === "google"
-      ? process.env.GEMINI_API_KEY
-      : process.env.OPENAI_API_KEY
-  )?.trim();
+  const key=providerKey(provider).trim();
   if (!key)
     throw new AiProviderError(
-      `${provider === "google" ? "GEMINI_API_KEY" : "OPENAI_API_KEY"} fehlt. Bitte in Vercel → snaplist → Settings → Environment Variables als Secret hinterlegen.`,
+      accountsEnabled() ? "Bitte deinen eigenen API-Schlüssel unter Mein Konto hinterlegen." : `${provider === "google" ? "GEMINI_API_KEY" : "OPENAI_API_KEY"} fehlt. Bitte in Vercel → snaplist → Settings → Environment Variables als Secret hinterlegen.`,
       503,
     );
   const schema =
