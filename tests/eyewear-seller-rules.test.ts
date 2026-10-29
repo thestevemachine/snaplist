@@ -47,3 +47,8 @@ it("puts dominant Lila before small gold accents and translates Lilac",()=>{
  const m=[{...meta[0],values:["Gold","Lila"]}];
  const title=germanGlassesTitle(l,m);expect(title).toContain("Lila Gold");expect(title).not.toMatch(/lilac|geometr/i);
 });
+
+it('repairs a stored size reference with preserved photo evidence rather than leaving an unproven placeholder',()=>{
+ const listing={title:'Brille',description:'',size:'51-18-145',eyewear:{fields:{modelNumber:{value:'X',source:'label' as const,quote:'X 51 □ 18 145',photos:[2]}},warnings:[]}};
+ const p=boxSizePatch(listing,[])!;expect(p.eyewear?.fields.lensWidth).toMatchObject({value:'51',photos:[2],quote:'X 51 □ 18 145'});
+});

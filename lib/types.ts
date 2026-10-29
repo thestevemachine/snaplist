@@ -144,6 +144,7 @@ export interface ItemGroup {
   shipping?: Partial<ShippingSelection>;
   imageUrls?: string[];
   uploadedPhotoIds?: string[];
+  photoUploadUrls?: Record<string,string>;
   publicationAttemptSku?: string;
   publicationId?: string;
   publicationConflict?: { listingId: string; sku: string; title: string };

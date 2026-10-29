@@ -162,3 +162,10 @@ it("accepts exact material translations printed on demo lenses without inventing
     acceptedPhotoFact({ ...fact, name: "Modell", value: "Titan" }, 1),
   ).toBe(false);
 });
+
+it('accepts mm units and taxonomy suffixes without swapping width and bridge in box inscriptions',()=>{
+ expect(acceptedPhotoFact(fact({name:'Glasbreite (mm)',value:'51 mm',basis:'label',quote:'51 □ 18 145'}),2)).toBe(true);
+ expect(acceptedPhotoFact(fact({name:'Stegbreite',value:'18 mm',basis:'label',quote:'51 □ 18 145'}),2)).toBe(true);
+ expect(acceptedPhotoFact(fact({name:'Glasbreite',value:'18 mm',basis:'label',quote:'51 □ 18 145'}),2)).toBe(false);
+ expect(acceptedPhotoFact(fact({name:'Glasbreite',value:'51 mm',basis:'label',quote:'Modell 6151'}),2)).toBe(false);
+});

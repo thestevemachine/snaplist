@@ -14,9 +14,9 @@ export function boxSizePatch(l:ListingResult,meta:AspectMeta[]):Partial<ListingR
  }
  const facts=Object.values(fields).filter(f=>f?.source==="label" && f.quote && f.photos?.length);
  for(const key of dimensionKeys) {
-  if(fields[key]?.value?.trim() || fields[key]?.source==="manual") continue;
+  if(fields[key]?.source==="manual" || (fields[key]?.value?.trim() && fields[key]?.quote && fields[key]?.photos?.length)) continue;
   const candidates=facts.flatMap(f=>{const d=parseBoxDimensions(f!.quote!);return d?.[key] ? [{...f!,value:d[key]!}] : []});
-  if(new Set(candidates.map(f=>f.value)).size===1) {fields[key]=candidates[0];changed=true;}
+  if(new Set(candidates.map(f=>f.value)).size===1 && (!fields[key]?.value?.trim() || fields[key]!.value.replace(/\s*mm$/i, "")===candidates[0].value)) {fields[key]=candidates[0];changed=true;}
  }
  const box=[fields.lensWidth?.value,fields.bridgeWidth?.value].filter(Boolean).join(" □ ")+(fields.templeLength?.value ? ` ${fields.templeLength.value}` : "");
  const sizeMissing=!l.size?.trim() && !l.manual_measurement_fields?.includes("Größe") && Boolean(fields.lensWidth?.value && fields.bridgeWidth?.value);
@@ -29,11 +29,11 @@ export function boxSizePatch(l:ListingResult,meta:AspectMeta[]):Partial<ListingR
  return {eyewear:next.eyewear,item_specifics:Object.fromEntries(Object.entries(aspects).map(([k,v])=>[k,v.join(" | ")])),...(sizeMissing ? {size:box} : {})};
 }
 export const measurementDefinitions=[
- {label:"Glasbreite",key:"lensWidth",pattern:/^(Glasbreite|Gläserbreite|Scheibenbreite|Glasdurchmesser|Scheibengröße|Lens Width)$/i},
- {label:"Stegbreite",key:"bridgeWidth",pattern:/^(Stegbreite|Brückenbreite|Bridge Width)$/i},
- {label:"Bügellänge",key:"templeLength",pattern:/^(Bügellänge|Temple Length)$/i},
- {label:"Glashöhe",key:undefined,pattern:/^(Glashöhe|Scheibenhöhe|Gläserhöhe|Lens Height)$/i},
- {label:"Gesamtbreite",key:"totalWidth",pattern:/^(Gesamtbreite|Rahmenbreite|Fassungsbreite|Frame Width|Total Frame Width)$/i},
+ {label:"Glasbreite",key:"lensWidth",pattern:/^(Glasbreite|Gläserbreite|Scheibenbreite|Glasdurchmesser|Scheibengröße|Lens Width)(?:\s*\(mm\))?$/i},
+ {label:"Stegbreite",key:"bridgeWidth",pattern:/^(Stegbreite|Brückenbreite|Bridge Width)(?:\s*\(mm\))?$/i},
+ {label:"Bügellänge",key:"templeLength",pattern:/^(Bügellänge|Temple Length)(?:\s*\(mm\))?$/i},
+ {label:"Glashöhe",key:undefined,pattern:/^(Glashöhe|Scheibenhöhe|Gläserhöhe|Lens Height)(?:\s*\(mm\))?$/i},
+ {label:"Gesamtbreite",key:"totalWidth",pattern:/^(Gesamtbreite|Rahmenbreite|Fassungsbreite|Frame Width|Total Frame Width)(?:\s*\(mm\))?$/i},
 ] as const;
 export function manualEyewearMeasurement(l:ListingResult,label:string,value:string,meta:AspectMeta[]):Partial<ListingResult> {
  const definition=measurementDefinitions.find(d=>d.label===label)!;

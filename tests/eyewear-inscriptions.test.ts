@@ -392,3 +392,8 @@ it("reads box dimensions from a labeled size value when its quote has a differen
  const e=extractEyewear([fact("Kastenmaß","48-23-145","48 □ 23 / Bügel 145")]);
  expect(e.fields.lensWidth?.value).toBe("48");expect(e.fields.bridgeWidth?.value).toBe("23");expect(e.fields.templeLength?.value).toBe("145");
 });
+
+it('normalizes units before comparing compound and individual dimension facts',()=>{
+ const e=extractEyewear([fact('Glasbreite (mm)','51 mm','51 □ 18 145'),fact('Stegbreite (mm)','18 mm','51 □ 18 145'),fact('Bügellänge','145 mm','51 □ 18 145')]);
+ expect(e.fields.lensWidth?.value).toBe('51');expect(e.fields.bridgeWidth?.value).toBe('18');expect(e.fields.templeLength?.value).toBe('145');expect(e.warnings).toEqual([]);
+});

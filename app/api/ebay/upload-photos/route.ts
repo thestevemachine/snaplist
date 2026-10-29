@@ -3,7 +3,7 @@ import { withDeadline } from "@/lib/network";
 import { NextRequest, NextResponse } from "next/server";
 import { EBAY_COOKIE, sellerAccessToken } from "@/lib/ebay/session";
 import { guardApiRequest } from "@/lib/api-guard";
-import { uploadPhotos } from "@/lib/ebay/publish";
+import { uploadPhotosDetailed } from "@/lib/ebay/photo-upload";
 
 // Uploads ONE small batch of photos to eBay Picture Services and returns the
 // hosted URLs. The client splits a listing's photos into batches sized well
@@ -95,13 +95,8 @@ async function handle(req: NextRequest) {
       : 0;
 
   try {
-    const urls = await uploadPhotos(accessToken, images, sku, startIndex);
-    // Report partial results so the client blocks publication until all photos upload.
-    return NextResponse.json({
-      ok: true,
-      urls,
-      failed: images.length - urls.length,
-    });
+    const result = await uploadPhotosDetailed(accessToken, images, sku, startIndex);
+    return NextResponse.json({ok:true,...result});
   } catch (e) {
     console.error(`[ebay/upload-photos] unhandled error sku=${sku}:`, e);
     return NextResponse.json(
