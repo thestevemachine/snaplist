@@ -77,6 +77,7 @@ describe("front photo pixel ratios", () => {
     o.leftLens.right.y = 0.5;
     const l = listing();
     l.eyewear!.fields.lensWidth!.value = "51";
+    l.eyewear!.fields.lensWidth!.quote = "51□18 140";
     expect(calculateFrontMeasurement(o, sizes, l)).toMatchObject({
       lensWidthPx: 250,
       lensHeightMm: 41,

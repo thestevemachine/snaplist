@@ -1,3 +1,4 @@
+import {measurementSafetyPatch} from "@/lib/measurement-safety";
 import {boxSizePatch} from "@/lib/eyewear-measurements";
 import {eyewearSellerRulePatch} from "@/lib/eyewear-seller-rules";
 import { lindbergLensWidthPatch } from "@/lib/lindberg-lens-width";
@@ -304,6 +305,7 @@ export async function prepareListing(body: any, sealedConnection?: string) {
             }
           }
           if (glasses) {
+            Object.assign(listing,measurementSafetyPatch(listing));
             const patch = frontMeasurementFields(listing, meta);
             if (patch) {
               Object.assign(listing, patch);

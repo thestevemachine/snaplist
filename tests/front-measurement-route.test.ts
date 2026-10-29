@@ -142,3 +142,10 @@ it("uses a seller-confirmed 46 mm demo-lens reference without demanding an AI la
  expect(data.measurement).toMatchObject({referenceMm:46,referenceSource:"manual",lensHeightMm:37,totalWidthMm:163});
  expect(fetchMock).toHaveBeenCalledTimes(1);
 });
+it("rejects fabricated scale and mismatched quoted box dimensions without charging",async()=>{
+ for(const quote of ["Bügelstand 50","Modell 50 CE","48 □ 18 140"]){
+  const b=body();b.listing.eyewear.fields.lensWidth.quote=quote;
+  const response=await POST(request(b));expect(response.status).toBe(400);
+ }
+ expect(fetchMock).not.toHaveBeenCalled();
+});

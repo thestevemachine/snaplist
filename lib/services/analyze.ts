@@ -258,23 +258,9 @@ async function handle(input: unknown) {
         );
         const raw = parseModelJson<Record<string, unknown>>(firstText(resp));
         const specifics = Array.isArray(raw.specifics) ? raw.specifics : [];
-        const supported = specifics.filter((s) =>
+        let supported = specifics.filter((s) =>
           acceptedPhotoFact(s, imageBlocks.length),
         );
-        for (const f of supported) {
-          if (
-            f.basis === "estimate" &&
-            /^(Scheibenhöhe|Glashöhe|Gläserhöhe|Gesamtbreite|Fassungsbreite|Rahmenbreite|Lichte Breite)$/i.test(
-              f.name,
-            )
-          )
-            f.value =
-              String(
-                Math.floor(
-                  Number(f.value.replace(/\s*mm$/i, "").replace(",", ".")),
-                ),
-              ) + " mm";
-        }
         let listing = parseListing({
           ...raw,
           item_specifics: Object.fromEntries(
@@ -283,25 +269,12 @@ async function handle(input: unknown) {
         });
         if (isGlasses(listing)) {
           listing.eyewear = extractEyewear(supported);
-          const grid = supported.filter(
-            (f) =>
-              f.basis === "estimate" &&
-              /^(Scheibenhöhe|Glashöhe|Gläserhöhe|Gesamtbreite|Fassungsbreite|Rahmenbreite|Lichte Breite)$/i.test(
-                f.name,
-              ),
-          );
-          if (grid.length)
-            listing.measurements = grid
-              .map(
-                (f) =>
-                  f.name +
-                  ": ca. " +
-                  f.value.replace(/\s*mm$/i, "") +
-                  " mm (Messfoto " +
-                  f.photoIndices.join(", ") +
-                  ")",
-              )
-              .join("\n");
+          // Height and total width come exclusively from deterministic pixel ratios.
+          const derived=/^(Scheibenhöhe|Glashöhe|Gläserhöhe|Gesamtbreite|Fassungsbreite|Rahmenbreite|Lichte Breite)(?:\s*\(mm\))?$/i;
+          supported=supported.filter(f=>!derived.test(f.name));
+          for(const name of Object.keys(listing.item_specifics ?? {})) if(derived.test(name)) delete listing.item_specifics![name];
+          delete listing.eyewear.fields.totalWidth;
+          listing.measurements="";
           for (const f of supported) {
             if (
               /^(Modellnummer|Model Number)$/i.test(f.name) &&
