@@ -1,3 +1,5 @@
+import {acceptedPhotoFact} from "@/lib/photo-facts";
+import {extractEyewear} from "@/lib/eyewear-inscriptions";
 import {boxSizePatch} from "@/lib/eyewear-measurements";
 import {manualLensWidth} from "@/lib/manual-lens-width";
 import { describe, it, expect } from "vitest";
@@ -309,4 +311,12 @@ it("reuses front contours after restoring a photo-proven box size",()=>{
  const restored={...l,...boxSizePatch(l,[])};
  const result=calculateFrontMeasurement(observation(),sizes,restored);
  expect(result.referenceMm).toBe(48);expect(result.lensHeightMm).toBeGreaterThan(0);expect(result.totalWidthMm).toBeGreaterThan(0);
+});
+
+it("keeps a 51 mm label through fact filtering, extraction and pixel measurement",()=>{
+ const facts=[{name:"Glasbreite (mm)",value:"51 mm",basis:"label" as const,quote:"51 □ 18 145",photoIndices:[2]}];
+ const supported=facts.filter(f=>acceptedPhotoFact(f,2));expect(supported).toHaveLength(1);
+ const o=observation();o.rightLens.left.x=.49;o.rightLens.right.x=.74;
+ const l={title:"Brille",description:"",eyewear:extractEyewear(supported)};
+ const m=calculateFrontMeasurement(o,sizes,l);expect(m).toMatchObject({referenceMm:51,lensHeightMm:41,totalWidthMm:181,status:"estimated"});
 });

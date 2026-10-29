@@ -1,3 +1,4 @@
+import {uploadPhotosDetailed} from "./photo-upload";
 import { parseListing, shippingSchema, skuSchema } from "@/lib/validation";
 import { verifyReview } from "@/lib/review";
 import { validateAspects } from "./draft";
@@ -847,47 +848,6 @@ function updateOfferBody(
 
 // ── Photo upload to eBay Picture Services (Trading API, XML) ──────────────────
 
-async function uploadPhoto(
-  accessToken: string,
-  base64: string,
-  mediaType: string,
-  name: string,
-): Promise<string | null> {
-  const xml = `<?xml version="1.0" encoding="utf-8"?>
-<UploadSiteHostedPicturesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
-  <PictureName>${name.slice(0, 50).replace(/[&<>]/g, "_")}</PictureName>
-  <PictureUploadPolicy>ClearAndNew</PictureUploadPolicy>
-</UploadSiteHostedPicturesRequest>`;
-
-  const data = base64.includes(",") ? base64.split(",")[1] : base64;
-  const bytes = Buffer.from(data, "base64");
-  const form = new FormData();
-  form.append(
-    "XML Payload",
-    new Blob([xml], { type: "text/xml;charset=utf-8" }),
-    "payload.xml",
-  );
-  form.append(
-    "image",
-    new Blob([new Uint8Array(bytes)], { type: mediaType }),
-    name,
-  );
-
-  const resp = await boundedFetch(EBAY_TRADING, {
-    method: "POST",
-    headers: {
-      "X-EBAY-API-SITEID": EBAY_MARKETPLACE_ID === "EBAY_DE" ? "77" : "0",
-      "X-EBAY-API-COMPATIBILITY-LEVEL": "1477",
-      "X-EBAY-API-CALL-NAME": "UploadSiteHostedPictures",
-      "X-EBAY-API-IAF-TOKEN": accessToken,
-    },
-    body: form,
-  });
-  const text = await resp.text();
-  const m = text.match(/<FullURL>([^<]+)<\/FullURL>/);
-  return m ? m[1] : null;
-}
-
 // ── Policies & location ──────────────────────────────────────────────────────
 
 export interface AccountSetup {
@@ -1061,24 +1021,9 @@ export async function uploadPhotos(
   // across batches instead of restarting at 1 in each.
   nameOffset = 0,
 ): Promise<string[]> {
-  const results: (string | null)[] = new Array(images.length).fill(null);
-  let cursor = 0;
-  const workers = Array.from(
-    { length: Math.min(4, images.length) },
-    async () => {
-      while (cursor < images.length) {
-        const i = cursor++;
-        results[i] = await uploadPhoto(
-          accessToken,
-          images[i].data,
-          images[i].mediaType,
-          `${sku}-${nameOffset + i + 1}.jpg`,
-        );
-      }
-    },
-  );
-  await Promise.all(workers);
-  return results.filter((u): u is string => Boolean(u));
+  const result=await uploadPhotosDetailed(accessToken,images,sku,nameOffset);
+  if(result.failed)throw new Error(result.results.find(r=>r.error)?.error || "Foto-Upload fehlgeschlagen.");
+  return result.urls;
 }
 
 export async function publishListing(

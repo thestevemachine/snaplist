@@ -1110,7 +1110,7 @@ export default function Home() {
               throw new Error(
                 "A selected photo is missing from device storage. Add it again before posting.",
               );
-            return { mediaType: p.mediaType, data: p.uploadData ?? p.data };
+            return { photoId:id, mediaType: p.mediaType, data: p.uploadData ?? p.data };
           }),
         );
         // 1. Ship the photos to eBay first, in batches small enough that no
@@ -1120,37 +1120,30 @@ export default function Home() {
           group.uploadedPhotoIds?.join(",") === group.photoIds.join(",")
             ? group.imageUrls
             : undefined;
-        const imageUrls: string[] = alreadyUploaded ? [...alreadyUploaded] : [];
-        let uploadedCount = 0;
-        for (const batch of chunkImagesForUpload(
-          alreadyUploaded ? [] : images,
-        )) {
+        const uploadedPhotos={...group.photoUploadUrls};
+        if(alreadyUploaded) group.photoIds.forEach((id,i)=>{uploadedPhotos[id]=alreadyUploaded[i];});
+        const pendingImages=images.filter(image=>!uploadedPhotos[image.photoId]);
+        let uploadedCount=images.length-pendingImages.length;
+        for (const batch of chunkImagesForUpload(pendingImages)) {
           for (let attempt = 0; ; attempt++) {
-            const res = await apiPost("/api/ebay/upload-photos", {
-              sku: group.sku,
-              images: batch,
-              startIndex: uploadedCount,
-            });
+            const res = await apiPost("/api/ebay/upload-photos", {sku:group.sku,images:batch,startIndex:uploadedCount});
             if (attempt < 2 && TRANSIENT_STATUSES.has(res.status)) {
-              await sleep(res.status === 429 ? 65_000 : 8_000);
-              continue;
+              await sleep(res.status === 429 ? 65_000 : 8_000);continue;
             }
-            const d = (await readJson(res)) as {
-              ok?: boolean;
-              error?: string;
-              urls?: string[];
-            };
-            if (!d.ok)
-              throw new Error(d.error || "Could not upload photos to eBay.");
-            if (!Array.isArray(d.urls) || d.urls.length !== batch.length)
-              throw new Error(
-                "Some selected photos failed to upload. Nothing was published. Retry the upload.",
-              );
-            imageUrls.push(...d.urls);
+            const d = (await readJson(res)) as {ok?:boolean;error?:string;urls?:string[];results?:{url:string|null;error?:string}[]};
+            if(!d.ok)throw new Error(d.error || "Fotos konnten nicht zu eBay hochgeladen werden.");
+            const results:{url:string|null;error?:string}[]=Array.isArray(d.results) && d.results.length===batch.length ? d.results : batch.map((_,i)=>({url:d.urls?.length===batch.length ? d.urls[i] : null}));
+            results.forEach((result,i)=>{if(result.url)uploadedPhotos[batch[i].photoId]=result.url;});
+            const saved={...groupsRef.current.find(g=>g.id===groupId)!,photoUploadUrls:{...uploadedPhotos}};
+            editGroup(groupId,{photoUploadUrls:{...uploadedPhotos}});
+            await saveDraft({version:1,sortUsage,photos:[...photoMap.values()],groups:groupsRef.current.map(g=>g.id===groupId ? saved : g),orphanIds,binPrefix,skuStart,step:"listings",updatedAt:Date.now()});
+            const failed=results.map((r,i)=>!r.url ? {index:group.photoIds.indexOf(batch[i].photoId)+1,error:r.error} : null).filter(Boolean);
+            if(failed.length)throw new Error(`Foto ${failed.map(f=>f!.index).join(", ")}: ${failed.find(f=>f!.error)?.error || "Upload fehlgeschlagen."} Erfolgreiche Fotos sind gespeichert. Nichts veröffentlicht; bitte erneut versuchen.`);
             break;
           }
-          uploadedCount += batch.length;
+          uploadedCount+=batch.length;
         }
+        const imageUrls=group.photoIds.map(id=>uploadedPhotos[id]).filter(Boolean);
         if (imageUrls.length === 0) {
           throw new Error("Could not upload any photos to eBay.");
         }
@@ -1159,6 +1152,7 @@ export default function Home() {
         const uploadWarnings: string[] = [];
         const uploaded = {
           ...group,
+          photoUploadUrls:{...uploadedPhotos},
           imageUrls,
           uploadedPhotoIds: [...group.photoIds],
           postStatus: "posting" as const,

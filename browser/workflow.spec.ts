@@ -161,16 +161,11 @@ test("partial image upload stops publication; retry preserves reviewed fields", 
   let calls = 0;
   let fail = true;
   await setup(page);
-  await page.route("**/api/ebay/upload-photos", (r) =>
-    r.fulfill({
-      json: {
-        ok: true,
-        urls: fail
-          ? ["https://i.ebayimg.com/1.jpg"]
-          : ["https://i.ebayimg.com/1.jpg", "https://i.ebayimg.com/2.jpg"],
-      },
-    }),
-  );
+  const uploadedCounts:number[]=[];
+  await page.route("**/api/ebay/upload-photos", (r) => {
+    const count=r.request().postDataJSON().images.length;uploadedCounts.push(count);
+    return r.fulfill({json:fail ? {ok:true,urls:["https://i.ebayimg.com/1.jpg"],results:[{url:"https://i.ebayimg.com/1.jpg"},{url:null,error:"eBay-Bildserver vorübergehend nicht erreichbar"}],failed:1} : {ok:true,urls:["https://i.ebayimg.com/2.jpg"],results:[{url:"https://i.ebayimg.com/2.jpg"}],failed:0}});
+  });
   await page.route("**/api/ebay/publish", (r) => {
     calls++;
     const b = r.request().postDataJSON();
@@ -188,7 +183,7 @@ test("partial image upload stops publication; retry preserves reviewed fields", 
     .getByRole("button", { name: "Jetzt verbindlich auf eBay veröffentlichen" })
     .click();
   await expect(
-    page.getByText(/Some selected photos failed to upload/),
+    page.getByText(/Foto 2:.*Nichts veröffentlicht/),
   ).toBeVisible();
   expect(calls).toBe(0);
   fail = false;
@@ -201,6 +196,7 @@ test("partial image upload stops publication; retry preserves reviewed fields", 
   await expect(page.locator(".listing-card-body")).toHaveCount(0);
   await expect(page.locator(".listing-card-head")).toContainText("Bei eBay veröffentlicht");
   expect(calls).toBe(1);
+  expect(uploadedCounts).toEqual([2,1]);
 });
 test("verification never publishes; a single publication requires confirmation with exact EUR price", async ({
   page,

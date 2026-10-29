@@ -1,3 +1,4 @@
+import {parseBoxDimensions} from "./eyewear-inscriptions";
 // Label facts must match their quoted text. Visual judgments and educated
 // guesses are accepted at >= MIN_ESTIMATE_CONFIDENCE so the seller only fills
 // genuinely unknown aspects. An eBay allowed-value list is never evidence.
@@ -57,6 +58,15 @@ export function acceptedPhotoFact(
         .replace(/[^\p{L}\p{N}]+/gu, " ")
         .trim() +
       " ";
+    const dimension=s.name.replace(/\s*\(mm\)\s*$/i, "").trim();
+    const key=/^(Glasbreite|Gläserbreite|Scheibenbreite|Glasdurchmesser|Scheibengröße|Lens Width|Lens Size)$/i.test(dimension) ? "lensWidth" : /^(Stegbreite|Brückenbreite|Bridge Width|Stegweite)$/i.test(dimension) ? "bridgeWidth" : /^(Bügellänge|Temple Length)$/i.test(dimension) ? "templeLength" : undefined;
+    if(key && /^\d{2,3}(?:\s*mm)?$/i.test(s.value.trim())) {
+      const number=s.value.replace(/\s*mm$/i, "").trim();
+      const box=parseBoxDimensions(s.quote);
+      // Unit suffixes are normalization, not a disagreement with a printed box.
+      if(box) return box[key]===number;
+      return normalize(s.quote).includes(normalize(number));
+    }
     // A size tag M does not establish Men, Regular fit or a manufacturing year.
     if (
       /year.*manufact|manufact.*year/i.test(s.name) &&

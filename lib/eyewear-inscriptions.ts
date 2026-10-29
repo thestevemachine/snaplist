@@ -85,6 +85,7 @@ const materialName = (v: string) =>
 export function extractEyewear(facts: PhotoFact[]): EyewearData {
   const data: EyewearData = { fields: {}, warnings: [] };
   const set = (key: EyewearKey, value: string, fact: PhotoFact) => {
+    if(["lensWidth","bridgeWidth","templeLength","totalWidth"].includes(key)) value=value.trim().replace(/\s*mm$/i, "");
     const previous = data.fields[key];
     if (key === "material" && previous?.quote === fact.quote) {
       // One printed compound (e.g. TITANIUM ACETATE) is not a conflict
@@ -130,7 +131,7 @@ export function extractEyewear(facts: PhotoFact[]): EyewearData {
       for (const [key, value] of Object.entries(dimensions))
         set(key as EyewearKey, value, fact);
     for (const key of Object.keys(names) as EyewearKey[]) {
-      if (!names[key].some((n) => n.toLowerCase() === fact.name.toLowerCase()))
+      if (!names[key].some((n) => n.toLowerCase() === fact.name.replace(/\s*\(mm\)\s*$/i, "").trim().toLowerCase()))
         continue;
       if (
         key === "modelNumber" &&
