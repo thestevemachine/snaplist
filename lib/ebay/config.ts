@@ -57,7 +57,7 @@ export function isEbayAppConfigured(): boolean {
 
 export function getEbayCreds(): EbayCreds {
   const creds = getEbayAppCreds();
-  const ruName = process.env.EBAY_RU_NAME;
+  const ruName = process.env.SNAPLIST_ACCOUNTS_ENABLED==="true" ? process.env.SNAPLIST_EBAY_RU_NAME : process.env.EBAY_RU_NAME;
   if (!ruName)
     throw new Error("Connecting an eBay seller requires EBAY_RU_NAME.");
   return { ...creds, ruName };

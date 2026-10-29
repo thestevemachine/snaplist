@@ -3,7 +3,8 @@ const refresh=vi.hoisted(()=>vi.fn(async(token:string)=>({access_token:`access:$
 vi.mock("@/lib/ebay/oauth",()=>({refreshAccessToken:refresh}));
 const state=vi.hoisted(()=>({users:new Map<string,{id:string,email:string}>(),members:new Map<string,{user_id:string,disabled:boolean,sealed_credentials?:string}>()}));
 vi.mock("@supabase/supabase-js",()=>({createClient:()=>({
- auth:{getUser:vi.fn(async(token:string)=>({data:{user:state.users.get(token) ?? null},error:null})),refreshSession:vi.fn(async()=>({data:{session:null}}))},
+ auth:{getUser:vi.fn(async(token:string)=>{const u=state.users.get(token);const m=u && state.members.get(u.id);return {data:{user:u ? {...u,app_metadata:m ? {snaplist:{active:!m.disabled}} : {}} : null},error:null};}),refreshSession:vi.fn(async()=>({data:{session:null}}))},
+ storage:{from:()=>({download:async()=>({data:null,error:{statusCode:"404"}})})},
  from:()=>{let id="";const query={select:()=>query,eq:(name:string,value:string)=>{if(name==="user_id")id=value;return query;},maybeSingle:async()=>({data:state.members.get(id) ?? null,error:null})};return query;}
 })}));
 import {NextRequest,NextResponse} from "next/server";
@@ -34,6 +35,11 @@ describe("account isolation",()=>{
   expect(refresh).toHaveBeenCalledWith("member-refresh");
  });
  it("isolates provider keys across interleaved asynchronous requests",async()=>{const values=await Promise.all([accountScope.run(ctx(a,true,{google:"a-key"}),async()=>{await new Promise(r=>setTimeout(r,5));return providerKey("google");}),accountScope.run(ctx(b,false,{google:"b-key"}),async()=>{await Promise.resolve();return providerKey("google");})]);expect(values).toEqual(["a-key","b-key"]);});
+ it("preserves existing global keys only for the verified owner and honors explicit removal",()=>{
+  accountScope.run(ctx(a,true),()=>expect(providerKey("google")).toBe("owner-global-key"));
+  accountScope.run(ctx(a,true,{google:""}),()=>expect(providerKey("google")).toBe(""));
+  accountScope.run(ctx(b),()=>expect(providerKey("google")).toBe(""));
+ });
  it("fails closed if a server call loses its account context",()=>{expect(()=>providerKey("google")).toThrow();expect(()=>isSharedEbayConfigured()).toThrow();});
  it("preserves existing single-owner behavior while rollout is disabled",()=>{vi.stubEnv("SNAPLIST_ACCOUNTS_ENABLED","false");expect(accountsEnabled()).toBe(false);expect(providerKey("google")).toBe("owner-global-key");expect(isSharedEbayConfigured()).toBe(true);});
 });

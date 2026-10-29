@@ -1,4 +1,4 @@
-import {accountsEnabled} from "@/lib/accounts/context";
+import {accountsEnabled,currentAccount} from "@/lib/accounts/context";
 import {NextResponse} from "next/server";
 import {withAccount} from "@/lib/accounts/server";
 import { NextRequest } from "next/server";
@@ -8,7 +8,7 @@ export const maxDuration = 30;
 async function handlePOST(req: NextRequest) {
   const denied = guardApiRequest(req);
   if (denied) return denied;
-  if(accountsEnabled()) return NextResponse.json({ok:false,error:"Preisrecherche ist für die Mehrbenutzerversion noch nicht freigegeben. Bitte Preis selbst festlegen."},{status:409});
+  if(accountsEnabled() && !currentAccount()?.owner) return NextResponse.json({ok:false,error:"Preisrecherche ist für die Mehrbenutzerversion noch nicht freigegeben. Bitte Preis selbst festlegen."},{status:409});
   return researchListing(await req.json().catch(() => ({})));
 }
 

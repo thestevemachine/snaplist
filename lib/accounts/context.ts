@@ -7,7 +7,16 @@ export function currentAccount() {
  if(accountsEnabled() && !value) throw new Error("Authenticated account context required.");
  return value;
 }
-export function providerKey(provider:string) {
- if(accountsEnabled()) return currentAccount()?.secrets[provider] ?? "";
+function legacyProviderKey(provider:string) {
  return (provider==="google" ? process.env.GEMINI_API_KEY : provider==="openai" ? process.env.OPENAI_API_KEY : process.env.ANTHROPIC_API_KEY) ?? "";
+}
+export function providerKey(provider:string) {
+ if(accountsEnabled()) {
+  const account=currentAccount()!;
+  // Preserve the existing owner's keys without copying or exposing them.
+  // An explicit empty override disables a provider, even for the owner.
+  if(Object.hasOwn(account.secrets,provider)) return account.secrets[provider];
+  return account.owner ? legacyProviderKey(provider) : "";
+ }
+ return legacyProviderKey(provider);
 }
