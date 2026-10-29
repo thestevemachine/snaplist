@@ -24,6 +24,7 @@ const meta: AspectMeta[] = [
 const listing = (): ListingResult => ({
   title: "Brille",
   description: "Text",
+  eyewear:{fields:{lensWidth:{value:"50",source:"label",quote:"50 □ 18 140",photos:[10]}},warnings:[]},
   frontMeasurement: {
     method: "front-photo-ratio-v1",
     photoIndex: 1,
@@ -113,4 +114,9 @@ it("keeps a perspective-uncertain total width for seller review and preserves ma
  expect(frontMeasurementFields(l,meta)?.item_specifics?.Rahmenbreite).toBe("138 mm");
  l.manual_measurement_fields=["Rahmenbreite"];
  expect(frontMeasurementFields(l,meta)?.item_specifics?.Rahmenbreite).toBe("138 mm");
+});
+
+it("never projects cached geometry results without a valid current reference",()=>{
+ const l=listing();delete l.eyewear;
+ expect(frontMeasurementFields(l,meta)).toBeUndefined();
 });

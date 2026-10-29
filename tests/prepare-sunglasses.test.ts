@@ -280,6 +280,7 @@ it("maps stored front-photo height into the actual category Glashöhe field", as
         category_fields_version: 4,
         glasses_rules_version: 4,
         item_specifics: { Glashöhe: "" },
+        eyewear:{fields:{lensWidth:{value:"50",source:"label",quote:"50 □ 18 140",photos:[1]}},warnings:[]},
         frontMeasurement: {
           method: "front-photo-ratio-v1",
           status: "uncertain",

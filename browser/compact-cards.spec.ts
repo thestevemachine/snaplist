@@ -175,8 +175,8 @@ test("compact cards group values with labels, collapse rare sections, preserve e
     card.getByLabel("Anzahl der Einheiten", { exact: true }),
   ).toHaveCount(0);
   await expect(card.getByLabel("Maßeinheit", { exact: true })).toHaveCount(0);
-  // Seller explicitly wants the estimate retained for review, including uncertainty.
-  await expect(card.getByLabel("Rahmenbreite", { exact: true })).toHaveValue("138 mm");
+  // A cached estimate without a proven lens-width scale must no longer populate specifics.
+  await expect(card.getByLabel("Rahmenbreite", { exact: true })).toHaveValue("");
   await expect(card.getByLabel("Muster", { exact: true })).toHaveCount(0);
   const materials = card.getByLabel("Rahmenmaterial: Auswahl bearbeiten");
   await expect(materials).toContainText("Titan");
