@@ -495,3 +495,20 @@ test("front-photo estimates remain visible and persisted without overwriting man
   ).toBeVisible();
   expect(calls).toBe(0);
 });
+
+test("unproven scale removes old automatic measurements without charging and preserves seller height",async({page})=>{
+ let calls=0;await page.route("**/api/ai/measure",r=>{calls++;return r.fulfill({json:{ok:false}})});
+ await setup(page);
+ await page.evaluate(async picture=>{
+  const db=await new Promise<IDBDatabase>(resolve=>{const r=indexedDB.open("listing-writer-drafts");r.onsuccess=()=>resolve(r.result)});
+  const tx=db.transaction("workspace","readwrite");
+  tx.objectStore("workspace").put({version:1,photos:[{id:"p1",mediaType:"image/png",previewUrl:picture,data:picture.split(",")[1]}],groups:[{id:"g1",sku:"65-23580",name:"Brille",photoIds:["p1"],evidencePhotoIds:["p1"],status:"done",preparation:{categoryId:"123",categoryName:"Brillen",signature:"test",expiresAt:Date.now()+3600000,conditions:[],issues:[],aspects:[]},listing:{title:"Test Brille",description:"Mein Text",eyewear_kind:"optical",category_id:"123",suggested_price:30,category_fields_version:4,glasses_rules_version:4,content_rules_version:3,item_specifics:{Glashöhe:"35 mm",Gesamtbreite:"179 mm"},manual_measurement_fields:["Glashöhe"],estimates:{Gesamtbreite:90},eyewear:{fields:{lensWidth:{value:"51",source:"label",quote:"Modell 51 CE",photos:[1]}},warnings:[]},frontMeasurement:{method:"front-photo-ratio-v1",status:"estimated",photoIndex:1,referenceMm:51,lensHeightMm:48,totalWidthMm:179,reasons:[]}}}],orphanIds:[],binPrefix:"",skuStart:0,step:"listings",updatedAt:Date.now()},"current");
+  await new Promise<void>(resolve=>{tx.oncomplete=()=>{db.close();resolve()}});
+ },picture);
+ await page.reload();await expandUnpostedCards(page);
+ await expect(page.getByLabel("Gesamtbreite manuell (mm)",{exact:true})).toHaveValue("");
+ await expect(page.getByLabel("Glashöhe manuell (mm)",{exact:true})).toHaveValue("35");
+ await expect(page.getByRole("region",{name:"Brillenmaße"})).toContainText("ohne Referenz keine Berechnung");
+ await page.reload();await expandUnpostedCards(page);
+ await expect(page.getByLabel("Gesamtbreite manuell (mm)",{exact:true})).toHaveValue("");expect(calls).toBe(0);
+});

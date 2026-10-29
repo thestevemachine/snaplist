@@ -1,3 +1,4 @@
+import {lensReference} from "./lens-reference";
 import { isSunglasses } from "./category-selection";
 import { z } from "zod";
 import type { ListingResult } from "./types";
@@ -76,22 +77,12 @@ export function calculateFrontMeasurement(
   result.observation = o;
   const size = sizes[o.photoIndex - 1];
   if(size) result.imageSize = size;
-  const ref = listing.eyewear?.fields.lensWidth;
-  const reference = Number(ref?.value.replace(/\s*mm$/i, "").replace(",", "."));
-  // Use label evidence or the seller's explicitly confirmed lens width;
-  // never infer the scale from size, model numbers or shop defaults.
-  if (
-    (ref?.source !== "label" && ref?.source !== "manual") ||
-    (ref.source === "label" && (!ref.quote || !ref.photos?.length)) ||
-    !/^\d{2}(?:[.,]\d+)?(?:\s*mm)?$/i.test(ref.value) ||
-    reference < 20 ||
-    reference > 90
-  ) {
-    result.reasons.push(
-      "Scheibenbreite vom Demoscheiben-/Bügelaufdruck fehlt oder ist widersprüchlich.",
-    );
+  const ref = lensReference(listing);
+  if (!ref) {
+    result.reasons.push("Belegte Glasbreite fehlt: Kastenmaß/Scheibenaufdruck prüfen oder Glasbreite manuell eintragen. Keine Millimeterberechnung ohne Referenz.");
     return result;
   }
+  const reference=ref.mm;
   result.referenceMm = reference;
   result.referenceSource = ref.source;
   result.referenceQuote = ref.source === "manual" ? "Manuell bestätigte Scheibenbreite" : ref.quote;
@@ -257,7 +248,9 @@ export function withSunglassesWidth(listing: ListingResult): ListingResult {
 // Reuse saved contours when an inscription/manual scale becomes available later.
 export function recalculateStoredMeasurement(listing: ListingResult): FrontMeasurement | undefined {
  const m=listing.frontMeasurement,o=m?.observation;
- if(!m || !o || !o.photoIndex) return;
+ if(!m) return;
+ if(!lensReference(listing)) return {method:"front-photo-ratio-v1",status:"unavailable",photoIndex:m.photoIndex,reasons:["Belegte Glasbreite fehlt. Glasbreite manuell eintragen oder Aufdruck prüfen."],observation:o,imageSize:m.imageSize} as FrontMeasurement;
+ if(!o || !o.photoIndex) return;
  let size=m.imageSize;
  if(!size && m.lensWidthPx && m.lensHeightPx) {
   const w=((o.leftLens.right.x-o.leftLens.left.x)+(o.rightLens.right.x-o.rightLens.left.x))/2;

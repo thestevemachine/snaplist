@@ -1,3 +1,4 @@
+import {lensReference} from "./lens-reference";
 import type { ListingResult } from "./types";
 import type { AspectMeta } from "./ebay/taxonomy";
 
@@ -9,6 +10,7 @@ export function frontMeasurementFields(
 ): Partial<ListingResult> | undefined {
   const m = listing.frontMeasurement;
   if (
+    !lensReference(listing) ||
     !m ||
     m.status === "unavailable" ||
     m.reasons.some((reason) => reason.startsWith("Referenzprüfung:"))

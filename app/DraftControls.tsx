@@ -1,4 +1,5 @@
 "use client";
+import {measurementSafetyPatch} from "@/lib/measurement-safety";
 import {eyewearSellerRulePatch} from "@/lib/eyewear-seller-rules";
 import {boxSizePatch} from "@/lib/eyewear-measurements";
 import { issueField, focusReviewField } from "@/lib/review-navigation";
@@ -60,6 +61,8 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
       g.postStatus === "posting"
     )
       return;
+    const safetyPatch=measurementSafetyPatch(g.listing);
+    if(safetyPatch) {onGroupEdit(g.id,{listing:{...g.listing,...safetyPatch}});return;}
     const boxPatch=boxSizePatch(g.listing,g.preparation.aspects);
     if(boxPatch) {onGroupEdit(g.id,{listing:{...g.listing,...boxPatch}});return;}
     const lensPatch = lindbergLensWidthPatch(g.listing,g.preparation.aspects);

@@ -1,3 +1,4 @@
+import {lensReference} from "@/lib/lens-reference";
 import {withAccount} from "@/lib/accounts/server";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -33,12 +34,7 @@ async function handlePOST(req: NextRequest) {
     body = requestSchema.parse(await req.json());
     listing = parseListing(body.listing);
     if (!isAllowedModel(body.model)) throw Error();
-    const ref = listing.eyewear?.fields.lensWidth;
-    if (
-      (ref?.source !== "label" && ref?.source !== "manual") ||
-      (ref.source === "label" && (!ref.quote || !ref.photos?.length)) ||
-      !/^\d{2}(?:\s*mm)?$/i.test(ref.value)
-    )
+    if (!lensReference(listing))
       return NextResponse.json(
         {
           ok: false,
