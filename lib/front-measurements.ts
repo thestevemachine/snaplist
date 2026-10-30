@@ -65,11 +65,17 @@ export function calculateFrontMeasurement(
     reasons: [],
   };
   if (!parsed.success || !parsed.data.photoIndex) {
-    result.reasons.push(
-      parsed.success
-        ? "Kein geeignetes Frontfoto erkannt. Maße bleiben unbekannt."
-        : "Konturerkennung fehlt oder enthält ungültige Koordinaten. Bitte ein Frontfoto auswählen und nur die Maße berechnen.",
-    );
+    const missing = raw == null;
+    result.reasons.push(parsed.success
+      ? "Die KI hat kein messbares Frontfoto ausgewählt. Maße bleiben unbekannt."
+      : missing
+        ? "Die KI hat keine Messkonturen geliefert. Die erkannte Glasbreite allein genügt nicht für Höhe und Rahmenbreite."
+        : "Die KI hat ungültige Messkonturen geliefert. Das belegt keinen Fehler am Foto.");
+    if (!parsed.success && !missing) {
+      const paths = [...new Set(parsed.error.issues.map(issue => issue.path.join(".")))].slice(0, 6);
+      result.reasons.push(`Ungültige Messfelder: ${paths.join(", ")}.`);
+    }
+    result.reasons.push("Unter ‚Maße berechnen‘ das vollständige Frontfoto auswählen und den kostenpflichtigen Test bestätigen; keine automatische Neuanalyse.");
     if (parsed.success && parsed.data.note.trim())
       result.reasons.push(parsed.data.note.trim());
     return result;

@@ -8,5 +8,5 @@ it("assigns exact card SKUs only to the following first group, preserving zeros 
  expect(assignPhotoSkus([{photoIds:["b"],sku:""},{photoIds:["a"],sku:""}],photos).map(g=>g.sku)).toEqual(["","065-0023591"]);
 });
 it("keeps actual outgoing measurement aspects consecutive and excludes blank values",()=>{
- expect(publicationSpecifics({title:"Brille",description:"",item_specifics:{Glashöhe:"28 mm",Marke:"Test",Stegbreite:"18 mm",Rahmenbreite:"144 mm",Farbe:"Gold",Glasbreite:"54 mm",Bügellänge:"145 mm",EAN:""}}).map(([name])=>name)).toEqual(["Marke","Farbe","Glasbreite","Stegbreite","Bügellänge","Glashöhe","Rahmenbreite"]);
+ expect(publicationSpecifics({title:"Brille",description:"",item_specifics:{Glashöhe:"28 mm",Marke:"Test",Stegbreite:"18 mm",Rahmenbreite:"144 mm",Farbe:"Gold",Glasbreite:"54 mm",Bügellänge:"145 mm",EAN:""}}).map(([name])=>name)).toEqual(["Glasbreite","Stegbreite","Bügellänge","Glashöhe","Rahmenbreite","Marke","Farbe"]);
 });
