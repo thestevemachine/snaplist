@@ -70,3 +70,8 @@ it("offers a seller-controlled repair for the screenshot SKU without stripping a
   expect(originalSellerSku("65-23537")).toBeUndefined();
   expect(originalSellerSku("MY-SKU-A-7cd44bf46731")).toBeUndefined();
 });
+it("reserves SKUs for writing and waiting items without changing publication identities",()=>{
+ const rows=applyBatchSkus([group("one",{status:"writing"}),group("two",{status:"idle"}),group("fixed",{postStatus:"posting"})],"65-23577");
+ expect(rows.map(r=>r.sku)).toEqual(["65-23577","65-23578","fixed"]);
+ expect(rows[0].status).toBe("writing");
+});

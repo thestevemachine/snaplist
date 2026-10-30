@@ -146,7 +146,7 @@ it("maps measured lens height and total width to real category dropdown values",
       },
     ] as any,
   );
-  expect(aspects).toEqual({ Glashöhe: ["42 mm"], Fassungsbreite: ["136 mm"] });
+  expect(aspects).toEqual({ Glashöhe: ["43 mm"] }); // No invented 136 mm option for a measured 137 mm.
 });
 
 it("defaults unknown department and vintage, and sets sunglasses product type", () => {
@@ -185,4 +185,10 @@ it("defaults unknown sunglasses lenses to grey and omits optional magnification,
   expect(values.Glasfarbe).toEqual(["Braun"]);
   applyEyewearSellerDefaults(values,[{...meta[1],required:true}],true,"");
   expect(values.Vergrößerungsstärke).toEqual(["0"]);
+});
+it("treats Nylor as Halbrand rather than Randlos or Vollrand",async()=>{
+ const {expandEyewearFeatures}=await import("@/lib/ebay/category-fields");
+ const aspects={Fassungsart:["Nylor"],Besonderheiten:["Randlos","Vollrand"]};
+ expandEyewearFeatures(aspects,[{name:"Besonderheiten",mode:"SELECTION_ONLY",required:false,cardinality:"MULTI",values:["Randlos","Vollrand","Halbrand","Halbrahmen"]}]);
+ expect(aspects.Besonderheiten).toEqual(["Halbrand","Halbrahmen"]);
 });

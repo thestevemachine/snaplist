@@ -1,3 +1,4 @@
+import {recalculateStoredMeasurement} from "@/lib/front-measurements";
 import {measurementSafetyPatch} from "@/lib/measurement-safety";
 import {boxSizePatch} from "@/lib/eyewear-measurements";
 import {eyewearSellerRulePatch} from "@/lib/eyewear-seller-rules";
@@ -305,6 +306,9 @@ export async function prepareListing(body: any, sealedConnection?: string) {
             }
           }
           if (glasses) {
+            Object.assign(listing,boxSizePatch(listing,meta));
+            const recalculated=recalculateStoredMeasurement(listing);
+            if(recalculated) listing.frontMeasurement=recalculated;
             Object.assign(listing,measurementSafetyPatch(listing));
             const patch = frontMeasurementFields(listing, meta);
             if (patch) {

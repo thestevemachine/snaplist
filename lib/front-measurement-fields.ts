@@ -1,3 +1,4 @@
+import {measurementChoice} from "./measurement-choice";
 import {lensReference} from "./lens-reference";
 import type { ListingResult } from "./types";
 import type { AspectMeta } from "./ebay/taxonomy";
@@ -44,11 +45,7 @@ export function frontMeasurementFields(
       ? Number(existing[1].replace(/\s*mm$/i, "").replace(",", "."))
       : value;
     if (!Number.isFinite(projected) || projected <= 0) continue;
-    const choice = field.values.find(
-      (v) =>
-        /^\d+(?:\s*mm)?$/i.test(v) &&
-        Number(v.replace(/\s*mm$/i, "")) === projected,
-    );
+    const choice=measurementChoice(field.values,projected);
     if (!choice && field.mode !== "FREE_TEXT") continue;
     specifics[field.name] =
       choice ??

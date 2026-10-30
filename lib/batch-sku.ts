@@ -3,7 +3,6 @@ import { skuSchema } from "./validation";
 
 export const canNumberSku = (g: ItemGroup) =>
   g.photoIds.length > 0 &&
-  g.status !== "writing" &&
   g.postStatus !== "posted" &&
   g.postStatus !== "posting" &&
   !g.publicationAttemptSku;
