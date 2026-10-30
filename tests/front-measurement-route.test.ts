@@ -103,8 +103,7 @@ it("makes exactly one selected-photo call, returns calculated values and usage, 
   expect(data.measurement).toMatchObject({
     photoIndex: 2,
     lensHeightMm: 40,
-    totalWidthMm: 177,
-    totalWidthCorrectionMm: 3,
+    totalWidthMm: 180,
     status: "uncertain",
     referencePhotos: [10],
   });
@@ -139,7 +138,7 @@ it("uses a seller-confirmed 46 mm demo-lens reference without demanding an AI la
  fetchMock.mockResolvedValue(Response.json({candidates:[{content:{parts:[{text:JSON.stringify({front_geometry:geometry})}]},finishReason:"STOP"}],usageMetadata:{promptTokenCount:100,candidatesTokenCount:20}}));
  const data=await (await POST(request(b))).json();
  expect(data.ok).toBe(true);
- expect(data.measurement).toMatchObject({referenceMm:46,referenceSource:"manual",lensHeightMm:37,totalWidthMm:163});
+ expect(data.measurement).toMatchObject({referenceMm:46,referenceSource:"manual",lensHeightMm:37,totalWidthMm:166});
  expect(fetchMock).toHaveBeenCalledTimes(1);
 });
 it("rejects fabricated scale and mismatched quoted box dimensions without charging",async()=>{

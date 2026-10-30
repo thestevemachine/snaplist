@@ -1,3 +1,4 @@
+import {removeLegacyWidthCorrection} from "@/lib/legacy-width-correction";
 import {recalculateStoredMeasurement} from "@/lib/front-measurements";
 import {measurementSafetyPatch} from "@/lib/measurement-safety";
 import {boxSizePatch} from "@/lib/eyewear-measurements";
@@ -307,6 +308,7 @@ export async function prepareListing(body: any, sealedConnection?: string) {
           }
           if (glasses) {
             Object.assign(listing,boxSizePatch(listing,meta));
+            Object.assign(listing,removeLegacyWidthCorrection(listing,meta));
             const recalculated=recalculateStoredMeasurement(listing);
             if(recalculated) listing.frontMeasurement=recalculated;
             Object.assign(listing,measurementSafetyPatch(listing));

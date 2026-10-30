@@ -1,7 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
 async function expandUnpostedCards(page: Page) {
  await expect(page.getByRole("status").filter({hasText:"Auf diesem Gerät gespeichert"})).toBeVisible();
- for(const button of await page.locator(".listing-card:not(.is-posted) .card-details-toggle[aria-expanded=false]").all()) await button.click();
+ const cards=page.locator(".listing-card:not(.is-posted)");
+ for(let i=0;i<await cards.count();i++){const button=cards.nth(i).locator(".card-details-toggle");if(await button.getAttribute("aria-expanded")==="false") await button.click();}
 }
 const picture =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=";
@@ -511,4 +512,21 @@ test("unproven scale removes old automatic measurements without charging and pre
  await expect(page.getByRole("region",{name:"Brillenmaße"})).toContainText("ohne Referenz keine Berechnung");
  await page.reload();await expandUnpostedCards(page);
  await expect(page.getByLabel("Gesamtbreite manuell (mm)",{exact:true})).toHaveValue("");expect(calls).toBe(0);
+});
+
+test("removes a stored 3 mm offset on reload, preserves manual width and spends nothing",async({page})=>{
+ let calls=0;await page.route("**/api/ai/measure",r=>{calls++;return r.fulfill({json:{ok:false}})});
+ await setup(page);
+ await page.evaluate(async picture=>{
+  const db=await new Promise<IDBDatabase>(resolve=>{const r=indexedDB.open("listing-writer-drafts");r.onsuccess=()=>resolve(r.result)});
+  const tx=db.transaction("workspace","readwrite");
+  tx.objectStore("workspace").put({version:1,photos:[1,2].map(i=>({id:`p${i}`,mediaType:"image/png",previewUrl:picture,data:picture.split(",")[1]})),groups:[false,true].map((manual,i)=>({id:`g${i}`,sku:`TEST-${i}`,name:"Brille",photoIds:[`p${i+1}`],evidencePhotoIds:[`p${i+1}`],status:"done",preparation:{categoryId:"123",categoryName:"Brillen",signature:"test",expiresAt:Date.now()+3600000,conditions:[],issues:[],aspects:[{name:"Rahmenbreite",mode:"FREE_TEXT",cardinality:"SINGLE",values:[],required:false}]},listing:{title:"Test Brille",description:"Mein Originaltext",eyewear_kind:"optical",category_id:"123",suggested_price:30,category_fields_version:4,glasses_rules_version:4,content_rules_version:3,item_specifics:{Rahmenbreite:manual ? "144 mm" : "138 mm"},manual_measurement_fields:manual ? ["Rahmenbreite"] : [],estimates:{Rahmenbreite:95},eyewear:{fields:{lensWidth:{value:"54",source:"manual"}},warnings:[]},frontMeasurement:{method:"front-photo-ratio-v1",status:"estimated",photoIndex:1,referenceMm:54,totalWidthMm:138,totalWidthCorrectionMm:3,reasons:[]}}})),orphanIds:[],binPrefix:"",skuStart:0,step:"listings",updatedAt:Date.now()},"current");
+  await new Promise<void>(resolve=>{tx.oncomplete=()=>{db.close();resolve()}});
+ },picture);
+ await page.reload();await expect(page.getByRole("heading",{name:"Deine Angebote",exact:true})).toBeVisible();if(await page.getByRole("button",{name:"Detailkarten",exact:true}).count()) await page.getByRole("button",{name:"Detailkarten",exact:true}).click();await expandUnpostedCards(page);
+ const widths=page.getByLabel("Gesamtbreite manuell (mm)",{exact:true});
+ await expect(widths.nth(0)).toHaveValue("141");await expect(widths.nth(1)).toHaveValue("144");
+ await expect(page.getByText(/pauschaler Testabzug/)).toHaveCount(0);
+ await expect(page.getByRole("status").filter({hasText:"Auf diesem Gerät gespeichert"})).toBeVisible();await page.reload();await expect(page.getByRole("heading",{name:"Deine Angebote",exact:true})).toBeVisible();if(await page.getByRole("button",{name:"Detailkarten",exact:true}).count()) await page.getByRole("button",{name:"Detailkarten",exact:true}).click();await expandUnpostedCards(page);
+ await expect(widths.nth(0)).toHaveValue("141");await expect(widths.nth(1)).toHaveValue("144");expect(calls).toBe(0);
 });
