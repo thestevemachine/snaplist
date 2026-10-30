@@ -1,5 +1,6 @@
 "use client";
 import {workspaceStorageKey} from "@/lib/workspace-scope";
+import {UploadQuote} from "./UploadQuote";
 import {AccountSettings} from "./AccountSettings";
 import { materialTitleIssues } from "@/lib/eyewear-inscriptions";
 import { withSunglassesWidth } from "@/lib/front-measurements";
@@ -127,6 +128,7 @@ export default function Home() {
     else publicationDialog.current?.close();
   }, [publicationConfirmation]);
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [quoteRevision,setQuoteRevision]=useState(0);
   const [binPrefix, setBinPrefix] = useState("");
   const [step, setStep] = useState<Step>("upload");
   const [groups, setGroups] = useState<ItemGroup[]>([]);
@@ -401,6 +403,7 @@ export default function Home() {
         return 0;
       }
       importing.current = true;
+      setQuoteRevision(n=>n+1);
       let processed = 0;
       setImportProgress(
         `Preparing 0 of ${Math.min(files.length, MAX_PHOTOS - photos.length)} photos…`,
@@ -1380,6 +1383,7 @@ export default function Home() {
             <h2 id="upload-heading" className="section-label">
               1 · Fotos hinzufügen
             </h2>
+            <UploadQuote revision={quoteRevision}/>
 
             <div
               className={`dropzone${dragging ? " dragging" : ""}`}
