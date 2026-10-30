@@ -1626,3 +1626,6 @@ textarea.title-input { min-height: 5rem; resize: vertical; line-height: 1.4; }
 .sku-sequence {min-width:0;box-sizing:border-box}
 
 .upload-quote {margin:.4rem 0 1rem;padding:.5rem .75rem;border-left:3px solid #007f67;color:#005e4c;font-size:clamp(.95rem,2.5vw,1.1rem);font-weight:600;line-height:1.4;overflow-wrap:anywhere}
+
+.quote-panel {padding:1rem 1.25rem;margin-block:1rem;}
+.quote-panel .upload-quote {margin:0;padding:0;border:0;}

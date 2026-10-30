@@ -50,7 +50,7 @@ import {
 import { EbayConnect } from "./EbayConnect";
 import { ModelSelector } from "./ModelSelector";
 import { ReviewBoard } from "./ReviewBoard";
-import {detectWhiteSeparator, splitAtSeparators} from "@/lib/photo-separators";
+import {detectWhiteSeparator, splitAtSeparators, splitForAi} from "@/lib/photo-separators";
 import { CameraCapture } from "./CameraCapture";
 import { CloudBatch } from "./CloudBatch";
 import { ListingsView } from "./ListingsView";
@@ -468,9 +468,10 @@ export default function Home() {
         detected.separatorIndices.forEach((index:number)=>separators.add(batch[index].photoId));
         }
       }
-      const ordered=photos.map(photo=>({...photo,separator:separators.has(photo.id),separatorManual:false}));
+      const parts=splitForAi(photos,separators);
+      const ordered=photos.map(photo=>({...photo,separator:separators.has(photo.id)}));
       setPhotos(ordered);
-      const segments=splitAtSeparators(ordered).map(ids=>ids.map(id=>ordered.find(p=>p.id===id)!));
+      const segments=parts.map(ids=>ids.map(id=>ordered.find(p=>p.id===id)!));
       if(!segments.length) throw new Error("Nur Trennbilder vorhanden. Bitte auch Brillenfotos hinzufügen.");
       // SKU is entered once, after the listing is written. Draft identity uses g.id.
       // Sort in chunks so each request's thumbnail payload stays small.
@@ -1379,11 +1380,11 @@ export default function Home() {
 
       {step === "upload" && (
         <>
+          <section className="panel quote-panel" aria-label="Spruch"><UploadQuote revision={quoteRevision}/></section>
           <section className="panel" aria-labelledby="upload-heading">
             <h2 id="upload-heading" className="section-label">
               1 · Fotos hinzufügen
             </h2>
-            <UploadQuote revision={quoteRevision}/>
 
             <div
               className={`dropzone${dragging ? " dragging" : ""}`}
@@ -1424,7 +1425,7 @@ export default function Home() {
               disabled={sorting || Boolean(importProgress)}
               onCapture={async (file) => (await addFiles([file])) === 1}
             />
-            {photos.some(photo=>photo.separator) && <p className="separator-note">Mögliche Trennbilder markiert. Die KI prüft beim Sortieren alle Fotos in ihrer Reihenfolge. Ein leeres Trennbild beendet die vorherige Brille und wird nicht ins Angebot übernommen.</p>}
+            {photos.some(photo=>photo.separator) && <p className="separator-note">Trennbilder markiert: direkt aufteilen oder die KI innerhalb der Abschnitte sortieren lassen. Die KI behält Fotos mit Brille.</p>}
             {importProgress && <p aria-live="polite">{importProgress}</p>}
             {photos.length > 0 && (
               <div className="thumbs" aria-label="Ausgewählte Fotos">
@@ -1464,7 +1465,6 @@ export default function Home() {
                 className="btn btn-ghost"
                 disabled={
                   !photos.length ||
-                  photos.length > 24 ||
                   sorting ||
                   Boolean(importProgress)
                 }
