@@ -7,6 +7,7 @@ import {manualEyewearMeasurement,measurementDefinitions} from "@/lib/eyewear-mea
 export function EyewearMeasurements({listing,meta,onEdit}:{listing:ListingResult;meta:AspectMeta[];onEdit:(patch:Partial<ListingResult>)=>void}) {
  const reference=lensReference(listing);
  return <section aria-label="Brillenmaße" className="measurement-grid">
+  <strong>Maße</strong>
   {measurementDefinitions.map(d=>{
    const field=d.key ? listing.eyewear?.fields[d.key] : undefined;
    const actual=meta.find(f=>d.pattern.test(f.name));

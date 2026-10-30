@@ -1643,3 +1643,9 @@ textarea.title-input { min-height: 5rem; resize: vertical; line-height: 1.4; }
 .sku-sequence .sku-actions .detail-view-button {margin:0;}
 .sku-actions>button {min-width:0;white-space:normal;}
 @media(max-width:600px){.sku-actions {display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);}.sku-actions>button:last-child {grid-column:1/-1;}}
+
+/* Keep all dimensions together in a compact, single-column reading order. */
+.measurement-grid {grid-template-columns:minmax(0,1fr);gap:.4rem;border-block:1px solid var(--line, #dedbd3);padding:.6rem 0}
+.measurement-grid label {grid-template-columns:minmax(0,1fr) minmax(90px,140px);align-items:center;column-gap:.65rem}
+.measurement-grid label small {grid-column:1 / -1}
+.measurement-grid input {min-height:32px}

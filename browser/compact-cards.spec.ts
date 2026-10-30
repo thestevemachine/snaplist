@@ -508,3 +508,22 @@ test("Detailkarten remains visible directly beside SKU assignment, starts select
  await row.getByRole('button',{name:'Stapeltabelle',exact:true}).click();await expect(cards).toBeVisible();await expect(cards).toHaveAttribute('aria-pressed','false');await cards.click();await expect(page.locator('.listing-card .card-details-toggle')).toHaveAttribute('aria-expanded','true');
  await page.reload();await expect(page.locator('.listing-card .card-details-toggle')).toHaveAttribute('aria-expanded','true');await expect(page.locator('.sku-actions').getByRole('button',{name:'Detailkarten',exact:true})).toHaveAttribute('aria-pressed','true');
 });
+
+test("measurements form one vertical compact group above the description on desktop and phone",async({page})=>{
+ const counts=await setup(page);
+ for(const width of [1200,390]) {
+  await page.setViewportSize({width,height:900});
+  const group=page.getByRole("region",{name:"Brillenmaße",exact:true});
+  const labels=["Glasbreite","Stegbreite","Bügellänge","Glashöhe","Gesamtbreite"];
+  let lastY=-1,firstX:number|undefined;
+  for(const name of labels) {
+   const box=await group.getByRole("spinbutton",{name:`${name} manuell (mm)`,exact:true}).boundingBox();
+   expect(box).not.toBeNull();expect(box!.y).toBeGreaterThan(lastY);
+   if(firstX!==undefined) expect(Math.abs(box!.x-firstX)).toBeLessThan(2);
+   firstX=box!.x;lastY=box!.y;
+  }
+  const description=await page.getByLabel("Beschreibung",{exact:true}).boundingBox();
+  expect(description!.y).toBeGreaterThan(lastY);
+ }
+ expect(counts()).toEqual({paid:0,writes:0});
+});
