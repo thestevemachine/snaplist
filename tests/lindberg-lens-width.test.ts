@@ -17,8 +17,8 @@ it("uses the recovered 46 mm reference to recalculate stored contours without ch
  l.frontMeasurement={method:"front-photo-ratio-v1",status:"estimated",photoIndex:1,referenceMm:50,lensWidthPx:250,lensHeightPx:200,totalWidthPx:900,totalWidthMm:177,lensHeightMm:40,reasons:[],observation:{photoIndex:1,leftLens:lens(.15,.4),rightLens:lens(.6,.85),outerLeft:{x:.05,y:.4},outerRight:{x:.95,y:.4},frontal:true,groovesVisible:true,complete:true,samePlane:true,confidence:95,note:""}};
  l.item_specifics={Gesamtbreite:"177 mm",Glashöhe:"40 mm"};l.estimates={Gesamtbreite:95,Glashöhe:95};
  const patch=lindbergLensWidthPatch(l)!;
- expect(patch.frontMeasurement).toMatchObject({referenceMm:46,lensHeightMm:37,totalWidthMm:163});
- expect(patch.item_specifics).toMatchObject({Gesamtbreite:"163 mm",Glashöhe:"37 mm"});
+ expect(patch.frontMeasurement).toMatchObject({referenceMm:46,lensHeightMm:37,totalWidthMm:166});
+ expect(patch.item_specifics).toMatchObject({Gesamtbreite:"166 mm",Glashöhe:"37 mm"});
  expect(lindbergLensWidthPatch({...l,manual_measurement_fields:["Gesamtbreite"]})?.item_specifics?.Gesamtbreite).toBe("177 mm");
  expect(patch.description).toBeUndefined();
 });

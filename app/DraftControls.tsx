@@ -1,4 +1,5 @@
 "use client";
+import {removeLegacyWidthCorrection} from "@/lib/legacy-width-correction";
 import {measurementSafetyPatch} from "@/lib/measurement-safety";
 import {eyewearSellerRulePatch} from "@/lib/eyewear-seller-rules";
 import {boxSizePatch} from "@/lib/eyewear-measurements";
@@ -61,6 +62,8 @@ export function DraftControls({ group: g, photoById, onGroupEdit }: Props) {
       g.postStatus === "posting"
     )
       return;
+    const offsetPatch=removeLegacyWidthCorrection(g.listing,g.preparation.aspects);
+    if(offsetPatch) {onGroupEdit(g.id,{listing:{...g.listing,...offsetPatch}});return;}
     const safetyPatch=measurementSafetyPatch(g.listing);
     if(safetyPatch) {onGroupEdit(g.id,{listing:{...g.listing,...safetyPatch}});return;}
     const boxPatch=boxSizePatch(g.listing,g.preparation.aspects);

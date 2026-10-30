@@ -65,11 +65,11 @@ describe("front photo pixel ratios", () => {
       lensHeightPx: 200,
       totalWidthPx: 900,
       lensHeightMm: 40,
-      totalWidthMm: 177,
-      totalWidthCorrectionMm: 3,
+      totalWidthMm: 180,
       referencePhotos: [2],
     });
     expect(m.reasons).toEqual([]);
+    expect(m.totalWidthCorrectionMm).toBeUndefined();
   });
   it("uses boxing x/y spans, not diagonal chords, and rounds rather than truncates", () => {
     const o = observation();
@@ -81,7 +81,7 @@ describe("front photo pixel ratios", () => {
     expect(calculateFrontMeasurement(o, sizes, l)).toMatchObject({
       lensWidthPx: 250,
       lensHeightMm: 41,
-      totalWidthMm: 181,
+      totalWidthMm: 184,
     });
   });
   it("is invariant under proportional image resizing", () => {
@@ -279,7 +279,7 @@ it("adds a labelled calculated total width to new sunglasses descriptions only w
  const measurement=calculateFrontMeasurement(observation(),sizes,listing());
  const l={...listing(),eyewear_kind:"sunglasses" as const,frontMeasurement:measurement};
  const updated=withSunglassesWidth(l);
- expect(updated.description).toContain("Gesamtbreite: ca. 177 mm (aus Frontfoto berechnet)");
+ expect(updated.description).toContain("Gesamtbreite: ca. 180 mm (aus Frontfoto berechnet)");
  expect(withSunglassesWidth(updated)).toBe(updated);
  expect(withSunglassesWidth({...l,frontMeasurement:{...measurement,status:"uncertain"}}).description).toBe(l.description);
  expect(withSunglassesWidth({...l,eyewear_kind:"optical"}).description).toBe(l.description);
@@ -289,7 +289,7 @@ it("adds a labelled calculated total width to new sunglasses descriptions only w
 
 it("accepts an explicitly seller-confirmed 46 mm reference without claiming OCR evidence",()=>{
  const l=listing();l.eyewear!.fields.lensWidth={value:"46",source:"manual"};
- expect(calculateFrontMeasurement(observation(),sizes,l)).toMatchObject({referenceMm:46,referenceSource:"manual",referenceQuote:"Manuell bestätigte Scheibenbreite",referencePhotos:[],lensHeightMm:37,totalWidthMm:163});
+ expect(calculateFrontMeasurement(observation(),sizes,l)).toMatchObject({referenceMm:46,referenceSource:"manual",referenceQuote:"Manuell bestätigte Scheibenbreite",referencePhotos:[],lensHeightMm:37,totalWidthMm:166});
 });
 
 it("retains contours and image dimensions until a manual reference arrives, then calculates height without another model call",()=>{
@@ -299,7 +299,7 @@ it("retains contours and image dimensions until a manual reference arrives, then
  expect(l.frontMeasurement.imageSize).toEqual(sizes[0]);
  const meta=[{name:"Glashöhe",mode:"FREE_TEXT" as const,cardinality:"SINGLE" as const,required:false,values:[]}];
  const patch=manualLensWidth(l,"50",meta);
- expect(patch.frontMeasurement).toMatchObject({lensHeightMm:40,totalWidthMm:177,referenceSource:"manual"});
+ expect(patch.frontMeasurement).toMatchObject({lensHeightMm:40,totalWidthMm:180,referenceSource:"manual"});
  expect(patch.item_specifics?.Glashöhe).toBe("40 mm");
  expect(patch.estimates?.Glashöhe).toBeDefined();
  expect(patch.description).toBeUndefined();
@@ -319,7 +319,7 @@ it("keeps a 51 mm label through fact filtering, extraction and pixel measurement
  const supported=facts.filter(f=>acceptedPhotoFact(f,2));expect(supported).toHaveLength(1);
  const o=observation();o.leftLens.left.x=.205;o.leftLens.right.x=.455;o.rightLens.left.x=.545;o.rightLens.right.x=.795;
  const l={title:"Brille",description:"",eyewear:extractEyewear(supported)};
- const m=calculateFrontMeasurement(o,sizes,l);expect(m).toMatchObject({referenceMm:51,lensHeightMm:41,totalWidthMm:181,status:"estimated"});
+ const m=calculateFrontMeasurement(o,sizes,l);expect(m).toMatchObject({referenceMm:51,lensHeightMm:41,totalWidthMm:184,status:"estimated"});
 });
 
 it("flags unequal lens boxes and a decentered nasal gap without shifting the detected contacts",()=>{
@@ -334,7 +334,7 @@ it("cross-checks explicitly manual DBL against nasal glass edges, not the metal 
  const l=listing();l.eyewear!.fields.bridgeWidth={value:"18",source:"manual"};
  expect(calculateFrontMeasurement(observation(),sizes,l).reasons.some(r=>r.startsWith("Referenzprüfung:"))).toBe(true);
 });
-it("measures complete width by horizontal tip projection, keeping the agreed post-conversion correction",()=>{
+it("measures complete width by horizontal tip projection, without a fixed offset",()=>{
  const o=observation();o.outerLeft.y=.3;o.outerRight.y=.4;
- expect(calculateFrontMeasurement(o,sizes,listing())).toMatchObject({totalWidthPx:900,totalWidthMm:177,totalWidthCorrectionMm:3});
+ expect(calculateFrontMeasurement(o,sizes,listing())).toMatchObject({totalWidthPx:900,totalWidthMm:180});
 });

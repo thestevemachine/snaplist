@@ -41,7 +41,7 @@ export const frontMeasurementSchema = z.object({
   totalWidthPx: z.number().positive().optional(),
   lensHeightMm: z.number().int().positive().optional(),
   totalWidthMm: z.number().int().positive().optional(),
-  totalWidthCorrectionMm: z.literal(3).optional(),
+  totalWidthCorrectionMm: z.literal(3).optional(), // Legacy persisted drafts only; never emitted by new calculations.
   reasons: z.array(z.string().max(1000)).max(30),
   observation: frontObservationSchema.optional(),
 });
@@ -157,9 +157,8 @@ export function calculateFrontMeasurement(
     return result;
   }
   result.lensHeightMm = Math.round(height);
-  // Seller-requested trial correction; this is not a calibrated perspective model.
-  result.totalWidthMm = Math.round(total - 3);
-  result.totalWidthCorrectionMm = 3;
+  // Physical horizontal extent, with no fixed offset.
+  result.totalWidthMm = Math.round(total);
   const bridge = listing.eyewear?.fields.bridgeWidth;
   const bridgeMm = Number(
     bridge?.value.replace(/\s*mm$/i, "").replace(",", "."),
@@ -245,7 +244,7 @@ B = maxY - minY of that SAME opening. Find the absolute highest and lowest glass
 Return the FOUR ACTUAL EXTREME CONTACT POINTS, not the four rectangle corners. Rectangle corners commonly lie outside the curved lens and are NOT contour points.
 DBL = minX of the image-right opening minus maxX of the image-left opening: the gap between NASAL glass/boxing boundaries, not the length of the metal bridge or the nose-pad spacing. A printed 54-18 means A=54 mm for each lens and DBL=18 mm.
 In a truly frontal symmetric frame the lens widths/heights should agree and the nasal gap should be centred. Use symmetry ONLY as a plausibility test. NEVER shift points, distort the photo or force equal boxes when the visible contours disagree; lower certainty and report perspective/contour ambiguity instead.
-TOTAL WIDTH = maxX - minX of the COMPLETE visible glasses: include the outer frame rims, hinges and any visible temples projecting farther sideways. Exclude display stands, background, tags and cases. Measure horizontal projection between vertical support lines, never diagonal distance between tips and never 2*A+DBL as a substitute. Any trial millimetre correction is applied by code AFTER conversion, never by moving contour points.
+TOTAL WIDTH = maxX - minX of the COMPLETE visible glasses: include the outer frame rims, hinges and any visible temples projecting farther sideways. Exclude display stands, background, tags and cases. Measure horizontal projection between vertical support lines, never diagonal distance between tips and never 2*A+DBL as a substitute. Apply NO fixed millimetre offset. Code converts the full horizontal span and rounds to whole millimetres; do not shorten the span or move its endpoints.
 `;
 
 export const FRONT_MEASUREMENT_PROMPT = `\nFor eyewear return front_geometry using ONLY ONE existing front photo (not caliper/detail/temple/side photos). A front photo on millimetre paper is allowed, but ignore the grid as a scale; use the inscription reference only. No new photos or extra analysis calls. Choose the best existing front view even with moderate perspective, then mark frontal=false and explain the uncertainty. Do NOT return unavailable merely because a photo is not perfectly straight-on or groove edges are partly obscured: return the visible inner lens contour points, groovesVisible=false and lower confidence. photoIndex is its 1-based position among the supplied images, or 0 ONLY if no front view with locatable lens contours exists. Recognize contours ONLY; never calculate or guess mm here. Coordinates x,y are fractions of the entire displayed image width/height (0..1), origin top-left, NEVER a crop. leftLens and rightLens mean the lens on the image's left and right. For each, mark extreme left/right/top/bottom groove-to-groove points of the lens opening, EXCLUDING frame rim (boxing maximum width/height; not arbitrary diagonal chords). outerLeft/outerRight mark absolute outermost COMPLETE glasses including hinges and ALL visible temple parts, not just the front rim. frontal=true only for straight-on view without yaw/pitch or lens foreshortening. groovesVisible only if actual inner grooves can be located; thick rims, glare or blur must reduce confidence. complete only if every outer extremity is visible and uncropped. samePlane only if outer extremities lie effectively in the lens plane; projecting temples/depth make it false. confidence is contour confidence 0..100, not physical measurement accuracy. note is a short German reason for any uncertainty, otherwise empty. If unavailable use photoIndex=0, all points={x:0,y:0}, all booleans=false, confidence=0 and explain briefly. Use both visible lens openings consistently; a too-small lens width inflates BOTH lens height and total width. Exclude the display stand and do not mistake a logo or demo-lens print for the lens contour. Read reference lens width from existing inscription facts only; do not infer reference mm from appearance. This front-photo ratio method replaces requests for caliper or millimetre-paper photos; never request additional measurement photos.` + BOXING_SYSTEM_DEFINITION;
