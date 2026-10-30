@@ -94,3 +94,17 @@ test("mixed dividers still sort distinct glasses within a block and never drop t
  });
  expect(rows.sizes).toEqual([1,2,2]);expect(rows.hasLast).toBe(true);
 });
+
+test("manual divider splitting works above 24 photos without any AI request",async({page})=>{
+ let calls=0;await page.route("**/api/**",r=>{if(r.request().url().endsWith("/api/sort"))calls++;return r.fulfill({json:{ok:false,enabled:false,connected:false,sortModels:[],analysisModels:[]}})});
+ await page.goto("/");const png=Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=","base64");
+ await page.locator("input[type=file]").setInputFiles(Array.from({length:30},(_,i)=>({name:`IMG_${String(i).padStart(3,"0")}.png`,mimeType:"image/png",buffer:png})));
+ await expect(page.locator(".thumb")).toHaveCount(30);await page.locator(".photo-separator-target").nth(14).click();
+ const split=page.getByRole("button",{name:"Fotos an Trennbildern aufteilen",exact:true});await expect(split).toBeEnabled();await split.click();
+ await expect(page.getByLabel("Artikelname")).toHaveCount(2);expect(calls).toBe(0);
+});
+test("AI respects a manual boundary even if the detector does not confirm it empty, keeping that product photo",async({page})=>{
+ const lengths:number[]=[];await page.route("**/api/**",r=>{if(r.request().url().endsWith("/api/sort")){const b=r.request().postDataJSON();if(b.action==="detect-separators")return r.fulfill({json:{ok:true,separatorIndices:[],usage:[]}});lengths.push(b.images.length);return r.fulfill({json:{ok:true,groups:[{name:"Brille",photoIndices:b.images.map((_:unknown,i:number)=>i)}],usage:[]}});}return r.fulfill({json:{ok:false,enabled:false,connected:false,sortModels:[],analysisModels:[]}})});
+ await page.goto("/");const png=Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=","base64");await page.locator("input[type=file]").setInputFiles([0,1,2,3].map(i=>({name:`IMG_${i}.png`,mimeType:"image/png",buffer:png})));
+ await expect(page.locator(".thumb")).toHaveCount(4);await page.locator(".photo-separator-target").nth(1).click();await page.getByRole("button",{name:/Fotos mit KI sortieren/}).click();await expect(page.getByLabel("Artikelname")).toHaveCount(2);expect(lengths).toEqual([2,2]);
+});

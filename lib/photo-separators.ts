@@ -33,3 +33,17 @@ export function splitAtSeparators(photos:Pick<Photo,"id"|"separator">[]):string[
  if(current.length) groups.push(current);
  return groups;
 }
+
+// Manual markers remain boundaries during AI grouping. Only independently
+// confirmed empty photos are removed; a marked product ends its old item too.
+export function splitForAi(photos:Pick<Photo,"id"|"separator"|"separatorManual">[],confirmed:Set<string>):string[][] {
+ const groups:string[][]=[];let current:string[]=[];
+ for(const photo of photos){
+  if(!confirmed.has(photo.id))current.push(photo.id);
+  if(confirmed.has(photo.id) || (photo.separator && photo.separatorManual)){
+   if(current.length)groups.push(current);current=[];
+  }
+ }
+ if(current.length)groups.push(current);
+ return groups;
+}

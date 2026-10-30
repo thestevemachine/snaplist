@@ -30,5 +30,5 @@ const quotes=[
 export function UploadQuote({revision}:{revision:number}) {
  const [index,setIndex]=useState<number|null>(null);
  useEffect(()=>{setIndex(previous=>previous===null ? Math.floor(Math.random()*quotes.length) : (previous+1+Math.floor(Math.random()*(quotes.length-1)))%quotes.length);},[revision]);
- return <p className="upload-quote" aria-label="Spruch zum Hochladen">{index===null ? "\u00a0" : quotes[index]}</p>;
+ return <p className="upload-quote" aria-label="Spruch zum Hochladen">{index===null ? "\u00a0" : `„${quotes[index]}“`}</p>;
 }
