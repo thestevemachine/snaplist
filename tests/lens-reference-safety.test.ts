@@ -45,3 +45,8 @@ it("recalculates saved contours once box provenance is recovered and maps to the
  const patch=frontMeasurementFields(l,[{name:"Glashöhe",mode:"FREE_TEXT",cardinality:"SINGLE",values:[],required:false,usage:"OPTIONAL"},{name:"Rahmenbreite",mode:"FREE_TEXT",cardinality:"SINGLE",values:[],required:false,usage:"OPTIONAL"}]);
  expect(patch?.item_specifics).toEqual({Glashöhe:"30 mm",Rahmenbreite:"136 mm"});
 });
+it("automatically uses an explicitly transcribed numeric lens-width label without asking for manual confirmation",()=>{
+ expect(lensReference(listing("50","50"))).toMatchObject({mm:50,source:"label"});
+ expect(lensReference(listing("Modell 50 CE","50"))).toBeUndefined();
+ expect(lensReference(listing("51","50"))).toBeUndefined();
+});

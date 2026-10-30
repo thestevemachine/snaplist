@@ -111,6 +111,8 @@ async function seed(page: Page, count: number, unfinished = false) {
     { count, photo, unfinished },
   );
   await page.reload();
+  await expect(page.getByRole("heading",{name:"Deine Angebote",exact:true})).toBeVisible();
+  if(await page.getByRole("button",{name:"Stapeltabelle",exact:true}).count()) await page.getByRole("button",{name:"Stapeltabelle",exact:true}).click();
   await expect(
     page.getByRole("heading", { name: "Deine Angebote" }),
   ).toBeVisible();
@@ -147,6 +149,8 @@ for (const count of [10, 25, 100])
       "Auf diesem Gerät gespeichert",
     );
     await page.reload();
+  await expect(page.getByRole("heading",{name:"Deine Angebote",exact:true})).toBeVisible();
+  if(await page.getByRole("button",{name:"Stapeltabelle",exact:true}).count()) await page.getByRole("button",{name:"Stapeltabelle",exact:true}).click();
     await expect(page.getByLabel("Titel BATCH-0", { exact: true })).toHaveValue(
       "Reviewed first item",
     );
@@ -298,6 +302,8 @@ test("first SKU assigns a persistent sequence to open items and skips published 
     });
   });
   await page.reload();
+  await expect(page.getByRole("heading",{name:"Deine Angebote",exact:true})).toBeVisible();
+  if(await page.getByRole("button",{name:"Stapeltabelle",exact:true}).count()) await page.getByRole("button",{name:"Stapeltabelle",exact:true}).click();
   await page.getByLabel("Erste SKU", { exact: true }).fill("5-23001");
   await expect(
     page.getByText("5-23001 bis 5-23002 (2 offene Angebote)", { exact: true }),
@@ -319,6 +325,8 @@ test("first SKU assigns a persistent sequence to open items and skips published 
   ).toBeVisible();
   await page.waitForTimeout(800);
   await page.reload();
+  await expect(page.getByRole("heading",{name:"Deine Angebote",exact:true})).toBeVisible();
+  if(await page.getByRole("button",{name:"Stapeltabelle",exact:true}).count()) await page.getByRole("button",{name:"Stapeltabelle",exact:true}).click();
   await expect(page.getByLabel("Titel 5-23001", { exact: true })).toHaveValue(
     "Item 1",
   );
@@ -344,5 +352,7 @@ test("first SKU can be assigned while analysis runs and survives completion and 
  await expect(page.getByLabel("Titel 65-23577",{exact:true})).toHaveValue("Neue Brille");
  await expect(page.getByLabel("Titel 65-23578",{exact:true})).toHaveValue("Neue Brille");
  await expect(page.getByRole("status").filter({hasText:"Auf diesem Gerät gespeichert"})).toBeVisible();await page.reload();
+  await expect(page.getByRole("heading",{name:"Deine Angebote",exact:true})).toBeVisible();
+  if(await page.getByRole("button",{name:"Stapeltabelle",exact:true}).count()) await page.getByRole("button",{name:"Stapeltabelle",exact:true}).click();
  await expect(page.getByLabel("Titel 65-23577",{exact:true})).toHaveValue("Neue Brille");
 });

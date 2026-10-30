@@ -338,3 +338,8 @@ it("measures complete width by horizontal tip projection, without a fixed offset
  const o=observation();o.outerLeft.y=.3;o.outerRight.y=.4;
  expect(calculateFrontMeasurement(o,sizes,listing())).toMatchObject({totalWidthPx:900,totalWidthMm:180});
 });
+it("calculates bridge width from nasal glass-box gap when only the lens width is known",()=>{
+ const lens=(left:number,right:number)=>({left:{x:left,y:.4},right:{x:right,y:.4},top:{x:(left+right)/2,y:.2},bottom:{x:(left+right)/2,y:.6}});
+ const result=calculateFrontMeasurement({photoIndex:1,leftLens:lens(.1,.4),rightLens:lens(.508,.808),outerLeft:{x:.05,y:.4},outerRight:{x:.858,y:.4},frontal:true,groovesVisible:true,complete:true,samePlane:true,confidence:95,note:""},[{width:1000,height:500}],{title:"Randlose Brille",description:"",eyewear:{fields:{lensWidth:{value:"50",source:"manual"}},warnings:[]}});
+ expect(result.bridgeWidthMm).toBe(18);
+});

@@ -27,7 +27,7 @@ export function frontMeasurementFields(
       photoMeasurement(listing,"totalWidth")?.mm ?? (useFront ? m?.totalWidthMm : undefined),
     ],
     [/^(Glasbreite|Scheibenbreite|Gläserbreite|Lens Width)(?:\s*\(mm\))?$/i,photoMeasurement(listing,"lensWidth")?.mm],
-    [/^(Stegbreite|Brückenbreite|Bridge Width)(?:\s*\(mm\))?$/i,photoMeasurement(listing,"bridgeWidth")?.mm],
+    [/^(Stegbreite|Brückenbreite|Bridge Width)(?:\s*\(mm\))?$/i,photoMeasurement(listing,"bridgeWidth")?.mm ?? (useFront ? m?.bridgeWidthMm : undefined)],
     [/^(Bügellänge|Temple Length)(?:\s*\(mm\))?$/i,photoMeasurement(listing,"templeLength")?.mm],
   ] as const) {
     if (!value || !Number.isInteger(value) || value <= 0) continue;

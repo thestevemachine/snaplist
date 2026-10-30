@@ -90,7 +90,7 @@ export function ListingCard({
   onPost,
   onSaveDraft,
 }: ListingCardProps) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(group.postStatus!=="posted");
   useEffect(() => { if (group.postStatus === "posted") setOpen(false); }, [group.id, group.postStatus]);
   const [analysisHint, setAnalysisHint] = useState("");
   const [savingDraft, setSavingDraft] = useState(false);

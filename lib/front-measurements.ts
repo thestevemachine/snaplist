@@ -41,6 +41,7 @@ export const frontMeasurementSchema = z.object({
   lensHeightPx: z.number().positive().optional(),
   totalWidthPx: z.number().positive().optional(),
   lensHeightMm: z.number().int().positive().optional(),
+  bridgeWidthMm:z.number().int().positive().optional(),
   totalWidthMm: z.number().int().positive().optional(),
   totalWidthCorrectionMm: z.literal(3).optional(), // Legacy persisted drafts only; never emitted by new calculations.
   reasons: z.array(z.string().max(1000)).max(30),
@@ -160,6 +161,8 @@ export function calculateFrontMeasurement(
   result.lensHeightMm = Math.round(height);
   // Physical horizontal extent, with no fixed offset.
   result.totalWidthMm = Math.round(total);
+  const projectedBridge = (reference * (b.l.x - a.r.x)) / result.lensWidthPx;
+  if(projectedBridge>=5 && projectedBridge<=40) result.bridgeWidthMm=Math.round(projectedBridge);
   const bridge = listing.eyewear?.fields.bridgeWidth;
   const bridgeMm = Number(
     bridge?.value.replace(/\s*mm$/i, "").replace(",", "."),
@@ -169,7 +172,6 @@ export function calculateFrontMeasurement(
     bridgeMm >= 5 &&
     bridgeMm <= 40
   ) {
-    const projectedBridge = (reference * (b.l.x - a.r.x)) / result.lensWidthPx;
     if (Math.abs(projectedBridge - bridgeMm) > Math.max(3, bridgeMm * 0.2)) {
       result.reasons.push(
         "Referenzprüfung: Der Abstand zwischen den Gläsern passt nicht zur aufgedruckten Stegbreite. Konturen oder Perspektive sind unzuverlässig; diese Maße nicht automatisch übernehmen.",

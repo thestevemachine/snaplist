@@ -70,7 +70,7 @@ export function ListingsView(props: ListingsViewProps) {
       skuPreview = (e as Error).message;
     }
   }
-  const [table, setTable] = useState(groups.length > 1);
+  const [table, setTable] = useState(false);
   const [filter, setFilter] = useState("all");
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -175,9 +175,7 @@ export function ListingsView(props: ListingsViewProps) {
         </span>
       </div>
       <div className="batch-toolbar">
-        <button type="button" className={table ? "detail-view-button" : ""} onClick={() => setTable(!table)}>
-          {table ? "Detailkarten" : "Stapeltabelle"}
-        </button>
+
         <label>
           Anzeigen{" "}
           <select
@@ -396,6 +394,9 @@ export function ListingsView(props: ListingsViewProps) {
           }}
         >
           SKU fortlaufend übernehmen
+        </button>
+        <button type="button" className="detail-view-button" onClick={() => setTable(!table)}>
+          {table ? "Detailkarten" : "Stapeltabelle"}
         </button>
         {skuMessage && <p role="status">{skuMessage}</p>}
       </fieldset>

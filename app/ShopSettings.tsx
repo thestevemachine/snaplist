@@ -114,17 +114,17 @@ export function ShopSettings({
   }
   return (
     <>
-      <section
+      <details
         className="panel saved-shop-summary"
         aria-label="Gespeicherte Shop-Vorgaben"
         style={{ marginBottom: "1rem" }}
       >
-        <strong>
+        <summary><strong>
           {loaded
             ? "Gespeicherte Vorgaben für " +
               (options?.sellerName || "dieses Konto")
             : (error || "Shop-Vorgaben noch nicht bestätigt – Konto wird geprüft.")}
-        </strong>
+        </strong></summary>
         {loaded && options && (
           <>
             <p>
@@ -159,7 +159,7 @@ export function ShopSettings({
             </small>
           </>
         )}
-      </section>
+      </details>
       <details className="panel shop-settings" style={{ marginBottom: "1rem" }}>
         <summary>
           <strong>Shop- und Batch-Vorgaben</strong>
