@@ -11,6 +11,7 @@ interface Status {
   configured: boolean;
   connected: boolean;
   sharedConfigured?: boolean;
+  personalConnectionReady?: boolean;
 }
 
 export function EbayConnect() {
@@ -174,6 +175,9 @@ export function EbayConnect() {
         )}
       </div>
     );
+
+  if(status && !status.connected && status.personalConnectionReady===false)
+    return <div className="ebay-bar"><span className="ebay-dot" aria-hidden="true"/><span>Dein SNAPLIST-Konto ist eingerichtet. Die persönliche eBay-Verbindung muss Stefan noch freischalten.</span></div>;
 
   // If eBay isn't configured on the server, show nothing (the writing flow
   // still works fine without it).

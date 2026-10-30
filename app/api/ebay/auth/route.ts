@@ -25,7 +25,7 @@ async function handlePOST(req: NextRequest) {
   const denied = guardApiRequest(req);
   if (denied) return denied;
 
-  if(accountsEnabled() && !process.env.SNAPLIST_EBAY_RU_NAME) return NextResponse.json({ok:false,error:"Die persönliche eBay-Anmeldung wird noch eingerichtet. Dein bestehender Besitzerzugang bleibt verbunden."},{status:503});
+  if(accountsEnabled() && !process.env.SNAPLIST_EBAY_RU_NAME) return NextResponse.json({ok:false,code:"PERSONAL_EBAY_SETUP_REQUIRED",error:currentAccount()?.owner ? "Die persönliche eBay-Verbindung benötigt noch eine eigene eBay-Rückleitungsadresse. Dein gespeicherter Zugang bleibt erhalten." : "Die persönliche eBay-Verbindung ist noch nicht freigeschaltet. Bitte Stefan um Abschluss der eBay-Einrichtung bitten."},{status:503});
   try {
     const state = (accountsEnabled() ? currentAccount()!.id+":" : "")+crypto.randomUUID();
     const url = buildAuthorizeUrl(state);
