@@ -54,10 +54,12 @@ const frontGeometry = {
     "note",
   ],
 };
+const measurementPhoto={type:"object",additionalProperties:false,properties:{dimension:{type:"string",enum:["lensWidth","bridgeWidth","templeLength","lensHeight","totalWidth"]},method:{type:"string",enum:["caliper","grid"]},photoIndex:{type:"integer"},reading:string,scaleMm:{type:"number"},scaleStart:point,scaleEnd:point,start:point,end:point,readable:{type:"boolean"},aligned:{type:"boolean"},samePlane:{type:"boolean"},confidence:{type:"number"},note:string},required:["dimension","method","photoIndex","reading","scaleMm","scaleStart","scaleEnd","start","end","readable","aligned","samePlane","confidence","note"]};
 export const AI_LISTING_SCHEMA = {
   type: "object",
   additionalProperties: false,
   properties: {
+    measurement_photos:{type:"array",items:measurementPhoto},
     front_geometry: frontGeometry,
     eyewear_kind: {
       type: "string",
@@ -96,6 +98,7 @@ export const AI_LISTING_SCHEMA = {
   },
   required: [
     "front_geometry",
+    "measurement_photos",
     "eyewear_kind",
     "classification_note",
     "title",

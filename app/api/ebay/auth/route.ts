@@ -2,6 +2,7 @@ import {accountsEnabled,currentAccount} from "@/lib/accounts/context";
 import {withAccount} from "@/lib/accounts/server";
 import { NextRequest, NextResponse } from "next/server";
 import { guardApiRequest } from "@/lib/api-guard";
+import {ebayState} from "@/lib/ebay/oauth-state";
 import { buildAuthorizeUrl } from "@/lib/ebay/oauth";
 import { EBAY_STATE_COOKIE } from "@/lib/ebay/session";
 
@@ -27,7 +28,7 @@ async function handlePOST(req: NextRequest) {
 
   if(accountsEnabled() && !process.env.SNAPLIST_EBAY_RU_NAME) return NextResponse.json({ok:false,code:"PERSONAL_EBAY_SETUP_REQUIRED",error:currentAccount()?.owner ? "Die persönliche eBay-Verbindung benötigt noch eine eigene eBay-Rückleitungsadresse. Dein gespeicherter Zugang bleibt erhalten." : "Die persönliche eBay-Verbindung ist noch nicht freigeschaltet. Bitte Stefan um Abschluss der eBay-Einrichtung bitten."},{status:503});
   try {
-    const state = (accountsEnabled() ? currentAccount()!.id+":" : "")+crypto.randomUUID();
+    const state = ebayState(accountsEnabled() ? currentAccount()!.id : undefined);
     const url = buildAuthorizeUrl(state);
     const res = NextResponse.json({ ok: true, url });
     setStateCookie(res, state);

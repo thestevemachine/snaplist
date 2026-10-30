@@ -1,3 +1,4 @@
+import {photoMeasurement} from "./measurement-photos";
 import {measurementChoice} from "./measurement-choice";
 import {lensReference} from "./lens-reference";
 import type { ListingResult } from "./types";
@@ -10,13 +11,8 @@ export function frontMeasurementFields(
   meta: AspectMeta[],
 ): Partial<ListingResult> | undefined {
   const m = listing.frontMeasurement;
-  if (
-    !lensReference(listing) ||
-    !m ||
-    m.status === "unavailable" ||
-    m.reasons.some((reason) => reason.startsWith("Referenzprüfung:"))
-  )
-    return;
+  const useFront=Boolean(lensReference(listing) && m && m.status!=="unavailable" && !m.reasons.some(reason=>reason.startsWith("Referenzprüfung:")));
+  if(!useFront && !["lensWidth","lensHeight","totalWidth","bridgeWidth","templeLength"].some(d=>photoMeasurement(listing,d as import("./measurement-photos").MeasurementDimension))) return;
   const specifics = { ...listing.item_specifics };
   const estimates = { ...listing.estimates };
   const evidence = { ...listing.evidence };
@@ -24,12 +20,15 @@ export function frontMeasurementFields(
   for (const [pattern, value] of [
     [
       /^(Scheibenhöhe|Glashöhe|Gläserhöhe|Lens Height)(?:\s*\(mm\))?$/i,
-      m.lensHeightMm,
+      photoMeasurement(listing,"lensHeight")?.mm ?? (useFront ? m?.lensHeightMm : undefined),
     ],
     [
       /^(Gesamtbreite|Fassungsbreite|Rahmenbreite|Frame Width|Total Frame Width)(?:\s*\(mm\))?$/i,
-      m.totalWidthMm,
+      photoMeasurement(listing,"totalWidth")?.mm ?? (useFront ? m?.totalWidthMm : undefined),
     ],
+    [/^(Glasbreite|Scheibenbreite|Gläserbreite|Lens Width)(?:\s*\(mm\))?$/i,photoMeasurement(listing,"lensWidth")?.mm],
+    [/^(Stegbreite|Brückenbreite|Bridge Width)(?:\s*\(mm\))?$/i,photoMeasurement(listing,"bridgeWidth")?.mm],
+    [/^(Bügellänge|Temple Length)(?:\s*\(mm\))?$/i,photoMeasurement(listing,"templeLength")?.mm],
   ] as const) {
     if (!value || !Number.isInteger(value) || value <= 0) continue;
     // An alias is not the actual category field: populate the latter too.
@@ -38,6 +37,7 @@ export function frontMeasurementFields(
       continue;
     const field = meta.find((f) => pattern.test(f.name));
     if (!field || specifics[field.name]?.trim()) continue;
+    const measured=photoMeasurement(listing,/höhe|height/i.test(field.name)?"lensHeight":/rahmen|fassung|gesamt|frame/i.test(field.name)?"totalWidth":/steg|brück|bridge/i.test(field.name)?"bridgeWidth":/bügel|temple/i.test(field.name)?"templeLength":"lensWidth");
     const existing = Object.entries(specifics).find(
       ([k, v]) => pattern.test(k) && v.trim(),
     );
@@ -51,11 +51,11 @@ export function frontMeasurementFields(
       choice ??
       (field.dataType === "NUMBER" ? String(projected) : `${projected} mm`);
     estimates[field.name] = Math.min(
-      m.observation?.confidence ?? 60,
-      m.status === "uncertain" ? 59 : 99,
+      measured?.evidence.confidence ?? m?.observation?.confidence ?? 60,
+      measured ? 99 : m?.status === "uncertain" ? 59 : 99,
     );
     evidence[field.name] = [
-      ...new Set([m.photoIndex, ...(m.referencePhotos ?? [])]),
+      ...new Set([...(measured ? [measured.evidence.photoIndex] : [m?.photoIndex ?? 0,...(m?.referencePhotos ?? [])])]),
     ].filter((n) => n > 0);
     changed = true;
   }

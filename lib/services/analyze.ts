@@ -1,3 +1,4 @@
+import {readMeasurementPhotos} from "@/lib/measurement-photos";
 import {boxSizePatch} from "@/lib/eyewear-measurements";
 import { titanEvidencePatch } from "@/lib/titan-evidence";
 import { DEFAULT_AI_MODEL } from "@/lib/ai-defaults";
@@ -374,6 +375,7 @@ async function handle(input: unknown) {
         }
         if (isGlasses(listing)) {
           Object.assign(listing,boxSizePatch(listing,[]));
+          listing.measurementPhotos=readMeasurementPhotos(raw.measurement_photos,imageSizes);
           attachFrontMeasurement(listing, raw.front_geometry, imageSizes);
         }
         listing = withSunglassesWidth(listing);

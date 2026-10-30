@@ -20,6 +20,7 @@ async function handleGET(req: NextRequest) {
   return NextResponse.json(
     {
       configured,
+      accountMode: accountsEnabled(),
       personalConnectionReady: !accountsEnabled() || Boolean(process.env.SNAPLIST_EBAY_RU_NAME),
       connected: isSharedEbayConfigured() || Boolean(conn),
       sharedConfigured: isSharedEbayConfigured(),

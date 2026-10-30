@@ -61,10 +61,21 @@ text, subprocessors/DPAs, AI international transfers, eBay deletion notification
 terms/consent and retention require the operator's review before broader use.
 
 ## Personal eBay callback
-Set SNAPLIST_EBAY_RU_NAME only after registering a separate eBay RuName whose
-accepted URL is https://snaplist-bay.vercel.app/api/ebay/callback. Do not reuse
-the old callback automatically: it may exchange a grant in ebay-ki-tools and
-change its shared seller. The existing EBAY_RU_NAME, app credentials and shared
-owner grant remain untouched. Owner's existing connection and price research
-keep working; new personal seller authorizations fail closed until this separate
-redirect is configured. Do not claim the friend's eBay onboarding is ready yet.
+The existing active RuName remains enabled and continues to point to
+https://ebay-ki-tools.vercel.app/api/ebay/oauth-callback. Set
+SNAPLIST_EBAY_RU_NAME to that existing active identifier in SNAPLIST only.
+Do not enable a second RuName or change the original callback/keyset.
+
+The shared callback forwards only snaplist:<account UUID>:<random UUID> to the
+fixed https://snaplist-bay.vercel.app/api/ebay/callback destination. It does not
+exchange or store these grants. SNAPLIST requires an authenticated invited user,
+an exact ten-minute HttpOnly/Secure/Lax nonce cookie, and matching account ID
+before exchanging a code. Successful credentials go exclusively to that user's
+encrypted vault. Cancellation, mismatches, malformed input and exchange failure
+never update the shared token row. Existing legacy and Snapdash flows remain.
+
+Deploy the shared relay before configuring/redeploying SNAPLIST. Revert the two
+deployments independently if necessary; retain the old RuName and existing
+shared seller grant. The friend's first real consent and subsequent read-only
+connection test must be completed by the friend. Do not claim that consent or
+live account access has been verified by fixture tests.

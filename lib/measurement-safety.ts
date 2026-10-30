@@ -1,3 +1,4 @@
+import {photoMeasurement} from "./measurement-photos";
 import type {ListingResult} from "./types";
 import {lensReference} from "./lens-reference";
 const derived=/^(Scheibenhöhe|Glashöhe|Gläserhöhe|Gesamtbreite|Fassungsbreite|Rahmenbreite|Frame Width|Total Frame Width|Lens Height)(?:\s*\(mm\))?$/i;
@@ -5,7 +6,7 @@ const derived=/^(Scheibenhöhe|Glashöhe|Gläserhöhe|Gesamtbreite|Fassungsbreit
 export function measurementSafetyPatch(l:ListingResult):Partial<ListingResult>|undefined {
  if(lensReference(l) && !l.frontMeasurement?.reasons.some(r=>r.startsWith("Referenzprüfung:"))) return;
  const specifics={...l.item_specifics},estimates={...l.estimates},evidence={...l.evidence};let changed=false;
- for(const name of Object.keys(specifics)) if(derived.test(name) && !l.manual_measurement_fields?.some(k=>derived.test(k) && (/höhe|height/i.test(k)===/höhe|height/i.test(name)))) {
+ for(const name of Object.keys(specifics)) if(derived.test(name) && !photoMeasurement(l,/höhe|height/i.test(name)?"lensHeight":"totalWidth") && !l.manual_measurement_fields?.some(k=>derived.test(k) && (/höhe|height/i.test(k)===/höhe|height/i.test(name)))) {
   delete specifics[name];delete estimates[name];delete evidence[name];changed=true;
  }
  const total=l.eyewear?.fields.totalWidth;

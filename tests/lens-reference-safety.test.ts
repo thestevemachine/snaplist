@@ -31,3 +31,17 @@ it("removes cached automatic specifics after a boxing consistency failure while 
  l.frontMeasurement={method:"front-photo-ratio-v1",status:"uncertain",photoIndex:1,reasons:["Referenzprüfung: nasal nicht mittig"],totalWidthMm:178};
  expect(measurementSafetyPatch(l)?.item_specifics).toEqual({Glashöhe:"28 mm"});
 });
+it("recovers a short or unlinked width from matching full box evidence on another field, never from size text alone",()=>{
+ const l=listing("50","50");l.eyewear!.fields.lensWidth!.photos=[];l.eyewear!.fields.bridgeWidth={value:"19",source:"label",quote:"NEOGO 50 □ 19",photos:[3]};
+ expect(lensReference(l)).toMatchObject({mm:50,quote:"NEOGO 50 □ 19",photos:[3]});
+ delete l.eyewear!.fields.bridgeWidth;l.size="50-19";expect(lensReference(l)).toBeUndefined();
+});
+it("recalculates saved contours once box provenance is recovered and maps to the existing eBay fields",async()=>{
+ const {calculateFrontMeasurement}=await import("@/lib/front-measurements");const {frontMeasurementFields}=await import("@/lib/front-measurement-fields");
+ const l=listing("50","50");l.eyewear!.fields.bridgeWidth={value:"19",source:"label",quote:"50 □ 19",photos:[2]};
+ const lens=(left:number,right:number)=>({left:{x:left,y:.38},right:{x:right,y:.38},top:{x:(left+right)/2,y:.2},bottom:{x:(left+right)/2,y:.56}});
+ l.frontMeasurement=calculateFrontMeasurement({photoIndex:1,leftLens:lens(.1,.4),rightLens:lens(.514,.814),outerLeft:{x:.05,y:.4},outerRight:{x:.864,y:.4},frontal:true,groovesVisible:true,complete:true,samePlane:true,confidence:90,note:""},[{width:1000,height:500}],l);
+ expect(l.frontMeasurement.lensHeightMm).toBe(30);expect(l.frontMeasurement.totalWidthMm).toBe(136);
+ const patch=frontMeasurementFields(l,[{name:"Glashöhe",mode:"FREE_TEXT",cardinality:"SINGLE",values:[],required:false,usage:"OPTIONAL"},{name:"Rahmenbreite",mode:"FREE_TEXT",cardinality:"SINGLE",values:[],required:false,usage:"OPTIONAL"}]);
+ expect(patch?.item_specifics).toEqual({Glashöhe:"30 mm",Rahmenbreite:"136 mm"});
+});

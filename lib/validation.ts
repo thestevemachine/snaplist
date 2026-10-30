@@ -1,3 +1,4 @@
+import {measurementPhotoSchema} from "./measurement-photos";
 import { z } from "zod";
 import { frontMeasurementSchema } from "./front-measurements";
 import type { ListingResult } from "./types";
@@ -86,6 +87,7 @@ export const listingSchema = z.object({
   material: scalar.optional(),
   condition: z.enum(CONDITIONS).optional(),
   condition_notes: z.string().max(3000).optional(),
+  measurementPhotos:z.array(measurementPhotoSchema).max(12).optional(),
   measurements: text.optional(),
   manual_measurement_values: z.record(z.string().max(100),z.string().max(30)).optional(),
   manual_measurement_fields: z.array(z.string().max(100)).max(30).optional(),

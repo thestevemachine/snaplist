@@ -19,3 +19,11 @@ it("recovers missing measurements from stored quoted temple evidence without mod
  expect(manualEyewearMeasurement(l,"Glashöhe","",[]).manual_measurement_fields).toContain("Glashöhe");
  expect(manualEyewearMeasurement(l,"Gesamtbreite","138",[{name:"Rahmenbreite",mode:"FREE_TEXT",cardinality:"SINGLE",values:[],required:false,dataType:"NUMBER"}]).item_specifics?.Rahmenbreite).toBe("138");
 });
+it("keeps complete box evidence when a later width fact contains only the number",async()=>{
+ const {extractEyewear}=await import("@/lib/eyewear-inscriptions");
+ const {lensReference}=await import("@/lib/lens-reference");
+ const fields=extractEyewear([{name:"Kastenmaß",value:"50-19",basis:"label",quote:"50 □ 19",photoIndices:[2]},{name:"Glasbreite",value:"50",basis:"label",quote:"50",photoIndices:[2]}]);
+ expect(lensReference({title:"Brille",description:"",eyewear:fields})).toMatchObject({mm:50,quote:"50 □ 19"});
+ const l={title:"Brille",description:"",eyewear:{fields:{lensWidth:{value:"50",source:"label" as const,quote:"50",photos:[2]},bridgeWidth:{value:"19",source:"label" as const,quote:"50 □ 19",photos:[2]}},warnings:[]}};
+ const patch=boxSizePatch(l,[])!;expect(patch.eyewear?.fields.lensWidth?.quote).toBe("50 □ 19");expect(boxSizePatch({...l,...patch},[])).toBeUndefined();
+});
