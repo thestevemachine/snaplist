@@ -36,8 +36,10 @@ export async function POST(req:NextRequest) {
   return withAccount(async()=>{
    const u=currentAccount()!;
    if(body.action==="key") {
-    const provider=z.enum(["google","openai","anthropic"]).parse(body.provider);
-    const key=z.string().max(512).parse(body.key).trim();
+    const parsed=z.object({provider:z.enum(["google","openai","anthropic"]),key:z.string().max(512)}).safeParse(body);
+    if(!parsed.success)return NextResponse.json({ok:false,error:"KI-Anbieter und API-Schlüssel prüfen."},{status:400});
+    const {provider}=parsed.data;
+    const key=parsed.data.key.trim();
     if(key && (key.length<16 || /\s/.test(key))) return NextResponse.json({ok:false,error:"Bitte einen gültigen API-Schlüssel eingeben."},{status:400});
     const next={...u.secrets};if(key || u.owner)next[provider]=key;else delete next[provider];
     await saveCredentials(next);return NextResponse.json({ok:true});

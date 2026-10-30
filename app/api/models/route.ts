@@ -30,6 +30,7 @@ const SORT_DEFAULT = DEFAULT_AI_MODEL;
 const ANALYSIS_DEFAULT = DEFAULT_AI_MODEL;
 
 export interface ModelOption {
+  recommended?:boolean;
   provider?: string;
   configured?: boolean;
   id: string;
@@ -155,8 +156,8 @@ async function handleGET() {
   });
   return NextResponse.json(
     {
-      sortModels: [...payload.sortModels.map(annotate), ...extras],
-      analysisModels: [...payload.analysisModels.map(annotate), ...extras],
+      sortModels: [...payload.sortModels.map(annotate), ...extras.map(m=>({...m,recommended:m.id==="gpt-6-luna"}))],
+      analysisModels: [...payload.analysisModels.map(annotate), ...extras.map(m=>({...m,recommended:m.id==="gpt-6.1-terra"}))],
     },
     { headers: { "Cache-Control": "no-store" } },
   );

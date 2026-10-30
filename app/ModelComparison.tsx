@@ -103,7 +103,7 @@ export function ModelComparison({
           <option value="">Modell auswählen</option>
           {models.map((m) => (
             <option key={m.id} value={m.id}>
-              {m.displayName}
+              {m.displayName}{m.recommended ? " · Empfehlung" : ""}
               {m.configured === false ? " · Schlüssel fehlt" : ""}
             </option>
           ))}

@@ -381,3 +381,16 @@ it("exposes Gemini Flash-Lite as the single default for both selectors without a
   }
   expect(fetchMock).not.toHaveBeenCalled();
 });
+it("marks stage-specific OpenAI recommendations without changing the Gemini default",async()=>{
+ const data=await (await modelOptions()).json();
+ expect(data.sortModels.filter((m:{recommended?:boolean})=>m.recommended).map((m:{id:string})=>m.id)).toEqual(["gpt-6-luna"]);
+ expect(data.analysisModels.filter((m:{recommended?:boolean})=>m.recommended).map((m:{id:string})=>m.id)).toEqual(["gpt-6.1-terra"]);
+ expect(data.analysisModels.find((m:{id:string})=>m.id==="gpt-6.1-terra").provider).toBe("openai");expect(fetchMock).not.toHaveBeenCalled();
+});
+it("routes recommended Terra through the existing OpenAI image adapter with current rates",async()=>{
+ fetchMock.mockResolvedValueOnce(openai('{"ok":true}',{model:"gpt-6.1-terra"}));
+ const {result,usage}=await collectUsage(()=>measuredMessage("analysis",getClient("gpt-6.1-terra"),params("gpt-6.1-terra")));
+ expect(result.model).toBe("gpt-6.1-terra");expect(String(fetchMock.mock.calls[0][0])).toBe("https://api.openai.com/v1/chat/completions");
+ const body=JSON.parse(fetchMock.mock.calls[0][1].body);expect(body.model).toBe("gpt-6.1-terra");expect(body.messages[1].content.some((part:{type:string})=>part.type==="image_url")).toBe(true);expect(body.store).toBe(false);
+ expect(modelRates("gpt-6.1-terra")).toMatchObject({input:1,output:5,cached:.05,cacheWrite:1.25});expect(usage).toHaveLength(1);
+});

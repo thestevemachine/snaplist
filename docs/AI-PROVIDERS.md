@@ -7,18 +7,23 @@ Keine zusätzlichen Anbieter-SDKs und kein Qwen, Gateway oder automatischer Fall
 
 ## Einrichtung
 
-In Vercel → Projekt **snaplist** → Settings → Environment Variables:
+Mit einem persönlichen SNAPLIST-Konto: **KI-Einstellungen → Deine KI-Zugänge**
+öffnen, Anbieter auswählen, eigenen Schlüssel eingeben und speichern. Derselbe
+Zugang kann unter **Mein Konto** verwaltet werden. Schlüssel werden ausschließlich
+im privaten, pro Nutzer getrennten und verschlüsselten Server-Vault gespeichert.
+Der Browser hält die Eingabe nur vorübergehend und leert sie nach dem Speichern;
+GET-Antworten geben nur Verfügbarkeitskennzeichen zurück. Schlüssel werden weder
+in Modellpräferenzen noch in localStorage, Exporten oder URLs abgelegt.
 
-| Anbieter | Serverseitige Einstellung | Zugang |
-|---|---|---|
-| Claude | `ANTHROPIC_API_KEY` (bestehend) | Anthropic Console |
-| Google Gemini | `GEMINI_API_KEY` | https://aistudio.google.com/api-keys |
-| OpenAI | `OPENAI_API_KEY` | https://platform.openai.com/api-keys |
+Einrichten/Speichern löst keinen kostenpflichtigen Test aus. Die Modellliste
+aktualisiert die Verfügbarkeit danach, ohne gespeicherte Modellwahlen zu ersetzen.
+Bestehende Server-Schlüssel bleiben ausschließlich für den Besitzer verfügbar;
+Mitglieder verwenden ihre eigenen Zugänge. Ein kostenpflichtiger Verbindungstest
+braucht weiterhin eine separate Bestätigung.
 
-Als **Secret** für Production speichern und neu bereitstellen. Preview braucht
-eigene Einstellungen. Niemals `NEXT_PUBLIC_` verwenden oder Werte in Chat, Git
-oder Browserformularen speichern. Die Anwendung zeigt nur, ob eine Einstellung
-vorhanden ist. ChatGPT-Abonnements ersetzen kein OpenAI-API-Guthaben.
+Für bestehende Installationen ohne Kontenanmeldung können Betreiber weiterhin
+serverseitig ANTHROPIC_API_KEY, GEMINI_API_KEY und OPENAI_API_KEY konfigurieren.
+Niemals NEXT_PUBLIC_ verwenden oder Schlüssel in Git/Chat ablegen.
 
 **KI-Einstellungen** öffnen. Fotosortierung und Listing-Erstellung unabhängig
 auswählen. Die vorhandenen gerätebezogenen Einstellungen werden wiederverwendet;
@@ -28,7 +33,7 @@ bleiben sichtbar und werden nicht still durch teurere Modelle ersetzt.
 Die Schaltflächen **Verbindung testen (kostenpflichtig)** starten nach Bestätigung
 je einen kurzen Textaufruf. Das prüft Schlüssel und Modellzugriff. Die Bildqualität
 wird separat mit einer Brille verglichen. Ohne Schlüssel stoppen die Anbieter vor
-dem Netzwerkaufruf. Keine API-Schlüssel werden im Browser angefordert.
+dem Netzwerkaufruf.
 
 ## Geprüfte Bildmodelle und Standardpreise
 
@@ -95,3 +100,22 @@ Sortierung bleibt der vorhandene mehrstufige Ablauf mit gewähltem Modell.
 Praktischer Qualitätscheck: dieselben Brillen und Fotos mit Claude und den
 Sparmodellen vergleichen, insbesondere Beschriftungen, Maße, Material,
 Brillenart und manuelle Korrekturen prüfen. Keine automatische Veröffentlichung.
+
+## OpenAI-Empfehlungen, geprüft 30.10.2026
+
+- Fotosortierung: **GPT-6 Luna · Empfehlung**, günstiges visuelles Sortieren.
+- Angebotserstellung: **GPT-6.1 Terra · Empfehlung**, Schwerpunkt Bildmerkmale
+  und natürliche Texte. Das ist eine Auswahlhilfe, kein Qualitätsnachweis für
+  einzelne Brillen und kein automatischer Modellwechsel.
+- Gemini Flash-Lite bleibt der bisherige Standard. Gespeicherte Auswahl und
+  Claude-Anbindung bleiben unverändert.
+
+Offizielle Quellen (Bildeingabe, strukturierte Ausgabe und Preise):
+https://developers.openai.com/api/docs/models/gpt-6-luna
+https://developers.openai.com/api/docs/models/gpt-6.1-terra
+
+Standard-USD je 1 Mio. Token: Luna Eingabe 0,10 / Ausgabe 0,50 / Cache-Lesen
+0,01 / Cache-Schreiben 0,125; Terra Eingabe 1,00 / Ausgabe 5,00 / Cache-Lesen
+0,05 / Cache-Schreiben 1,25. Region, Verarbeitungstier und Cache-Dauer können
+andere Anbieterpreise verursachen; die Anwendung nutzt Standard-Tier und zeigt
+berechnete API-Kosten anhand gemeldeter Token, keine garantierten Listingpreise.

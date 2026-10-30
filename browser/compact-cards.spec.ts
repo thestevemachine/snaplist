@@ -501,3 +501,10 @@ test("detail cards start open and settings are collapsed below them with view sw
  expect(await footer.evaluate(el=>el.getBoundingClientRect().top)).toBeGreaterThan(await page.locator('.listing-card').evaluate(el=>el.getBoundingClientRect().bottom));
  await expect(page.locator('.sku-sequence').getByRole('button',{name:'Stapeltabelle',exact:true})).toBeVisible();
 });
+test("Detailkarten remains visible directly beside SKU assignment, starts selected, and restored cards are open",async({page})=>{
+ await setup(page);const row=page.locator('.sku-actions');const sku=row.getByRole('button',{name:'SKU fortlaufend übernehmen',exact:true}),cards=row.getByRole('button',{name:'Detailkarten',exact:true});
+ await expect(cards).toHaveAttribute('aria-pressed','true');await expect(page.locator('.listing-card .card-details-toggle')).toHaveAttribute('aria-expanded','true');
+ const a=await sku.boundingBox(),b=await cards.boundingBox();expect(Math.abs(a!.y-b!.y)).toBeLessThan(2);expect(b!.x).toBeGreaterThan(a!.x);
+ await row.getByRole('button',{name:'Stapeltabelle',exact:true}).click();await expect(cards).toBeVisible();await expect(cards).toHaveAttribute('aria-pressed','false');await cards.click();await expect(page.locator('.listing-card .card-details-toggle')).toHaveAttribute('aria-expanded','true');
+ await page.reload();await expect(page.locator('.listing-card .card-details-toggle')).toHaveAttribute('aria-expanded','true');await expect(page.locator('.sku-actions').getByRole('button',{name:'Detailkarten',exact:true})).toHaveAttribute('aria-pressed','true');
+});

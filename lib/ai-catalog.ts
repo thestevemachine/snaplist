@@ -1,5 +1,5 @@
 // Public metadata only. USD / million tokens, standard synchronous APIs.
-// Official sources and review notes: docs/AI-PROVIDERS.md (2026-10-19).
+// Official sources and review notes: docs/AI-PROVIDERS.md; OpenAI reviewed 2026-10-30.
 export type AiProvider = "anthropic" | "google" | "openai";
 export interface AiModel {
   id: string;
@@ -51,7 +51,11 @@ export const AI_MODELS: AiModel[] = [
     output: 0.5,
     cached: 0.01,
     cacheWrite: 0.125,
-    priceDate: "2026-10-19",
+    priceDate: "2026-10-30",
+  },
+  {
+    id:"gpt-6.1-terra",name:"OpenAI GPT-6.1 Terra",provider:"openai",
+    input:1,output:5,cached:0.05,cacheWrite:1.25,priceDate:"2026-10-30",
   },
   {
     id: "gpt-5.4-mini",
