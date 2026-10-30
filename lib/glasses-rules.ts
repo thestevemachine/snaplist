@@ -512,5 +512,5 @@ export function totalWidthForTitle(l:ListingResult):number {
  const field=l.eyewear?.fields.totalWidth;
  if(field?.value.trim()) return Number(field.value.replace(/\s*mm$/i,""));
  if(field?.source==="manual" || l.manual_measurement_fields?.some(k=>keys.includes(k))) return NaN;
- return l.frontMeasurement?.status!=="unavailable" ? l.frontMeasurement?.totalWidthMm ?? NaN : NaN;
+ return l.frontMeasurement?.status!=="unavailable" && !l.frontMeasurement?.reasons.some(r=>r.startsWith("Referenzprüfung:")) ? l.frontMeasurement?.totalWidthMm ?? NaN : NaN;
 }

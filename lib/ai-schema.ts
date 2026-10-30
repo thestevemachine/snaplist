@@ -15,7 +15,13 @@ const point = {
 const contour = {
   type: "object",
   additionalProperties: false,
-  properties: { left: point, right: point, top: point, bottom: point },
+  description:"Four actual extreme CONTACT points of one glass/groove opening, excluding frame and bridge. Not the corners of the boxing rectangle.",
+  properties: {
+    left:{...point,description:"Actual contour point with minimum x of this lens opening."},
+    right:{...point,description:"Actual contour point with maximum x of this lens opening."},
+    top:{...point,description:"Actual contour point with minimum y anywhere on this lens opening."},
+    bottom:{...point,description:"Actual contour point with maximum y anywhere on this lens opening."},
+  },
   required: ["left", "right", "top", "bottom"],
 };
 const frontGeometry = {
@@ -25,8 +31,8 @@ const frontGeometry = {
     photoIndex: { type: "integer" },
     leftLens: contour,
     rightLens: contour,
-    outerLeft: point,
-    outerRight: point,
+    outerLeft: {...point,description:"Minimum-x point of complete glasses, including outer rim/hinge/visible temple, excluding stand, labels and background."},
+    outerRight: {...point,description:"Maximum-x point of complete glasses, including outer rim/hinge/visible temple, excluding stand, labels and background."},
     frontal: { type: "boolean" },
     groovesVisible: { type: "boolean" },
     complete: { type: "boolean" },

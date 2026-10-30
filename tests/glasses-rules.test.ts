@@ -309,3 +309,7 @@ it("adds only listed manufacturing origins, translates Nordic origins and never 
  expect(germanGlassesTitle({title:"Brille",description:"",brand:"Test",item_specifics:{Herstellungsland:"China"}},[])).not.toContain("China");
  expect(germanGlassesTitle({title:"Brille",description:"",brand:"Test",item_specifics:{Herstellungsland:"Japan"},estimates:{Herstellungsland:90}},[])).not.toContain("Japan");
 });
+it("does not use a failed boxing-consistency estimate for large-frame title keywords",async()=>{
+ const {totalWidthForTitle}=await import("@/lib/glasses-rules");
+ expect(totalWidthForTitle({title:"Brille",description:"",frontMeasurement:{method:"front-photo-ratio-v1",status:"uncertain",photoIndex:1,reasons:["Referenzprüfung: Gläser unsymmetrisch"],totalWidthMm:178}})).toBeNaN();
+});
