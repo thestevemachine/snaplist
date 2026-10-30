@@ -274,6 +274,8 @@ test("first SKU assigns a persistent sequence to open items and skips published 
   page,
 }) => {
   await seed(page, 3);
+  // Let the restored document finish its debounced save before the fixture edits IndexedDB.
+  await page.waitForTimeout(800);
   await page.evaluate(async () => {
     await new Promise<void>((resolve, reject) => {
       const r = indexedDB.open("listing-writer-drafts");
@@ -323,4 +325,24 @@ test("first SKU assigns a persistent sequence to open items and skips published 
   await expect(page.getByLabel("Titel 5-23002", { exact: true })).toHaveValue(
     "Item 2",
   );
+});
+
+test("first SKU can be assigned while analysis runs and survives completion and reload",async({page})=>{
+ page.on("dialog",dialog=>dialog.accept());
+ await seed(page,2,true);
+ let release!:()=>void;const pending=new Promise<void>(resolve=>{release=resolve});let started=0;
+ await page.route("**/api/analyze",async r=>{started++;await pending;await r.fulfill({json:{ok:true,listing:{title:"Neue Brille",description:"Text",suggested_price:30,item_specifics:{}}}})});
+ await page.route("**/api/ebay/prepare",r=>r.fulfill({json:{ok:false,error:"Test: keine Kategorie"}}));
+ await page.route("**/api/ebay/comps",r=>r.fulfill({json:{ok:false}}));
+ await page.getByRole("button",{name:"2 verbleibende Entwürfe erstellen / erneut versuchen",exact:true}).click();
+ await expect.poll(()=>started).toBe(2);
+ const input=page.getByLabel("Erste SKU",{exact:true});await expect(input).toBeEnabled();
+ await expect(input).toHaveCSS("border-top-width","2px");await input.fill("65-23577");
+ await page.getByRole("button",{name:"SKU fortlaufend übernehmen",exact:true}).click();
+ await expect(page.getByText(/SKU für 2 offene Angebote reserviert/)).toBeVisible();
+ release();await expect(page.locator(".result-head .badge")).toContainText("2/2 Entwürfe erstellt");
+ await expect(page.getByLabel("Titel 65-23577",{exact:true})).toHaveValue("Neue Brille");
+ await expect(page.getByLabel("Titel 65-23578",{exact:true})).toHaveValue("Neue Brille");
+ await expect(page.getByRole("status").filter({hasText:"Auf diesem Gerät gespeichert"})).toBeVisible();await page.reload();
+ await expect(page.getByLabel("Titel 65-23577",{exact:true})).toHaveValue("Neue Brille");
 });

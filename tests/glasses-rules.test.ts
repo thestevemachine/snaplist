@@ -301,3 +301,11 @@ it("uses Pilot Oval for supported oval or pilot outlines without adding it to ro
   }
   expect(germanGlassesTitle({title:"Brille",description:"",item_specifics:{Form:"Rund"}},[aspect("Form")])).not.toContain("Pilot Oval");
 });
+it("adds only listed manufacturing origins, translates Nordic origins and never infers country from a brand",()=>{
+ for(const [value,country] of [["Made in Japan","Japan"],["Sweden","Schweden"],["Norway","Norwegen"],["Finland","Finnland"],["Iceland","Island"],["Italy","Italien"],["France","Frankreich"],["Germany","Deutschland"]]) {
+  const title=germanGlassesTitle({title:"Brille",description:"",brand:"Test",item_specifics:{Herstellungsland:value}},[]);
+  expect(title).toContain(country);
+ }
+ expect(germanGlassesTitle({title:"Brille",description:"",brand:"Test",item_specifics:{Herstellungsland:"China"}},[])).not.toContain("China");
+ expect(germanGlassesTitle({title:"Brille",description:"",brand:"Test",item_specifics:{Herstellungsland:"Japan"},estimates:{Herstellungsland:90}},[])).not.toContain("Japan");
+});

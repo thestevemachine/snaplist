@@ -1,3 +1,4 @@
+import {measurementChoice} from "../measurement-choice";
 import type { ListingResult } from "../types";
 import type { AspectMeta } from "./taxonomy";
 
@@ -26,7 +27,7 @@ export function categorySpecifics<T>(
         if (field?.mode !== "FREE_TEXT" || !isMeasurementAspect(name))
           return [name, value];
         const format = (v: string) =>
-          field.values.includes(v) ? v : formatMeasurement(name, v);
+          field.values.includes(v) || field.dataType === "NUMBER" ? v : formatMeasurement(name, v);
         return [
           name,
           typeof value === "string"
@@ -156,8 +157,10 @@ export function expandEyewearFeatures(
     .flatMap(([, v]) => v)
     .join(" ");
   const candidates: string[] = [];
-  if (/randlos/i.test(physical)) candidates.push("Randlos");
-  else if (/halbrand|halbrahmen|nylon/i.test(physical))
+  const nylor=/\bnylor\b/i.test(physical);
+  if(nylor) candidates.push("Halbrand","Halbrahmen");
+  else if (/randlos/i.test(physical)) candidates.push("Randlos");
+  else if (/halbrand|halbrahmen|nylo[nr]/i.test(physical))
     candidates.push("Halbrand", "Halbrahmen");
   else if (/vollrand/i.test(physical)) candidates.push("Vollrand");
   if (/rechteckig|rectangular/i.test(physical))
@@ -165,7 +168,7 @@ export function expandEyewearFeatures(
   else if (/quadratisch|eckig|square/i.test(physical))
     candidates.push("Eckig", "Quadratisch");
   if (/rund|round|panto/i.test(physical)) candidates.push("Rund");
-  const current = aspects[field.name] ?? [];
+  const current = (aspects[field.name] ?? []).filter(v=>!nylor || !/^(randlos|vollrand)$/i.test(v));
   const valid = candidates.flatMap((c) =>
     field.values.filter((v) => v.toLowerCase() === c.toLowerCase()),
   );
@@ -183,31 +186,22 @@ export function mapGridMeasurements(
   meta: AspectMeta[],
 ) {
   for (const aliases of [
-    /^(Scheibenhöhe|Glashöhe|Gläserhöhe)$/i,
-    /^(Gesamtbreite|Fassungsbreite|Rahmenbreite)$/i,
+    /^(Scheibenhöhe|Glashöhe|Gläserhöhe)(?:\s*\(mm\))?$/i,
+    /^(Gesamtbreite|Fassungsbreite|Rahmenbreite)(?:\s*\(mm\))?$/i,
   ]) {
     const source = Object.entries(specifics).find(
       ([name, value]) =>
         aliases.test(name) && /^\d+(?:[.,]\d+)?(?:\s*mm)?$/i.test(value.trim()),
     );
     if (!source) continue;
-    const measured = Math.floor(
+    const measured = Math.round(
       Number(source[1].replace(/\s*mm$/i, "").replace(",", ".")),
     );
     for (const field of meta.filter((m) => aliases.test(m.name))) {
       if (aspects[field.name]?.length) continue;
-      const choices = field.values
-        .map((value) => ({
-          value,
-          mm: /^\d+(?:[.,]\d+)?(?:\s*mm)?$/i.test(value.trim())
-            ? Number(value.replace(/\s*mm$/i, "").replace(",", "."))
-            : NaN,
-        }))
-        .filter((v) => v.mm <= measured && measured - v.mm <= 1)
-        .sort((a, b) => b.mm - a.mm);
-      if (choices.length) aspects[field.name] = [choices[0].value];
-      else if (!field.values.length && field.mode === "FREE_TEXT")
-        aspects[field.name] = [String(measured)];
+      const choice=measurementChoice(field.values,measured);
+      if(choice) aspects[field.name]=[choice];
+      else if(field.mode === "FREE_TEXT") aspects[field.name]=[field.dataType === "NUMBER" ? String(measured) : `${measured} mm`];
     }
   }
 }

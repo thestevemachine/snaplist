@@ -454,32 +454,28 @@ export default function Home() {
       for(let offset=0;offset<photos.length;offset+=20) {
         const chunk=photos.slice(offset,offset+20);
         setSortProgress(`KI prüft Trennbilder: Foto ${offset+1}–${offset+chunk.length} von ${photos.length}…`);
+        const detailed=await Promise.all(chunk.map(async photo=>{const saved=await loadPhoto(photo.id);return {photoId:photo.id,mediaType:photo.mediaType,data:saved?.data || photo.data || photo.previewUrl.split(",")[1]};}));
+        for(const batch of chunkImagesForUpload(detailed,3_200_000,20)) {
         const response=await apiPost("/api/sort",{action:"detect-separators",sortModel:getSortModel() ?? DEFAULT_AI_MODEL,
-          images:chunk.map(photo=>({mediaType:photo.mediaType,data:photo.previewUrl.split(",")[1]}))});
+          images:batch.map(({mediaType,data})=>({mediaType,data}))});
         const detected=await readJson(response,"Trennbilderkennung fehlgeschlagen. Bitte erneut starten.");
         setSortUsage(prev=>[...prev,...(detected.usage ?? [])]);
-        if(!detected.ok || !Array.isArray(detected.separatorIndices) || detected.separatorIndices.some((i:unknown)=>typeof i!=="number" || !Number.isInteger(i) || i<0 || i>=chunk.length))
+        if(!detected.ok || !Array.isArray(detected.separatorIndices) || detected.separatorIndices.some((i:unknown)=>typeof i!=="number" || !Number.isInteger(i) || i<0 || i>=batch.length))
           throw new Error(detected.error || "Trennbilderkennung unvollständig. Es wird nicht ungeprüft weiter sortiert.");
-        detected.separatorIndices.forEach((index:number)=>separators.add(chunk[index].id));
+        detected.separatorIndices.forEach((index:number)=>separators.add(batch[index].photoId));
+        }
       }
-      const ordered=photos.map(photo=>({...photo,separator:photo.separatorManual ? Boolean(photo.separator) : separators.has(photo.id)}));
+      const ordered=photos.map(photo=>({...photo,separator:separators.has(photo.id),separatorManual:false}));
       setPhotos(ordered);
-      if(ordered.some(photo=>photo.separator)) {
-        const parts=splitAtSeparators(ordered);
-        if(!parts.length) throw new Error("Nur Trennbilder vorhanden. Bitte auch Brillenfotos hinzufügen.");
-        setPhotos(ordered);
-        setGroups(parts.map((photoIds,index)=>({id:newId(),sku:"",name:`Brille ${index+1}`,photoIds,status:"idle"})));
-        setOrphanIds([]);
-        setStep("review");
-        return;
-      }
+      const segments=splitAtSeparators(ordered).map(ids=>ids.map(id=>ordered.find(p=>p.id===id)!));
+      if(!segments.length) throw new Error("Nur Trennbilder vorhanden. Bitte auch Brillenfotos hinzufügen.");
       // SKU is entered once, after the listing is written. Draft identity uses g.id.
       // Sort in chunks so each request's thumbnail payload stays small.
       type RawGroup = { name: string; photoIds: string[] };
       const chunkResults: RawGroup[][] = [];
       const orphanIdsAll: string[] = [];
-      for (let off = 0; off < photos.length; off += SORT_CHUNK) {
-        const chunk = photos.slice(off, off + SORT_CHUNK);
+      for (const segment of segments) for (let off = 0; off < segment.length; off += SORT_CHUNK) {
+        const chunk = segment.slice(off, off + SORT_CHUNK);
         if (photos.length > SORT_CHUNK) {
           setSortProgress(
             `Sorting photos ${off + 1}–${off + chunk.length} of ${photos.length}…`,
@@ -523,8 +519,8 @@ export default function Home() {
       merged.forEach((g) => g.photoIds.forEach((id) => assigned.add(id)));
       orphanIdsAll.forEach((id) => assigned.add(id));
       // Any photo the sorter never placed shouldn't vanish — surface it.
-      const leftover = photos
-        .filter((p) => !assigned.has(p.id))
+      const leftover = ordered
+        .filter((p) => !p.separator && !assigned.has(p.id))
         .map((p) => p.id);
 
       const nextGroups: ItemGroup[] = merged.map((g, i) => ({
@@ -1469,7 +1465,12 @@ export default function Home() {
                   Boolean(importProgress)
                 }
                 onClick={() => {
-                  if(photos.some(photo=>photo.separator)) {void sort();return;}
+                  if(photos.some(photo=>photo.separator)) {
+                    const parts=splitAtSeparators(photos);
+                    if(!parts.length) {setError("Nur Trennbilder vorhanden.");return;}
+                    setGroups(parts.map((photoIds,index)=>({id:newId(),sku:"",name:`Brille ${index+1}`,photoIds,status:"idle"})));
+                    setOrphanIds([]);setStep("review");return;
+                  }
                   const id = newId();
                   setGroups([
                     {
@@ -1500,7 +1501,7 @@ export default function Home() {
                     {photos.length} photos…
                   </>
                 ) : (
-                  <>{photos.some(photo=>photo.separator) ? "Trennbilder anwenden" : `🔀 ${photos.length || ""} Fotos mit KI sortieren`}</>
+                  <>🔀 {photos.length || ""} Fotos mit KI sortieren</>
                 )}
               </button>
             </div>
@@ -1647,8 +1648,8 @@ export default function Home() {
           }}
           onRenameSku={renameSku}
           onNumberSkus={(first) => {
-            if (readOnly || queueBusy.current || inFlight.current.size)
-              throw new Error("Bitte die laufende Verarbeitung abwarten.");
+            if (readOnly || groupsRef.current.some(g=>g.postStatus==="posting"))
+              throw new Error("Bitte die laufende Veröffentlichung abwarten.");
             const current = groupsRef.current;
             const next = applyBatchSkus(current, first);
             groupsRef.current = next;

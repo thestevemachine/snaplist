@@ -5,7 +5,7 @@ test("AI recognizes an exposed-gray empty divider, keeps numbered order and excl
   const url=r.request().url();if(url.endsWith("/api/sort")) {
    const body=r.request().postDataJSON();
    if(body.action === "detect-separators") {scanCalls++;expect(body.images).toHaveLength(3);return r.fulfill({json:{ok:true,separatorIndices:[1],usage:[]}});}
-   sortCalls++;
+   sortCalls++;return r.fulfill({json:{ok:true,groups:[{name:"Brille",photoIndices:body.images.map((_:unknown,i:number)=>i)}],orphanIndices:[],usage:[]}});
   }
   if(/analyze|publish/.test(url)) paid++;
   return r.fulfill({json:url.endsWith("/api/models") ? {sortModels:[],analysisModels:[]} : {enabled:false,connected:false,ok:false}});
@@ -28,7 +28,7 @@ test("AI recognizes an exposed-gray empty divider, keeps numbered order and excl
   const tx=db.transaction("workspace","readonly"),get=tx.objectStore("workspace").get("current");const d=await new Promise<any>(resolve=>get.onsuccess=()=>resolve(get.result));db.close();return {groups:d.groups.map((g:any)=>g.photoIds),divider:d.photos.find((p:any)=>p.separator).id};
  });
  expect(result.groups).toHaveLength(2);expect(result.groups.map((g:string[])=>g.length)).toEqual([1,1]);expect(result.groups.flat()).not.toContain(result.divider);
- expect(scanCalls).toBe(1);expect(sortCalls).toBe(0);expect(paid).toBe(0);
+ expect(scanCalls).toBe(1);expect(sortCalls).toBe(2);expect(paid).toBe(0);
 });
 
 test("without a divider the existing AI sorting runs; a failed scan never silently merges articles",async({page})=>{
@@ -67,4 +67,30 @@ test("clicking the photo toggles its divider button and frame red, and toggles b
  await expect(active).toHaveCSS("background-color","rgb(185, 28, 28)");await expect(active).toHaveAttribute("aria-pressed","true");
  await page.getByRole("button",{name:"Foto 1 als normales Foto verwenden",exact:true}).click();await expect(page.locator(".separator-photo")).toHaveCount(0);
  await expect(page.getByRole("button",{name:"Als Trennbild markieren",exact:true})).toHaveAttribute("aria-pressed","false");
+});
+
+test("mixed dividers still sort distinct glasses within a block and never drop the final product due to a manual mark",async({page})=>{
+ const lengths:number[]=[];
+ await page.route("**/api/**",r=>{
+  const url=r.request().url();if(url.endsWith("/api/sort")){
+   const b=r.request().postDataJSON();if(b.action==="detect-separators")return r.fulfill({json:{ok:true,separatorIndices:[1],usage:[]}});
+   lengths.push(b.images.length);return r.fulfill({json:{ok:true,groups:b.images.length===1 ? [{name:"A",photoIndices:[0]}] : [{name:"B",photoIndices:[0,1]},{name:"C",photoIndices:[2,3]}],orphanIndices:[],usage:[]}});
+  }
+  return r.fulfill({json:{ok:false,enabled:false,connected:false,sortModels:[],analysisModels:[]}});
+ });
+ await page.goto("/");
+ const png=Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=","base64");
+ await page.locator("input[type=file]").setInputFiles(Array.from({length:6},(_,i)=>({name:`IMG_${i}.png`,mimeType:"image/png",buffer:png})));
+ await expect(page.locator(".thumb")).toHaveCount(6);
+ await page.locator(".photo-separator-target img").last().click();
+ await expect(page.locator(".separator-photo")).toHaveCount(1);
+ await page.getByRole("button",{name:/Fotos mit KI sortieren/}).click();
+ await expect(page.getByLabel("Artikelname")).toHaveCount(3);
+ expect(lengths).toEqual([1,4]);
+ await expect(page.getByRole("status").filter({hasText:"Auf diesem Gerät gespeichert"})).toBeVisible();
+ const rows=await page.evaluate(async()=>{
+  const db=await new Promise<IDBDatabase>(resolve=>{const r=indexedDB.open("listing-writer-drafts");r.onsuccess=()=>resolve(r.result)});
+  const tx=db.transaction("workspace","readonly"),r=tx.objectStore("workspace").get("current");const d=await new Promise<any>(resolve=>r.onsuccess=()=>resolve(r.result));db.close();return {sizes:d.groups.map((g:any)=>g.photoIds.length),hasLast:d.groups.some((g:any)=>g.photoIds.includes(d.photos[5].id))};
+ });
+ expect(rows.sizes).toEqual([1,2,2]);expect(rows.hasLast).toBe(true);
 });

@@ -1620,3 +1620,7 @@ textarea.title-input { min-height: 5rem; resize: vertical; line-height: 1.4; }
 .auth-footer p {margin:0 0 8px}
 .auth-card a {color:#006b58;text-underline-offset:3px}
 @media(max-width:480px) {.auth-page {margin:24px auto;padding:0 14px}.auth-card {padding:24px 20px}.auth-card h1 {font-size:1.4rem}}
+
+.sku-sequence input {width:20rem;max-width:100%;min-height:50px;box-sizing:border-box;border:2px solid #2563eb;border-radius:8px;background:#fff;font-size:1.15rem;font-weight:700;padding:.65rem .8rem}
+
+.sku-sequence {min-width:0;box-sizing:border-box}

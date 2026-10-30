@@ -366,7 +366,7 @@ export function ListingsView(props: ListingsViewProps) {
           prüfen und einzeln veröffentlichen.
         </p>
       )}
-      <fieldset disabled={active} className="sku-sequence">
+      <fieldset className="sku-sequence">
         <legend>Fortlaufende SKU für diesen Stapel</legend>
         <label htmlFor="first-batch-sku">Erste SKU</label>
         <input
@@ -389,7 +389,7 @@ export function ListingsView(props: ListingsViewProps) {
           onClick={() => {
             try {
               const count = props.onNumberSkus(firstSku);
-              setSkuMessage(`SKU für ${count} offene Angebote übernommen.`);
+              setSkuMessage(`SKU für ${count} offene Angebote reserviert und übernommen. Laufende Entwürfe behalten diese Nummern.`);
             } catch (e) {
               setSkuMessage((e as Error).message);
             }
