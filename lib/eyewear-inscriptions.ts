@@ -106,6 +106,8 @@ export function extractEyewear(facts: PhotoFact[]): EyewearData {
       blocked.add(key);
       return;
     }
+    // Do not replace a complete printed box reference with a later bare number.
+    if (["lensWidth","bridgeWidth","templeLength"].includes(key) && previous?.value===value && parseBoxDimensions(previous.quote ?? "") && !parseBoxDimensions(fact.quote)) return;
     if (!blocked.has(key))
       data.fields[key] = {
         value,

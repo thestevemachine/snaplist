@@ -15,3 +15,8 @@ test("pending personal eBay setup explains the operator action and hides unusabl
  await page.goto("/");await expect(page.getByText("Dein SNAPLIST-Konto ist eingerichtet. Die persönliche eBay-Verbindung muss Stefan noch freischalten.")).toBeVisible();
  await expect(page.getByRole("button",{name:"Open eBay ↗",exact:true})).toHaveCount(0);await expect(page.locator("#ebay-paste")).toHaveCount(0);
 });
+test("personal eBay connection uses the automatic flow with no code-paste form",async({page})=>{
+ await page.route("**/api/**",r=>r.fulfill({json:r.request().url().endsWith("/api/ebay/status") ? {configured:true,connected:false,personalConnectionReady:true,accountMode:true} : r.request().url().endsWith("/api/ebay/auth") ? {ok:true,url:"https://auth.ebay.com/oauth2/authorize?fixture=1"} : {enabled:false,sortModels:[],analysisModels:[]}}));
+ await page.route("https://auth.ebay.com/**",r=>r.fulfill({contentType:"text/html",body:"eBay fixture"}));
+ await page.goto("/");await page.getByRole("button",{name:"Eigenes eBay-Konto verbinden"}).click();await expect(page).toHaveURL(/auth.ebay.com/);await expect(page.locator("#ebay-paste")).toHaveCount(0);
+});

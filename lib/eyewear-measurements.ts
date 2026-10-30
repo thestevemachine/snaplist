@@ -1,3 +1,4 @@
+import {lensReference} from "./lens-reference";
 import {measurementChoice} from "./measurement-choice";
 import type {ListingResult} from "./types";
 import type {AspectMeta} from "./ebay/taxonomy";
@@ -18,6 +19,10 @@ export function boxSizePatch(l:ListingResult,meta:AspectMeta[]):Partial<ListingR
   if(fields[key]?.source==="manual" || (fields[key]?.value?.trim() && fields[key]?.quote && fields[key]?.photos?.length)) continue;
   const candidates=facts.flatMap(f=>{const d=parseBoxDimensions(f!.quote!);return d?.[key] ? [{...f!,value:d[key]!}] : []});
   if(new Set(candidates.map(f=>f.value)).size===1 && (!fields[key]?.value?.trim() || fields[key]!.value.replace(/\s*mm$/i, "")===candidates[0].value)) {fields[key]=candidates[0];changed=true;}
+ }
+ const recovered=lensReference({...l,eyewear:{...l.eyewear,fields,warnings:l.eyewear?.warnings ?? []}});
+ if(recovered?.source==="label" && JSON.stringify(fields.lensWidth)!==JSON.stringify({value:String(recovered.mm),source:"label",quote:recovered.quote,photos:recovered.photos})) {
+  fields.lensWidth={value:String(recovered.mm),source:"label",quote:recovered.quote,photos:recovered.photos};changed=true;
  }
  const box=[fields.lensWidth?.value,fields.bridgeWidth?.value].filter(Boolean).join(" □ ")+(fields.templeLength?.value ? ` ${fields.templeLength.value}` : "");
  const sizeMissing=!l.size?.trim() && !l.manual_measurement_fields?.includes("Größe") && Boolean(fields.lensWidth?.value && fields.bridgeWidth?.value);

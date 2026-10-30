@@ -8,6 +8,7 @@ import {
 import { apiPost } from "@/lib/api-client";
 
 interface Status {
+  accountMode?:boolean;
   configured: boolean;
   connected: boolean;
   sharedConfigured?: boolean;
@@ -96,7 +97,8 @@ export function EbayConnect() {
       };
       if (!data.ok || !data.url)
         throw new Error(data.error || "Couldn't start eBay authorization.");
-      setAuthorizeUrl(data.url);
+      if(status?.accountMode) window.location.assign(data.url);
+      else setAuthorizeUrl(data.url);
     } catch (e) {
       setNotice({ ok: false, msg: (e as Error).message });
     } finally {
@@ -200,6 +202,8 @@ export function EbayConnect() {
             Disconnect
           </button>
         </>
+      ) : status.accountMode ? (
+        <button type="button" className="btn-primary" onClick={startConnect} disabled={busy}>{busy ? "eBay wird geöffnet…" : "Eigenes eBay-Konto verbinden"}</button>
       ) : (
         <>
           <span className="ebay-label">

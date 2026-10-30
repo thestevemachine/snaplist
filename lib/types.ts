@@ -33,6 +33,7 @@ export interface ListingResult {
   measurements?: string;
   manual_measurement_values?: Record<string,string>;
   manual_measurement_fields?: string[];
+  measurementPhotos?: import("./measurement-photos").MeasurementPhoto[];
   frontMeasurement?: import("./front-measurements").FrontMeasurement;
   description: string;
   best_offer_enabled?: boolean;

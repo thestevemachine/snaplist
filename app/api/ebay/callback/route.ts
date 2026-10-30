@@ -3,6 +3,7 @@ import {saveCredentials} from "@/lib/accounts/server";
 import {withAccount} from "@/lib/accounts/server";
 import { NextRequest, NextResponse } from "next/server";
 import { rateLimitRequest } from "@/lib/api-guard";
+import {validEbayState} from "@/lib/ebay/oauth-state";
 import { exchangeCode } from "@/lib/ebay/oauth";
 import {
   EBAY_COOKIE,
@@ -31,11 +32,14 @@ async function handleGET(req: NextRequest) {
   const state = req.nextUrl.searchParams.get("state");
   const expectedState = req.cookies.get(EBAY_STATE_COOKIE)?.value;
 
-  if (!code) {
-    return NextResponse.redirect(appUrl(req, "/?ebay=error&msg=No+authorization+code"));
-  }
-  if (!state || !expectedState || state !== expectedState || (accountsEnabled() && !state.startsWith(currentAccount()!.id+":"))) {
+  if (!validEbayState(state,expectedState,accountsEnabled() ? currentAccount()!.id : undefined)) {
     return NextResponse.redirect(appUrl(req, "/?ebay=error&msg=State+mismatch"));
+  }
+
+  if (req.nextUrl.searchParams.has("error") || !code || code.length>6000 || req.nextUrl.searchParams.getAll("code").length!==1 || req.nextUrl.searchParams.getAll("state").length!==1) {
+    const res=NextResponse.redirect(appUrl(req,"/?ebay=error&msg=eBay-Anmeldung+abgebrochen+oder+ungültig"));
+    res.cookies.delete(EBAY_STATE_COOKIE);
+    return res;
   }
 
   try {
@@ -59,8 +63,16 @@ async function handleGET(req: NextRequest) {
     return res;
   } catch (e) {
     const msg = encodeURIComponent((e as Error).message);
-    return NextResponse.redirect(appUrl(req, `/?ebay=error&msg=${msg}`));
+    const res=NextResponse.redirect(appUrl(req, `/?ebay=error&msg=${msg}`));
+    res.cookies.delete(EBAY_STATE_COOKIE);
+    return res;
   }
 }
 
-export const GET=withAccount(handleGET);
+const accountCallback=withAccount(handleGET);
+export async function GET(req:NextRequest){
+ const response=await accountCallback(req);
+ response.headers.set("Referrer-Policy","no-referrer");
+ response.headers.set("Cache-Control","private, no-store");
+ return response;
+}

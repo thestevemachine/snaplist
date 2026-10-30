@@ -20,6 +20,7 @@ export function FrontMeasurementControls({
       group.photoIds[0] ??
       "",
   );
+  const [measurementPhoto,setMeasurementPhoto]=useState(false);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [preferredModel, setPreferredModel] = useState("");
@@ -34,7 +35,7 @@ export function FrontMeasurementControls({
   async function measure() {
     if (
       !window.confirm(
-        `Nur Maße mit ${model} kostenpflichtig berechnen? Ein vorhandenes Frontfoto wird analysiert. Titel, Beschreibung und manuelle Maße bleiben erhalten. Kein automatischer weiterer Versuch.`,
+        `Nur Maße mit ${model} kostenpflichtig berechnen? Ein vorhandenes Front- oder Messfoto wird analysiert. Titel, Beschreibung und manuelle Maße bleiben erhalten. Kein automatischer weiterer Versuch.`,
       )
     )
       return;
@@ -50,6 +51,7 @@ export function FrontMeasurementControls({
         );
       const response = await apiPost("/api/ai/measure", {
         confirmed: true,
+        measurementPhoto,
         model,
         photoIndex: group.photoIds.indexOf(photoId) + 1,
         image: { mediaType: photo.mediaType, data: photo.data },
@@ -64,7 +66,7 @@ export function FrontMeasurementControls({
         throw Error(
           "Der Entwurf wurde während der Maßanalyse geändert. Deine Änderungen bleiben erhalten; es wird nicht automatisch erneut analysiert.",
         );
-      const listing = { ...snapshot, frontMeasurement: data.measurement };
+      const listing = { ...snapshot, frontMeasurement: data.measurement,measurementPhotos:[...(snapshot.measurementPhotos ?? []).filter(m=>m.photoIndex!==group.photoIds.indexOf(photoId)+1),...(data.measurementPhotos ?? [])] };
       if (
         data.measurement.lensHeightMm &&
         (!listing.measurements ||
@@ -83,7 +85,7 @@ export function FrontMeasurementControls({
         usage,
         verificationMessage: undefined,
       });
-      if (data.measurement.status === "unavailable")
+      if (data.measurement.status === "unavailable" && !data.measurementPhotos?.length)
         setError(data.measurement.reasons.join(" "));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Maßanalyse fehlgeschlagen.");
@@ -95,7 +97,7 @@ export function FrontMeasurementControls({
     <details className="measurement-controls">
       <summary>Maße berechnen</summary>
       <p>
-        Ein Frontfoto auswählen. Die aufgedruckte Scheibenbreite dient als
+        Front- oder Messfoto auswählen. Die aufgedruckte Scheibenbreite dient als
         Referenz. Berechnete Werte füllen leere Maßfelder als Schätzung;
         vorhandene manuelle Maße bleiben erhalten. Neuladen allein startet keine
         kostenpflichtige Erkennung.
@@ -114,6 +116,7 @@ export function FrontMeasurementControls({
           ))}
         </select>
       </label>
+      <label><input type="checkbox" checked={measurementPhoto} onChange={e=>setMeasurementPhoto(e.target.checked)}/> Messfoto: Millimeterpapier oder Messschieber</label>
       {photoById(photoId)?.previewUrl && (
         <img
           src={photoById(photoId)!.previewUrl}

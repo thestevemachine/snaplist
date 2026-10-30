@@ -148,3 +148,9 @@ it("rejects fabricated scale and mismatched quoted box dimensions without chargi
  }
  expect(fetchMock).not.toHaveBeenCalled();
 });
+it("allows an explicitly selected measurement photo without lens inscription and returns an independent caliper reading",async()=>{
+ const b=body() as ReturnType<typeof body> & {measurementPhoto?:boolean};b.measurementPhoto=true;b.listing.eyewear.fields={} as typeof b.listing.eyewear.fields;
+ const zero={x:0,y:0};
+ fetchMock.mockResolvedValueOnce({ok:true,headers:new Headers(),json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify({front_geometry:{photoIndex:0,leftLens:lens(0,0),rightLens:lens(0,0),outerLeft:zero,outerRight:zero,frontal:false,groovesVisible:false,complete:false,samePlane:false,confidence:0,note:"Messschieberfoto"},measurement_photos:[{dimension:"totalWidth",method:"caliper",photoIndex:1,reading:"144 mm",scaleMm:0,scaleStart:zero,scaleEnd:zero,start:zero,end:zero,readable:true,aligned:true,samePlane:true,confidence:95,note:"Beide Backen an äußeren Scharnieren"}]})}]}}],usageMetadata:{promptTokenCount:10,candidatesTokenCount:10}})});
+ const response=await POST(request(b));const data=await response.json();expect(response.status).toBe(200);expect(data.ok).toBe(true);expect(data.measurementPhotos).toHaveLength(1);expect(data.measurementPhotos[0].photoIndex).toBe(2);expect(data.measurementPhotos[0].reading).toBe("144 mm");
+});
