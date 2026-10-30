@@ -1,5 +1,5 @@
 import {withAccount} from "@/lib/accounts/server";
-import {recognizePhotoSeparators} from "@/lib/ai-photo-separators";
+import {recognizePhotoMarkers} from "@/lib/ai-photo-separators";
 import { DEFAULT_AI_MODEL } from "@/lib/ai-defaults";
 import { collectUsage, currentUsage } from "@/lib/ai-usage";
 import { NextRequest, NextResponse } from "next/server";
@@ -73,8 +73,8 @@ async function handle(req: NextRequest) {
 
   try {
     if(body.action === "detect-separators") {
-      const separatorIndices=await recognizePhotoSeparators(client,images,sortModel ?? DEFAULT_AI_MODEL);
-      return NextResponse.json({ok:true,separatorIndices,usage:currentUsage()});
+      const markers=await recognizePhotoMarkers(client,images,sortModel ?? DEFAULT_AI_MODEL);
+      return NextResponse.json({ok:true,...markers,usage:currentUsage()});
     }
     const result = await sortPhotos(client, images, sortModel);
     if (result.groups.length === 0) {

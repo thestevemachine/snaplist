@@ -91,7 +91,7 @@ async function draft(page: Page) {
     .getByRole("button", { name: "Diese Fotos gehören zu einem Artikel" })
     .click();
   await page.getByRole("button", { name: /Entwürfe erstellen/i }).click();
-  await page.getByRole("button",{name:"Angebotsdetails aufklappen"}).click();
+  if(await page.getByRole("button",{name:"Angebotsdetails aufklappen"}).count()) await page.getByRole("button",{name:"Angebotsdetails aufklappen"}).click();
   await expect(page.getByText("Cameras", { exact: true })).toBeVisible();
   await page.getByLabel("SKU", { exact: true }).fill("65-23537");
   await page.getByText("Versand und Rückgabe", { exact: true }).click();
@@ -713,7 +713,7 @@ test("sunglasses show both categories and send one confirmed listing", async ({
     .getByRole("button", { name: "Diese Fotos gehören zu einem Artikel" })
     .click();
   await page.getByRole("button", { name: /Entwürfe erstellen/i }).click();
-  await page.getByRole("button",{name:"Angebotsdetails aufklappen"}).click();
+  if(await page.getByRole("button",{name:"Angebotsdetails aufklappen"}).count()) await page.getByRole("button",{name:"Angebotsdetails aufklappen"}).click();
   await expect(
     page.getByText("Zweitkategorie: Damen · 22"),
   ).toBeVisible();
@@ -846,11 +846,11 @@ test("restored sunglasses prepare automatically once, retain descriptions and ne
   await expandUnpostedCards(page);
   await prepared;
   await expect(
-    page.getByRole("textbox", { name: /Titel / }).first(),
+    page.locator(".title-input").first(),
   ).toHaveValue("Test Sonnenbrille Herren Damen Braun");
 
   expect(prepares).toBe(1);
-  await page.getByRole("button", { name: "Detailkarten", exact: true }).click();
+  if(await page.getByRole("button", { name: "Detailkarten", exact: true }).count()) await page.getByRole("button", { name: "Detailkarten", exact: true }).click();
   await expect(
     page.getByLabel("Beschreibung", { exact: true }).first(),
   ).toHaveValue("Mein eigener Beschreibungstext");
@@ -865,7 +865,7 @@ test("restored sunglasses prepare automatically once, retain descriptions and ne
   await page.reload();
   await expandUnpostedCards(page);
   await expect(
-    page.getByRole("textbox", { name: /Titel / }).first(),
+    page.locator(".title-input").first(),
   ).toHaveValue("Meine eigene deutsche Korrektur");
   expect(prepares).toBe(1);
   expect(publishes).toBe(0);
@@ -1201,7 +1201,7 @@ test("reanalysis reuses existing photos and replaces draft content while keeping
   );
   expect(analysisCalls).toBe(1);
 });
-test("shows the current seller and saved policies without opening settings after reload", async ({
+test("keeps saved policy summary collapsed and shows the current seller after expanding it", async ({
   page,
 }) => {
   await setup(page);
@@ -1242,9 +1242,9 @@ test("shows the current seller and saved policies without opening settings after
   );
   await page.reload();
   await expandUnpostedCards(page);
-  const summary = page.getByRole("region", {
-    name: "Gespeicherte Shop-Vorgaben",
-  });
+  const summary = page.locator(".saved-shop-summary");
+  await expect(summary).not.toHaveAttribute("open","");
+  await summary.locator("summary").click();
   await expect(summary).toContainText("AktuellesKonto");
   await expect(summary).toContainText("DHL Standard");
   await expect(summary).toContainText("60 Tage");

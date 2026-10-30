@@ -18,3 +18,10 @@ it("keeps a suspected final product image when the independent candidate check d
  expect(await recognizePhotoSeparators(c,images,"gemini-3.5-flash-lite")).toEqual([]);
  expect(c.messages.create).toHaveBeenCalledTimes(2);
 });
+it("confirms isolated SKU cards twice and never substitutes a product inscription or different number",async()=>{
+ const {recognizePhotoMarkers}=await import("@/lib/ai-photo-separators");
+ const c=client({separatorPhotoNumbers:[],skuCards:[]});vi.mocked(c.messages.create).mockResolvedValueOnce({content:[{type:"text",text:JSON.stringify({separatorPhotoNumbers:[3],skuCards:[{photoNumber:1,sku:"65-23591"}]})}]} as any).mockResolvedValueOnce({content:[{type:"text",text:JSON.stringify({separatorPhotoNumbers:[2],skuCards:[{photoNumber:1,sku:"65-23591"}]})}]} as any);
+ expect(await recognizePhotoMarkers(c,images,"gemini-3.5-flash-lite")).toEqual({separatorIndices:[0,2],skuMarkers:[{photoIndex:0,sku:"65-23591"}]});
+ const d=client({separatorPhotoNumbers:[],skuCards:[]});vi.mocked(d.messages.create).mockResolvedValueOnce({content:[{type:"text",text:JSON.stringify({separatorPhotoNumbers:[],skuCards:[{photoNumber:4,sku:"65-23591"}]})}]} as any);
+ expect(await recognizePhotoMarkers(d,images,"gemini-3.5-flash-lite")).toEqual({separatorIndices:[],skuMarkers:[]});
+});

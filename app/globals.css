@@ -1524,7 +1524,7 @@ textarea {
 }
 
 /* Compact mobile review: the complete title stays visible. */
-.batch-toolbar .detail-view-button { border: 2px solid #2563eb; color: #1d4ed8; padding: .75rem 1.1rem; font-size: 1.05rem; font-weight: 700; }
+:is(.batch-toolbar,.sku-sequence) .detail-view-button { border: 2px solid #2563eb; color: #1d4ed8; padding: .75rem 1.1rem; font-size: 1.05rem; font-weight: 700; }
 .listing-card-title strong { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
 textarea.title-input { min-height: 5rem; resize: vertical; line-height: 1.4; }
 .eyewear-details { font-size: .85rem; margin-block: .2rem; padding-block: .2rem; }
@@ -1568,8 +1568,8 @@ textarea.title-input { min-height: 5rem; resize: vertical; line-height: 1.4; }
 .listing-card.is-compact .stat {min-width:0;padding:.5rem}
 .listing-card.is-compact .stat input {min-width:0;max-width:100%;width:100%;box-sizing:border-box}
 
-.batch-toolbar .detail-view-button {border:3px solid #1d4ed8;background:#eff6ff;color:#1e40af;box-shadow:0 0 0 3px #dbeafe;font-weight:800;min-height:48px}
-.batch-toolbar .detail-view-button:hover {background:#dbeafe}
+:is(.batch-toolbar,.sku-sequence) .detail-view-button {border:3px solid #1d4ed8;background:#eff6ff;color:#1e40af;box-shadow:0 0 0 3px #dbeafe;font-weight:800;min-height:48px}
+:is(.batch-toolbar,.sku-sequence) .detail-view-button:hover {background:#dbeafe}
 .separator-photo {border:3px dashed #2563eb}
 .thumb .separator-toggle {top:auto;bottom:3px;left:3px;right:3px;width:auto;height:24px;border-radius:4px;font-size:.65rem;background:#1d4ed8}
 .separator-note {font-size:.85rem;color:#1e40af}
@@ -1629,3 +1629,7 @@ textarea.title-input { min-height: 5rem; resize: vertical; line-height: 1.4; }
 
 .quote-panel {padding:1rem 1.25rem;margin-block:1rem;}
 .quote-panel .upload-quote {margin:0;padding:0;border:0;}
+
+.sku-sequence .detail-view-button {margin-left:.6rem;}
+.listing-settings-footer {margin-top:1rem;}
+.listing-settings-footer>summary {font-weight:650;cursor:pointer;}

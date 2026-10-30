@@ -22,6 +22,6 @@ export function lensReference(listing:ListingResult) {
  const demo=lindberg ? parseLindbergDemoLens(ref.quote) : undefined;
  if(demo) return Number(demo.lensWidth)===mm ? {...ref,source:"label" as const,mm} : undefined;
  const explicit=ref.quote.match(/(?:glasbreite|scheibenbreite|lens\s*(?:width|size))\s*[:=]?\s*(\d{2}(?:[.,]\d+)?)(?:\s*mm)?\b/i)
-  ?? ref.quote.trim().match(/^(\d{2}(?:[.,]\d+)?)\s*mm$/i);
+  ?? ref.quote.trim().match(/^(\d{2}(?:[.,]\d+)?)(?:\s*mm)?$/i);
  return explicit && Number(explicit[1].replace(",","."))===mm ? {...ref,source:"label" as const,mm} : undefined;
 }

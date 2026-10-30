@@ -13,7 +13,7 @@ export function EyewearMeasurements({listing,meta,onEdit}:{listing:ListingResult
    const specific=Object.entries(listing.item_specifics ?? {}).find(([name])=>d.pattern.test(name))?.[1];
    const manual=field?.source === "manual" || listing.manual_measurement_fields?.some(name=>d.pattern.test(name));
    const measured=photoMeasurement(listing,d.key ?? "lensHeight");
-   const calculated=reference && listing.frontMeasurement?.status!=="unavailable" ? d.label === "Gesamtbreite" ? listing.frontMeasurement?.totalWidthMm : d.label === "Glashöhe" ? listing.frontMeasurement?.lensHeightMm : undefined : undefined;
+   const calculated=reference && listing.frontMeasurement?.status!=="unavailable" ? d.label === "Gesamtbreite" ? listing.frontMeasurement?.totalWidthMm : d.label === "Glashöhe" ? listing.frontMeasurement?.lensHeightMm : d.label === "Stegbreite" ? listing.frontMeasurement?.bridgeWidthMm : undefined : undefined;
    const value=manual ? (listing.manual_measurement_values?.[d.label] ?? (field?.source==="manual" ? field.value : specific ?? "")) : (measured ? String(measured.mm) : "") || field?.value?.trim() || (calculated ? String(calculated) : /^\d+(?:\s*mm)?$/i.test(specific ?? "") ? specific! : "");
    return <label key={d.label} data-review-field={d.label}>{actual?.name.replace(/\s*\(mm\)$/i,"") ?? d.label} (mm)
     <input type="number" inputMode="numeric" min={d.key==="lensWidth" ? 20 : 1} max={d.key==="lensWidth" ? 90 : 250} step="1" aria-label={`${d.label} manuell (mm)`}
@@ -23,7 +23,7 @@ export function EyewearMeasurements({listing,meta,onEdit}:{listing:ListingResult
     {!manual && !measured && calculated && <small>{listing.frontMeasurement?.status === "estimated" ? "Berechnet · Schätzung" : "Unsichere Schätzung · prüfen"}</small>}
    </label>;
   })}
-  {!reference && listing.eyewear?.fields.lensWidth?.value && <button type="button" className="btn-ghost" onClick={()=>onEdit(manualEyewearMeasurement(listing,"Glasbreite",listing.eyewear!.fields.lensWidth!.value,meta))}>{listing.eyewear.fields.lensWidth.value} mm als Glasbreite bestätigen</button>}
+
   <small className="measurement-missing">{reference ? `Referenz: Glasbreite ${reference.mm} mm · ${reference.source==="manual" ? "manuell" : reference.quote}` : listing.measurementPhotos?.length ? "Messfoto berücksichtigt. Weitere Maße benötigen eine belegte Referenz." : "Glasbreite fehlt oder Aufdruck nicht belegt. Bitte Glasbreite eintragen; ohne Referenz keine Berechnung."}</small>
   {!!listing.frontMeasurement?.reasons.some(r=>r.startsWith("Referenzprüfung:")) && <small role="status">Nicht an eBay übernommen: Konturen passen nicht zum Kastenmaß. Bitte Maße manuell prüfen.</small>}
   {reference && !listing.frontMeasurement?.lensHeightMm && !photoMeasurement(listing,"lensHeight") && <small className="measurement-missing">{listing.frontMeasurement?.reasons?.join(" ") || "Frontkonturen fehlen. Unter ‚Maße berechnen‘ das Frontfoto wählen."}</small>}

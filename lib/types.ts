@@ -73,6 +73,7 @@ export interface SortResponse {
 // ── Client-side working model for the bulk flow ──────────────────────────────
 
 export interface Photo {
+  skuMarker?:string;
   separator?: boolean;
   separatorManual?: boolean;
   id: string;

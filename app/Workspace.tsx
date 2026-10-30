@@ -1,5 +1,7 @@
 "use client";
 import {workspaceStorageKey} from "@/lib/workspace-scope";
+import {assignPhotoSkus} from "@/lib/sku-photo-markers";
+import {publicationSpecifics} from "@/lib/publication-specifics";
 import {UploadQuote} from "./UploadQuote";
 import {AccountSettings} from "./AccountSettings";
 import { materialTitleIssues } from "@/lib/eyewear-inscriptions";
@@ -452,6 +454,7 @@ export default function Home() {
     setError(null);
     try {
       const separators=new Set<string>();
+      const skuMarkers=new Map<string,string>();
       // Scan the entire sequence first; a divider at a request boundary must
       // still end the previous item. Never fall back silently after a failed scan.
       for(let offset=0;offset<photos.length;offset+=20) {
@@ -466,10 +469,14 @@ export default function Home() {
         if(!detected.ok || !Array.isArray(detected.separatorIndices) || detected.separatorIndices.some((i:unknown)=>typeof i!=="number" || !Number.isInteger(i) || i<0 || i>=batch.length))
           throw new Error(detected.error || "Trennbilderkennung unvollständig. Es wird nicht ungeprüft weiter sortiert.");
         detected.separatorIndices.forEach((index:number)=>separators.add(batch[index].photoId));
+        for(const marker of detected.skuMarkers ?? []) {
+          if(!Number.isInteger(marker.photoIndex) || marker.photoIndex<0 || marker.photoIndex>=batch.length || !/^\d{1,20}(?:[-/]\d{1,20}){0,3}$/.test(marker.sku) || !detected.separatorIndices.includes(marker.photoIndex)) throw Error("SKU-Foto nicht eindeutig erkannt. Bitte prüfen.");
+          skuMarkers.set(batch[marker.photoIndex].photoId,marker.sku);
+        }
         }
       }
       const parts=splitForAi(photos,separators);
-      const ordered=photos.map(photo=>({...photo,separator:separators.has(photo.id)}));
+      const ordered=photos.map(photo=>({...photo,separator:separators.has(photo.id),skuMarker:skuMarkers.get(photo.id)}));
       setPhotos(ordered);
       const segments=parts.map(ids=>ids.map(id=>ordered.find(p=>p.id===id)!));
       if(!segments.length) throw new Error("Nur Trennbilder vorhanden. Bitte auch Brillenfotos hinzufügen.");
@@ -538,7 +545,7 @@ export default function Home() {
         ),
         status: "idle",
       }));
-      setGroups(nextGroups);
+      setGroups(assignPhotoSkus(nextGroups,ordered));
       setOrphanIds([...orphanIdsAll, ...leftover]);
       setStep("review");
     } catch (e) {
@@ -1338,6 +1345,54 @@ export default function Home() {
         here to avoid conflicting edits.
       </main>
     );
+  const settingsPanel=<>
+      <ShopSettings
+        groups={groups}
+        disabled={
+          readOnly ||
+          !restored ||
+          queueBusy.current ||
+          inFlight.current.size > 0
+        }
+        onApply={(settings, options) => {
+          if (readOnly || queueBusy.current || inFlight.current.size)
+            throw new Error("Bitte laufende Verarbeitung abwarten.");
+          const current = groupsRef.current;
+          const next = current.map((g) => applyShopGroup(g, settings, options));
+          setGroups(next);
+          return next.filter((g, i) => g !== current[i]).length;
+        }}
+      />
+      <AiUsageSummary
+        rows={[
+          ...sortUsage,
+          ...groups.flatMap((g) => [
+            ...(g.usage ?? []),
+            ...(g.comparisons ?? []).flatMap((c) => c.usage),
+          ]),
+        ]}
+        label="Fotoserie insgesamt · alle Modelle und Vergleiche"
+      />
+      <AiUsageSummary
+        rows={sortUsage}
+        label="Fotosortierung · gemeinsame Kosten"
+      />
+      {groups.length > 0 &&
+        (sortUsage.length > 0 || groups.some((g) => g.usage?.length)) && (
+          <p className="note">
+            Durchschnitt je Brille inklusive gemeinsamer Sortierung, ohne
+            Vergleiche: $
+            {(
+              usageTotals([
+                ...sortUsage,
+                ...groups.flatMap((g) => g.usage ?? []),
+              ]).usd / groups.length
+            ).toFixed(4)}
+            . Die Zuordnung zur einzelnen Brille ist geschätzt; fehlende
+            Nutzungsdaten sind nicht enthalten. USD, kein Eurobetrag.
+          </p>
+        )}
+  </>;
   return (
     <main className="wrap">
       <div className="save-bar">
@@ -1435,13 +1490,13 @@ export default function Home() {
                     <button type="button" className="photo-separator-target" aria-pressed={Boolean(p.separator)}
                       aria-label={`Foto ${photos.indexOf(p)+1} ${p.separator ? "als normales Foto verwenden" : "als Trennbild markieren"}`}
                       disabled={sorting || Boolean(importProgress)}
-                      onClick={()=>setPhotos(prev=>prev.map(photo=>photo.id===p.id ? {...photo,separator:!photo.separator,separatorManual:true} : photo))}>
+                      onClick={()=>setPhotos(prev=>prev.map(photo=>photo.id===p.id ? {...photo,separator:!photo.separator,separatorManual:true,skuMarker:undefined} : photo))}>
                       <img src={p.previewUrl} alt={p.separator ? "Trennbild" : ""} />
                     </button>
                     <button type="button" className="separator-toggle" aria-pressed={Boolean(p.separator)} disabled={sorting || Boolean(importProgress)}
                       aria-label={p.separator ? "Trennbild als normales Foto verwenden" : "Als Trennbild markieren"}
-                      onClick={()=>setPhotos(prev=>prev.map(photo=>photo.id===p.id ? {...photo,separator:!photo.separator,separatorManual:true} : photo))}>
-                      {p.separator ? "Trennbild" : "Trennen"}
+                      onClick={()=>setPhotos(prev=>prev.map(photo=>photo.id===p.id ? {...photo,separator:!photo.separator,separatorManual:true,skuMarker:undefined} : photo))}>
+                      {p.skuMarker ? `SKU ${p.skuMarker}` : p.separator ? "Trennbild" : "Trennen"}
                     </button>
                     <button
                       type="button"
@@ -1472,7 +1527,7 @@ export default function Home() {
                   if(photos.some(photo=>photo.separator)) {
                     const parts=splitAtSeparators(photos);
                     if(!parts.length) {setError("Nur Trennbilder vorhanden.");return;}
-                    setGroups(parts.map((photoIds,index)=>({id:newId(),sku:"",name:`Brille ${index+1}`,photoIds,status:"idle"})));
+                    setGroups(assignPhotoSkus(parts.map((photoIds,index)=>({id:newId(),sku:"",name:`Brille ${index+1}`,photoIds,status:"idle" as const})),photos));
                     setOrphanIds([]);setStep("review");return;
                   }
                   const id = newId();
@@ -1531,23 +1586,7 @@ export default function Home() {
         </>
       )}
 
-      <ShopSettings
-        groups={groups}
-        disabled={
-          readOnly ||
-          !restored ||
-          queueBusy.current ||
-          inFlight.current.size > 0
-        }
-        onApply={(settings, options) => {
-          if (readOnly || queueBusy.current || inFlight.current.size)
-            throw new Error("Bitte laufende Verarbeitung abwarten.");
-          const current = groupsRef.current;
-          const next = current.map((g) => applyShopGroup(g, settings, options));
-          setGroups(next);
-          return next.filter((g, i) => g !== current[i]).length;
-        }}
-      />
+      {step!=="listings" && settingsPanel}
 
       {(step === "review" || step === "listings") && (
         <CloudBatch
@@ -1591,35 +1630,6 @@ export default function Home() {
           onOpen={() => setStep("listings")}
         />
       )}
-      <AiUsageSummary
-        rows={[
-          ...sortUsage,
-          ...groups.flatMap((g) => [
-            ...(g.usage ?? []),
-            ...(g.comparisons ?? []).flatMap((c) => c.usage),
-          ]),
-        ]}
-        label="Fotoserie insgesamt · alle Modelle und Vergleiche"
-      />
-      <AiUsageSummary
-        rows={sortUsage}
-        label="Fotosortierung · gemeinsame Kosten"
-      />
-      {groups.length > 0 &&
-        (sortUsage.length > 0 || groups.some((g) => g.usage?.length)) && (
-          <p className="note">
-            Durchschnitt je Brille inklusive gemeinsamer Sortierung, ohne
-            Vergleiche: $
-            {(
-              usageTotals([
-                ...sortUsage,
-                ...groups.flatMap((g) => g.usage ?? []),
-              ]).usd / groups.length
-            ).toFixed(4)}
-            . Die Zuordnung zur einzelnen Brille ist geschätzt; fehlende
-            Nutzungsdaten sind nicht enthalten. USD, kein Eurobetrag.
-          </p>
-        )}
       {step === "review" && (
         <ReviewBoard
           groups={groups}
@@ -1680,6 +1690,8 @@ export default function Home() {
         />
       )}
 
+      {step==="listings" && <details className="panel listing-settings-footer"><summary>Vorgaben und Kosten</summary>{settingsPanel}</details>}
+
       <dialog
         ref={publicationDialog}
         aria-labelledby="publication-heading"
@@ -1718,7 +1730,7 @@ export default function Home() {
             {materialTitleIssues(publicationConfirmation.listing!).map(warning => <p className="material-warning" key={warning}>{warning}</p>)}
             <dl className="publication-specifics">
               <dt>Zustand</dt><dd>{publicationConfirmation.preparation?.conditions.find(c => c.value === publicationConfirmation.listing?.ebay_condition)?.label || publicationConfirmation.listing?.ebay_condition}</dd>
-              {Object.entries(publicationConfirmation.listing?.item_specifics ?? {}).filter(([,value]) => value.trim()).map(([name,value]) => (
+              {publicationSpecifics(publicationConfirmation.listing!).map(([name,value]) => (
                 <div key={name}><dt>{name}</dt><dd>{value}</dd></div>
               ))}
               <dt>Zustandshinweis</dt><dd>{publicationConfirmation.listing?.condition_notes}</dd>

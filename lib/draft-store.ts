@@ -94,7 +94,7 @@ export async function loadDraft(
       throw new Error(
         "A saved photo is missing. Keep this tab open and restore the original photo.",
       );
-    photos.push({ ...stored, analysisSelected: p.analysisSelected, separator: p.separator ?? stored.separator, separatorManual: p.separatorManual ?? stored.separatorManual });
+    photos.push({ ...stored, analysisSelected: p.analysisSelected, separator: p.separator ?? stored.separator, separatorManual: p.separatorManual ?? stored.separatorManual,skuMarker:p.skuMarker ?? stored.skuMarker });
   }
   d.photos = photos;
   d.groups = d.groups.map((g: ItemGroup) => ({
@@ -148,6 +148,7 @@ export function saveDraft(draft: WorkspaceDraft): Promise<void> {
                 analysisSelected: p.analysisSelected,
                 separator: p.separator,
                 separatorManual: p.separatorManual,
+                skuMarker:p.skuMarker,
               })),
             },
             "current",
