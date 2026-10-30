@@ -380,6 +380,7 @@ export function ListingsView(props: ListingsViewProps) {
           Nummeriert offene Angebote in ihrer Reihenfolge. Veröffentlichte Angebote bleiben unverändert.
         </p>
         {skuPreview && <p>{skuPreview}</p>}
+        <div className="sku-actions">
         <button
           className="btn btn-ghost"
           type="button"
@@ -395,9 +396,9 @@ export function ListingsView(props: ListingsViewProps) {
         >
           SKU fortlaufend übernehmen
         </button>
-        <button type="button" className="detail-view-button" onClick={() => setTable(!table)}>
-          {table ? "Detailkarten" : "Stapeltabelle"}
-        </button>
+        <button type="button" className="detail-view-button" aria-pressed={!table} onClick={() => setTable(false)}>Detailkarten</button>
+        <button type="button" className="btn-ghost" aria-pressed={table} onClick={() => setTable(true)}>Stapeltabelle</button>
+        </div>
         {skuMessage && <p role="status">{skuMessage}</p>}
       </fieldset>
       {table ? (

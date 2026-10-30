@@ -1633,3 +1633,13 @@ textarea.title-input { min-height: 5rem; resize: vertical; line-height: 1.4; }
 .sku-sequence .detail-view-button {margin-left:.6rem;}
 .listing-settings-footer {margin-top:1rem;}
 .listing-settings-footer>summary {font-weight:650;cursor:pointer;}
+
+.personal-ai-keys {grid-column:1 / -1;border:1px solid #c9d8d2;border-radius:10px;padding:1rem;min-width:0;}
+.personal-ai-keys h3 {margin:0 0 .5rem;}
+.personal-ai-keys form {display:grid;gap:.5rem;}
+.personal-ai-keys input,.personal-ai-keys select {width:100%;min-width:0;box-sizing:border-box;min-height:44px;}
+
+.sku-actions {display:flex;gap:.6rem;align-items:stretch;flex-wrap:wrap;}
+.sku-sequence .sku-actions .detail-view-button {margin:0;}
+.sku-actions>button {min-width:0;white-space:normal;}
+@media(max-width:600px){.sku-actions {display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);}.sku-actions>button:last-child {grid-column:1/-1;}}

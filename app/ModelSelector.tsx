@@ -1,5 +1,7 @@
 "use client";
 
+import {PersonalAiKeys} from "./PersonalAiKeys";
+import {workspaceStorageKey} from "@/lib/workspace-scope";
 import { useEffect, useState } from "react";
 import {
   getAnalysisModel,
@@ -24,7 +26,7 @@ export function ModelSelector() {
   useEffect(() => {
     try {
       setTestUsage(
-        JSON.parse(localStorage.getItem("listing-writer:ai-tests") || "[]"),
+        JSON.parse(localStorage.getItem(workspaceStorageKey("listing-writer:ai-tests")) || "[]"),
       );
     } catch {}
   }, []);
@@ -46,7 +48,7 @@ export function ModelSelector() {
       setTestUsage((prev) => {
         const next = [...prev, ...(d.usage ?? [])];
         try {
-          localStorage.setItem("listing-writer:ai-tests", JSON.stringify(next));
+          localStorage.setItem(workspaceStorageKey("listing-writer:ai-tests"), JSON.stringify(next));
         } catch {}
         return next;
       });
@@ -65,12 +67,18 @@ export function ModelSelector() {
   const [analysisModel, setAnalysisModel] = useState("");
 
   useEffect(() => {
+    let active=true,sequence=0;
+    const load=()=>{
+    const request=++sequence;
     const savedSort = getSortModel();
     const savedAnalysis = getAnalysisModel();
 
-    fetch("/api/models")
-      .then((r) => r.json())
+    fetch("/api/models",{cache:"no-store"})
+      .then((r) => {if(!r.ok)throw Error();return r.json();})
       .then((data: ModelsPayload) => {
+        if(!active || request!==sequence)return;
+        if(!Array.isArray(data.sortModels) || !Array.isArray(data.analysisModels))throw Error();
+        setLoadError(false);
         setModels(data);
 
         const defaultSort =
@@ -88,10 +96,14 @@ export function ModelSelector() {
         if (!savedAnalysis && defaultAnalysis) saveAnalysisModel(defaultAnalysis);
       })
       .catch(() => {
+        if(!active || request!==sequence)return;
         setLoadError(true);
         setSortModel(savedSort ?? "");
         setAnalysisModel(savedAnalysis ?? "");
       });
+    };
+    load();window.addEventListener("ai-credentials-changed",load);
+    return()=>{active=false;window.removeEventListener("ai-credentials-changed",load);};
   }, []);
 
   const handleSortChange = (id: string) => {
@@ -135,6 +147,7 @@ export function ModelSelector() {
             </p>
           )}
 
+          <PersonalAiKeys/>
           <div className="field">
             <label htmlFor="sort-model">KI für die Fotosortierung</label>
             {models ? (
@@ -153,6 +166,7 @@ export function ModelSelector() {
                 {models.sortModels.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.displayName}
+                    {m.recommended ? " · Empfehlung" : ""}
                     {m.isDefault ? " (Standard)" : ""}
                     {m.configured === false ? " · API-Schlüssel fehlt" : ""}
                   </option>
@@ -199,6 +213,7 @@ export function ModelSelector() {
                 {models.analysisModels.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.displayName}
+                    {m.recommended ? " · Empfehlung" : ""}
                     {m.isDefault ? " (Standard)" : ""}
                     {m.configured === false ? " · API-Schlüssel fehlt" : ""}
                   </option>
@@ -221,14 +236,7 @@ export function ModelSelector() {
               Listingmodell: Verbindung testen (kostenpflichtig)
             </button>
           </div>
-          <p className="note">
-            Einrichtung: Vercel → Projekt snaplist → Settings → Environment
-            Variables. GEMINI_API_KEY (Google AI Studio) und OPENAI_API_KEY
-            (OpenAI API, separates API-Guthaben) als Secret für Production
-            speichern und neu bereitstellen. Claude verwendet weiterhin
-            ANTHROPIC_API_KEY. Auswahl bleibt auf diesem Gerät gespeichert.
-            Keine Schlüssel hier eingeben.
-          </p>
+          <p className="note">Die Auswahl bleibt für deinen Arbeitsbereich auf diesem Gerät gespeichert. Schlüssel speichern oder Modelle auswählen startet keine Analyse und keinen Verbindungstest.</p>
           {testMessage && <p role="status">{testMessage}</p>}
           <AiUsageSummary
             rows={testUsage}
