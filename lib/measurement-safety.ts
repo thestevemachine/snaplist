@@ -3,7 +3,7 @@ import {lensReference} from "./lens-reference";
 const derived=/^(Scheibenhöhe|Glashöhe|Gläserhöhe|Gesamtbreite|Fassungsbreite|Rahmenbreite|Frame Width|Total Frame Width|Lens Height)(?:\s*\(mm\))?$/i;
 // Repair old automatic estimates too. Explicit seller values and clears always win.
 export function measurementSafetyPatch(l:ListingResult):Partial<ListingResult>|undefined {
- if(lensReference(l)) return;
+ if(lensReference(l) && !l.frontMeasurement?.reasons.some(r=>r.startsWith("Referenzprüfung:"))) return;
  const specifics={...l.item_specifics},estimates={...l.estimates},evidence={...l.evidence};let changed=false;
  for(const name of Object.keys(specifics)) if(derived.test(name) && !l.manual_measurement_fields?.some(k=>derived.test(k) && (/höhe|height/i.test(k)===/höhe|height/i.test(name)))) {
   delete specifics[name];delete estimates[name];delete evidence[name];changed=true;

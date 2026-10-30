@@ -317,7 +317,24 @@ it("reuses front contours after restoring a photo-proven box size",()=>{
 it("keeps a 51 mm label through fact filtering, extraction and pixel measurement",()=>{
  const facts=[{name:"Glasbreite (mm)",value:"51 mm",basis:"label" as const,quote:"51 □ 18 145",photoIndices:[2]}];
  const supported=facts.filter(f=>acceptedPhotoFact(f,2));expect(supported).toHaveLength(1);
- const o=observation();o.rightLens.left.x=.49;o.rightLens.right.x=.74;
+ const o=observation();o.leftLens.left.x=.205;o.leftLens.right.x=.455;o.rightLens.left.x=.545;o.rightLens.right.x=.795;
  const l={title:"Brille",description:"",eyewear:extractEyewear(supported)};
  const m=calculateFrontMeasurement(o,sizes,l);expect(m).toMatchObject({referenceMm:51,lensHeightMm:41,totalWidthMm:181,status:"estimated"});
+});
+
+it("flags unequal lens boxes and a decentered nasal gap without shifting the detected contacts",()=>{
+ const o=observation();o.rightLens.left.x=.64;const before=JSON.stringify(o);
+ const m=calculateFrontMeasurement(o,sizes,listing());
+ expect(m.status).toBe("uncertain");expect(m.reasons.some(r=>r.startsWith("Referenzprüfung:") && r.includes("Linkes"))).toBe(true);
+ expect(JSON.stringify(o)).toBe(before);
+ const shifted=observation();shifted.outerRight.x=.90;
+ expect(calculateFrontMeasurement(shifted,sizes,listing()).reasons.some(r=>r.includes("nicht mittig"))).toBe(true);
+});
+it("cross-checks explicitly manual DBL against nasal glass edges, not the metal bridge",()=>{
+ const l=listing();l.eyewear!.fields.bridgeWidth={value:"18",source:"manual"};
+ expect(calculateFrontMeasurement(observation(),sizes,l).reasons.some(r=>r.startsWith("Referenzprüfung:"))).toBe(true);
+});
+it("measures complete width by horizontal tip projection, keeping the agreed post-conversion correction",()=>{
+ const o=observation();o.outerLeft.y=.3;o.outerRight.y=.4;
+ expect(calculateFrontMeasurement(o,sizes,listing())).toMatchObject({totalWidthPx:900,totalWidthMm:177,totalWidthCorrectionMm:3});
 });

@@ -26,3 +26,8 @@ it("removes stale unscaled automatic values but preserves explicit seller dimens
  expect(recalculateStoredMeasurement(l)).toMatchObject({status:"unavailable"});
  expect(recalculateStoredMeasurement(l)?.totalWidthMm).toBeUndefined();
 });
+it("removes cached automatic specifics after a boxing consistency failure while retaining manual height",()=>{
+ const l=listing("51 □ 18 145");l.item_specifics={Glashöhe:"28 mm",Rahmenbreite:"178 mm"};l.manual_measurement_fields=["Glashöhe"];
+ l.frontMeasurement={method:"front-photo-ratio-v1",status:"uncertain",photoIndex:1,reasons:["Referenzprüfung: nasal nicht mittig"],totalWidthMm:178};
+ expect(measurementSafetyPatch(l)?.item_specifics).toEqual({Glashöhe:"28 mm"});
+});
