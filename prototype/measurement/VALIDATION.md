@@ -24,3 +24,14 @@ Earlier Gemini-only 44 mm height / 140 mm width are NOT ground truth. They are n
 
 ## Required next evidence
 At minimum restore the original Face à Face photo and provide paired real original photos + manual height/complete width measurements. Then refine inner-edge detection on training examples and measure the release gate on held-out examples. Keep results preliminary and the automatic listing transfer disabled until this succeeds.
+
+## Second real example — IMG_7769.JPG (prototype v3)
+User-confirmed approximately 37 mm height / 135 mm complete width; Kastenmaß 52–18. Colour-saturation masks were added because the bright pink metal rim disappears against the gray background in grayscale. Outer-frame detection combines the visible coloured rim with dark connected hinges/temples; it does not use the known total width as input.
+
+| Independent dimension | Known | Predicted | Deviation |
+|---|---:|---:|---:|
+| Bridge | 18 mm | 19.2 mm | +1.2 mm |
+| Lens height | ca. 37 mm | 35 mm | −2 mm |
+| Complete width | ca. 135 mm | 135 mm | 0 mm |
+
+This is a development example, not a held-out validation sample. No fixed offset or target-matching correction was introduced. The noego example is still rejected (bridge 11.8 vs 19 mm). All 12 engine tests still pass. Automatic listing transfer remains disabled; one successful example is insufficient for release.
