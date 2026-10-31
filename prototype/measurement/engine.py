@@ -2,7 +2,7 @@
 import hashlib, math
 import cv2
 import numpy as np
-VERSION = 'opencv-boxing-prototype-v6'
+VERSION = 'opencv-boxing-prototype-v7'
 
 def decode(data):
     image=cv2.imdecode(np.frombuffer(data,np.uint8),cv2.IMREAD_COLOR)
@@ -21,6 +21,10 @@ def candidates(image):
     otsu=cv2.threshold(gray,0,255,cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)[1]
     masks.append(cv2.morphologyEx(otsu,cv2.MORPH_CLOSE,np.ones((3,3),np.uint8)))
     masks += [cv2.Canny(gray,40,110),cv2.Canny(gray,75,160)]
+    enhanced=cv2.createCLAHE(clipLimit=2.0,tileGridSize=(8,8)).apply(gray)
+    for low,high in ((12,35),(25,65)):
+        edges=cv2.Canny(enhanced,low,high)
+        masks.append(cv2.morphologyEx(edges,cv2.MORPH_CLOSE,np.ones((3,3),np.uint8)))
     # Coloured rims can disappear in grayscale against a gray background.
     # Saturation separates their actual frame band from transparent openings.
     hsv=cv2.cvtColor(image,cv2.COLOR_BGR2HSV)
@@ -44,6 +48,14 @@ def refine_opening(image,candidate):
     """
     gray=cv2.GaussianBlur(cv2.cvtColor(image,cv2.COLOR_BGR2GRAY),(3,3),0).astype(np.float32)
     gx=cv2.Sobel(gray,cv2.CV_32F,1,0,ksize=3);gy=cv2.Sobel(gray,cv2.CV_32F,0,1,ksize=3)
+    if not candidate.get('hole'):
+        # Ignore a common background/table horizon visible at BOTH image margins.
+        margin=max(5,gray.shape[1]//35)
+        left=np.mean(np.abs(gy[:,:margin]),axis=1);right=np.mean(np.abs(gy[:,-margin:]),axis=1)
+        horizon=np.minimum(left,right)
+        peak=int(horizon.argmax())
+        if horizon[peak]>25:
+            gx[max(0,peak-7):peak+8]=0;gy[max(0,peak-7):peak+8]=0
     x,y,w,h=candidate['box'];cx=x+w/2;cy=y+h/2
     theta=np.linspace(0,2*np.pi,180,endpoint=False);rho=np.linspace(.68,1.12,89)
     xs=cx+np.cos(theta[:,None])*w/2*rho;ys=cy+np.sin(theta[:,None])*h/2*rho
@@ -66,7 +78,7 @@ def refine_opening(image,candidate):
     if np.mean(support>.12)<.7:return candidate
     points=np.stack([xs[np.arange(180),path],ys[np.arange(180),path]],axis=-1)
     contour=np.rint(points).astype(np.int32).reshape(-1,1,2)
-    return {**candidate,'contour':contour,'box':cv2.boundingRect(contour),'edgeSupport':float(np.mean(support>.12))}
+    return {**candidate,'contour':contour,'box':cv2.boundingRect(contour),'edgeSupport':float(np.mean(support>.12)),'edgeQuality':float(np.mean(support))}
 
 def detect(data):
     im=decode(data);h,w=im.shape[:2]; cs=candidates(im); pairs=[]
@@ -81,7 +93,25 @@ def detect(data):
             score=(aw*bw)**.5/w - wd-hd-dy + .1*(a['hole']+b['hole'])
             pairs.append((score,a,b))
     if not pairs:return {'version':VERSION,'status':'unavailable','reasons':['Keine zwei geschlossenen Glasöffnungen gefunden. Randlose, Halbrand- oder verdeckte Konturen bitte manuell markieren.'],'points':None,'rank':-1}
-    score,a,b=max(pairs,key=lambda p:p[0]);a=refine_opening(im,a);b=refine_opening(im,b); points={}
+    score,a,b=max(pairs,key=lambda p:p[0])
+    def refine(seed):
+        base=cv2.GaussianBlur(cv2.cvtColor(im,cv2.COLOR_BGR2GRAY),(3,3),0).astype(np.float32)
+        gradient=np.abs(cv2.Sobel(base,cv2.CV_32F,0,1,ksize=3));margin=max(5,im.shape[1]//35)
+        horizon=np.minimum(gradient[:,:margin].mean(axis=1),gradient[:,-margin:].mean(axis=1));peak=int(horizon.argmax())
+        sx,sy,sw,sh=seed['box']
+        if horizon[peak]>25 and min(abs(sy+sh-peak),abs(sy-peak))<im.shape[0]*.03:
+            seed={**seed,'hole':False,'horizonClipped':True,'extendUp':abs(sy-peak)<abs(sy+sh-peak)}
+        variants=[refine_opening(im,seed)]
+        if not seed['hole']:
+            x,y,w,h=seed['box']
+            # Open rimless outlines may stop at the background horizon. Search
+            # lower visible edges, never manufacture a dimension from an aspect ratio.
+            for factor in (1.3,1.6,1.9,2.2):
+                nh=int(h*factor)
+                ny=y-(nh-h) if seed.get('extendUp') else y
+                if ny>=0 and ny+nh<im.shape[0]:variants.append(refine_opening(im,{**seed,'box':(x,ny,w,nh)}))
+        return max(variants,key=lambda c:c.get('edgeQuality',-1))
+    a=refine(a);b=refine(b); points={} 
     for name,c in [('left',a),('right',b)]:
         pts=c['contour'].reshape(-1,2)
         for axis,idx in [('left',np.argmin(pts[:,0])),('right',np.argmax(pts[:,0])),('top',np.argmin(pts[:,1])),('bottom',np.argmax(pts[:,1]))]:
