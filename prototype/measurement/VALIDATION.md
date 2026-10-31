@@ -102,3 +102,12 @@ Frozen v6 before tuning returned 24 / 129 mm (errors −18 / −8 mm vs screensh
 | Complete width | 137 mm | 132 mm | −5 mm |
 
 This width still fails the ±2 mm target. The outer image points are provisional and no fixed offset or target-dependent correction was added. Symmetry and bridge agreement do not resolve the discrepancy or prove a coplanar 3D frame. All outputs remain provisional and automatic listing transfer is disabled. V7 passes 15 automatic tests. Red and blue full-rim Lindberg examples remain 36/129 and 37/124 mm respectively. The earlier pink/noego original local paths were no longer available during this iteration, so they were not rerun and are not claimed as revalidated for v7.
+
+## Bajazzo rectangular rimless/partial frame — prototype v8, 2026-11-01
+The corrected screenshot corresponds to the Bajazzo photo `s-l1600-3.jpg` (SHA256 `5025df592df4a7fd49a72aa7ed0ebc1e14d11d051cc587a310042295220a6aa6`), not the earlier Lindberg screenshot. Comparison values: 54–19, height 29 mm, complete width 140 mm. Independent manual confirmation of screenshot height/width for this example is not yet explicit.
+
+Frozen v7: 23 / 146 mm, errors −6 / +6 mm. Threshold components and gradient paths had selected internal reflections as apparently closed shallow openings. V8 searches supported edge paths beyond shallow candidate bounds in both vertical directions, even when thresholding makes a reflection look closed. Candidates are selected only by image gradients, not the target dimensions. No mm offset is used.
+
+V8: **28 mm height / 139 mm complete width**, errors **−1 / −1 mm** against screenshot; bridge cross-check 16.2 vs 19 mm (−2.8 mm, within the prototype's existing 3 mm bridge threshold but still a reason to retain provisional status). Prior red and blue full-rim examples remain 36/129 and 37/124 mm. Rimless Lindberg Spirit remains 41/132 vs screenshot 42/137; its −5 mm width discrepancy is still unresolved. Do not claim the complete measurement function is validated from this Bajazzo result.
+
+The preceding `s-l140.jpg` was only 140×105 pixels. V8 explicitly rejects small source images and fewer than 80 pixels across either opening, including manually edited geometry. 16 automatic tests pass, including explicit thumbnail rejection. The old pink and noego source paths remain unavailable and were not re-tested for v8. Automatic listing transfer in this isolated module remains disabled.
