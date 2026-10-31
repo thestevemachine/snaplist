@@ -2,7 +2,7 @@
 import hashlib, math
 import cv2
 import numpy as np
-VERSION = 'opencv-boxing-prototype-v1'
+VERSION = 'opencv-boxing-prototype-v3'
 
 def decode(data):
     image=cv2.imdecode(np.frombuffer(data,np.uint8),cv2.IMREAD_COLOR)
@@ -17,6 +17,11 @@ def candidates(image):
     # Multiple thresholds, plus Canny. Retain actual closed contours, not guessed boxes.
     masks=[cv2.threshold(gray,t,255,cv2.THRESH_BINARY_INV)[1] for t in (45,65,85,105,125,145,165)]
     masks += [cv2.Canny(gray,40,110),cv2.Canny(gray,75,160)]
+    # Coloured rims can disappear in grayscale against a gray background.
+    # Saturation separates their actual frame band from transparent openings.
+    hsv=cv2.cvtColor(image,cv2.COLOR_BGR2HSV)
+    for saturation in (40,70,110,150):
+        masks.append(cv2.inRange(hsv,np.array([0,saturation,30]),np.array([179,255,255])))
     for mask in masks:
         contours,hierarchy=cv2.findContours(mask,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
         for i,c in enumerate(contours):
@@ -49,15 +54,20 @@ def detect(data):
     # a component along table edges by restricting to the lens vertical band.
     x,y,aw,ah=a['box'];xx,yy,bw,bh=b['box']; top=max(0,min(y,yy)-int(.15*max(ah,bh)));bottom=min(h,max(y+ah,yy+bh)+int(.15*max(ah,bh)))
     gray=cv2.cvtColor(im,cv2.COLOR_BGR2GRAY); outer=[]
+    hsv=cv2.cvtColor(im,cv2.COLOR_BGR2HSV)
+    coloured=cv2.inRange(hsv,np.array([0,70,30]),np.array([179,255,255]))
     for t in (45,65,85,105):
-        mask=cv2.threshold(gray,t,255,cv2.THRESH_BINARY_INV)[1]; mask[:top]=0;mask[bottom:]=0
+        dark=cv2.threshold(gray,t,255,cv2.THRESH_BINARY_INV)[1]
+        mask=cv2.bitwise_or(dark,coloured)
+        mask=cv2.morphologyEx(mask,cv2.MORPH_CLOSE,np.ones((3,3),np.uint8))
+        mask[:top]=0;mask[bottom:]=0
         contours,_=cv2.findContours(mask,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
         for c in contours:
             ox,oy,ow,oh=cv2.boundingRect(c)
             if ox<x and ox+ow>xx+bw and .5*w<ow<.99*w and oh>.5*max(ah,bh):outer.append(c)
     reasons=[]
     if outer:
-        c=min(outer,key=lambda c:cv2.boundingRect(c)[2]);pts=c.reshape(-1,2)
+        c=max(outer,key=lambda c:cv2.boundingRect(c)[2]);pts=c.reshape(-1,2)
         for name,idx in [('outer_left',np.argmin(pts[:,0])),('outer_right',np.argmax(pts[:,0]))]:
             p=pts[idx];points[name]=[float(p[0]/w),float(p[1]/h)]
     else: reasons.append('Äußerste Fassungsgrenzen nicht geschlossen erkennbar; Gesamtbreite fehlt.')
