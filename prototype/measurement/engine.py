@@ -2,7 +2,7 @@
 import hashlib, math
 import cv2
 import numpy as np
-VERSION = 'opencv-boxing-prototype-v7'
+VERSION = 'opencv-boxing-prototype-v8'
 
 def decode(data):
     image=cv2.imdecode(np.frombuffer(data,np.uint8),cv2.IMREAD_COLOR)
@@ -81,7 +81,10 @@ def refine_opening(image,candidate):
     return {**candidate,'contour':contour,'box':cv2.boundingRect(contour),'edgeSupport':float(np.mean(support>.12)),'edgeQuality':float(np.mean(support))}
 
 def detect(data):
-    im=decode(data);h,w=im.shape[:2]; cs=candidates(im); pairs=[]
+    im=decode(data);h,w=im.shape[:2]
+    if w<600 or h<200:
+        return {'version':VERSION,'status':'unavailable','reasons':['Bildauflösung zu gering. Originalfoto statt Vorschau verwenden.'],'points':None,'rank':-1,'size':[w,h]}
+    cs=candidates(im); pairs=[]
     for a in cs:
         for b in cs:
             x,y,aw,ah=a['box'];xx,yy,bw,bh=b['box']
@@ -102,14 +105,17 @@ def detect(data):
         if horizon[peak]>25 and min(abs(sy+sh-peak),abs(sy-peak))<im.shape[0]*.03:
             seed={**seed,'hole':False,'horizonClipped':True,'extendUp':abs(sy-peak)<abs(sy+sh-peak)}
         variants=[refine_opening(im,seed)]
-        if not seed['hole']:
+        if not seed['hole'] or seed['box'][3]/seed['box'][2]<.7:
             x,y,w,h=seed['box']
             # Open rimless outlines may stop at the background horizon. Search
             # lower visible edges, never manufacture a dimension from an aspect ratio.
             for factor in (1.3,1.6,1.9,2.2):
                 nh=int(h*factor)
-                ny=y-(nh-h) if seed.get('extendUp') else y
-                if ny>=0 and ny+nh<im.shape[0]:variants.append(refine_opening(im,{**seed,'box':(x,ny,w,nh)}))
+                # An apparently closed contour can be an internal reflection,
+                # especially in shallow rectangular rimless lenses. Test both
+                # visible directions; select solely by image-edge evidence.
+                for ny in (y,y-(nh-h)):
+                    if ny>=0 and ny+nh<im.shape[0]:variants.append(refine_opening(im,{**seed,'box':(x,ny,w,nh)}))
         return max(variants,key=lambda c:c.get('edgeQuality',-1))
     a=refine(a);b=refine(b); points={} 
     for name,c in [('left',a),('right',b)]:
@@ -198,6 +204,8 @@ def measure(result, reference, bridge=None):
     widths=[q(n+'_right')[0]-q(n+'_left')[0] for n in ('left','right')]
     heights=[q(n+'_bottom')[1]-q(n+'_top')[1] for n in ('left','right')]
     if min(widths)<=0 or min(heights)<=0:raise ValueError('Widersprüchliche Messpunkte')
+    if min(widths)<80:
+        out['status']='unavailable';out['reasons']=[*result.get('reasons',[]),'Zu wenige Bildpunkte pro Glas. Originalfoto verwenden.'];return out
     scale=reference['mm']/(sum(widths)/2);gap=(q('right_left')[0]-q('left_right')[0])*scale
     out['checks']={'widthDifferencePct':round(abs(widths[0]-widths[1])/max(widths)*100,1),'heightDifferencePct':round(abs(heights[0]-heights[1])/max(heights)*100,1),'rotationDegrees':round(math.degrees(angle),1),'bridgeMm':round(gap,1)}
     failures=[]
