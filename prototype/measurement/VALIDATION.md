@@ -63,3 +63,14 @@ The supplied script's measurement function was also run unchanged with the indep
 Not adopted: treating the largest contour as the frame (can select background), using only one child contour as a lens, and the hardcoded fallback `lensWidthPx=frameWidthPx*0.39` / `lensHeightPx=frameHeightPx*0.85`. These can produce plausible numbers without observed glass boundaries and violate the no-invented-measurement rule. Its OCR regex also needs full Kastenmaß separators (including □ and []), plausible ranges, provenance and ambiguity checks before it could replace the already available Gemini text extraction. For now the lab continues reusing existing reference evidence, which avoids another OCR stage and calls.
 
 The user's accepted target is approximately ±2 mm for height and complete width. Current two accepted development examples meet that observed error, but this is not independent validation; the noego rejection remains unresolved.
+
+## New unseen photo — blue Lindberg 076, s-l1600-1.jpg (frozen prototype v5)
+SHA256 `6575f6a7c7394a56c0d81771352adfbdc9b817a2eb64d60ecbfe429369aa4af9`. Existing unmodified v5 ran before any tuning on this photo. Screenshot provides 46–17, height 39 mm and width 124 mm; independent manual confirmation of the last two values is pending.
+
+| Dimension | Screenshot comparison | Predicted | Difference |
+|---|---:|---:|---:|
+| Bridge | 17 mm | 16.2 mm | −0.8 mm |
+| Height | 39 mm | 34 mm | −5 mm |
+| Complete width | 124 mm | 114 mm | −10 mm |
+
+This does not meet the ±2 mm target. The independent bridge and lens-symmetry tests passed despite incorrect temporal lens boundaries; a bridge check alone cannot establish accurate contour detection. Candidate inspection shows rear-temple/frame contours extending into the opening bounding boxes. No new algorithm tuning or target-based correction was applied. The automatic listing transfer remains disabled. Confirm the screenshot dimensions were independently measured before treating them as ground truth.
