@@ -49,7 +49,7 @@ describe("identifier validation", () => {
 describe("extractProductIdentifiers", () => {
   test("pulls validated identifiers from item specifics", () => {
     const ids = extractProductIdentifiers(
-      listing({ UPC: "036000291452", MPN: "GDC-100", ISBN: "" })
+      listing({ UPC: "036000291452", MPN: "GDC-100", ISBN: "" }),
     );
     expect(ids).toEqual({ upc: "036000291452", mpn: "GDC-100" });
     expect(hasCatalogIdentifier(ids)).toBe(true);
@@ -63,7 +63,7 @@ describe("extractProductIdentifiers", () => {
 
   test("invalid identifiers never reach eBay", () => {
     const ids = extractProductIdentifiers(
-      listing({ UPC: "not visible", ISBN: "12345", MPN: "??" })
+      listing({ UPC: "not visible", ISBN: "12345", MPN: "??" }),
     );
     expect(ids).toEqual({});
     expect(hasCatalogIdentifier(ids)).toBe(false);
@@ -72,15 +72,34 @@ describe("extractProductIdentifiers", () => {
 
 describe("realBrand", () => {
   test("returns a genuine brand", () => {
-    expect(realBrand({ title: "t", description: "d", brand: "Ralph Lauren" })).toBe(
-      "Ralph Lauren"
-    );
+    expect(
+      realBrand({ title: "t", description: "d", brand: "Ralph Lauren" }),
+    ).toBe("Ralph Lauren");
   });
 
-  test.each(["No Brand", "Unbranded", "Unknown", "generic", "n/a", "", undefined])(
+  test.each([
+    "No Brand",
+    "Unbranded",
+    "Unknown",
+    "generic",
+    "n/a",
+    "",
+    undefined,
+  ])(
     "returns empty for %j — an MPN must never ship without a real brand",
     (b) => {
-      expect(realBrand({ title: "t", description: "d", brand: b as string })).toBe("");
-    }
+      expect(
+        realBrand({ title: "t", description: "d", brand: b as string }),
+      ).toBe("");
+    },
   );
+});
+
+test("never substitutes a model number for manufacturer part number", () => {
+  expect(
+    extractProductIdentifiers(listing({ "Model Number": "FE1234" })).mpn,
+  ).toBeUndefined();
+  expect(
+    extractProductIdentifiers(listing({ Herstellernummer: "FE1234" })).mpn,
+  ).toBe("FE1234");
 });

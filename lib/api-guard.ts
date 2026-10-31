@@ -1,3 +1,4 @@
+import {accountsEnabled,currentAccount} from "./accounts/context";
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 
@@ -67,6 +68,11 @@ export function rateLimitRequest(req: NextRequest): NextResponse | null {
  * Returns an error response when the request isn't allowed, or null to proceed.
  */
 export function guardApiRequest(req: NextRequest): NextResponse | null {
+  if(accountsEnabled()) {
+    const user=currentAccount();
+    if(!user) return NextResponse.json({ok:false,code:"SIGN_IN_REQUIRED"},{status:401});
+    return rateLimited(`account:${user.id}`,600) ? NextResponse.json({ok:false,error:"Bitte kurz warten."},{status:429}) : null;
+  }
   const authenticated = Boolean(
     process.env.APP_SECRET &&
     timingSafeEqual(

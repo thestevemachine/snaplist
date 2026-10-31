@@ -1,4 +1,6 @@
+import {measurementPhotoSchema} from "./measurement-photos";
 import { z } from "zod";
+import { frontMeasurementSchema } from "./front-measurements";
 import type { ListingResult } from "./types";
 
 const text = z.string().max(500);
@@ -15,12 +17,63 @@ export const CONDITIONS = [
   "FOR_PARTS_OR_NOT_WORKING",
 ] as const;
 export const listingSchema = z.object({
+  eyewear_kind: z
+    .enum(["optical", "sunglasses", "uncertain", "not_eyewear"])
+    .optional(),
+  classification_note: z.string().max(1000).optional(),
+  content_rules_version: z.number().int().min(0).max(100).optional(),
+  title_manually_edited: z.boolean().optional(),
+  eyewear: z
+    .object({
+      fields: z.partialRecord(
+        z.enum([
+          "brand",
+          "modelNumber",
+          "modelName",
+          "colorCode",
+          "material",
+          "lensWidth",
+          "bridgeWidth",
+          "templeLength",
+          "totalWidth",
+        ]),
+        z.object({
+          value: z.string().max(500),
+          source: z.enum(["label", "shop", "manual"]),
+          quote: z.string().max(2000).optional(),
+          photos: z.array(z.number().int().min(1).max(24)).max(24).optional(),
+        }),
+      ),
+      materials: z
+        .array(
+          z.object({
+            part: z.enum(["front", "temples"]),
+            value: z.string().max(500),
+            source: z.enum(["label", "estimate"]),
+            quote: z.string().max(2000),
+            photos: z.array(z.number().int().min(1).max(24)).max(24),
+            confidence: z.number().finite().min(0).max(100).optional(),
+          }),
+        )
+        .max(24)
+        .optional(),
+      warnings: z.array(z.string().max(1000)).max(100),
+    })
+    .optional(),
+  category_fields_version: z.number().int().min(0).max(100).optional(),
+  feature_defaults_version: z.number().int().min(0).max(100).optional(),
+  style_tags_version: z.number().int().min(0).max(100).optional(),
+  glasses_rules_version: z.number().int().min(0).max(100).optional(),
   title: z.string().trim().min(1).max(200),
   description: z.string().max(15000),
   category: text.optional(),
   category_hint: text.optional(),
   category_id: z.string().regex(/^\d*$/).max(20).optional(),
+  secondary_category_id: z.string().regex(/^\d*$/).max(20).optional(),
   ebay_condition: text.optional(),
+  estimates: z
+    .record(z.string().max(100), z.number().finite().min(0).max(100))
+    .optional(),
   evidence: z
     .record(
       z.string().max(100),
@@ -34,7 +87,12 @@ export const listingSchema = z.object({
   material: scalar.optional(),
   condition: z.enum(CONDITIONS).optional(),
   condition_notes: z.string().max(3000).optional(),
+  measurementPhotos:z.array(measurementPhotoSchema).max(12).optional(),
   measurements: text.optional(),
+  manual_measurement_values: z.record(z.string().max(100),z.string().max(30)).optional(),
+  manual_measurement_fields: z.array(z.string().max(100)).max(30).optional(),
+  frontMeasurement: frontMeasurementSchema.optional(),
+  best_offer_enabled: z.boolean().optional(),
   suggested_price: z
     .union([
       z.number().finite().min(0).max(1_000_000),

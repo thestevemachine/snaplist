@@ -1,5 +1,9 @@
+import {accountsEnabled,currentAccount} from "@/lib/accounts/context";
+import {saveCredentials} from "@/lib/accounts/server";
+import {withAccount} from "@/lib/accounts/server";
 import { NextRequest, NextResponse } from "next/server";
 import { rateLimitRequest } from "@/lib/api-guard";
+import {validEbayState} from "@/lib/ebay/oauth-state";
 import { exchangeCode } from "@/lib/ebay/oauth";
 import {
   EBAY_COOKIE,
@@ -20,7 +24,7 @@ function appUrl(req: NextRequest, path: string): URL {
 // eBay redirects the user back here with ?code=... after they consent.
 // Must stay reachable without the access code (it's a browser redirect from
 // eBay), so it is protected by the state cookie below plus the rate limiter.
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   const limited = rateLimitRequest(req);
   if (limited) return limited;
 
@@ -28,11 +32,14 @@ export async function GET(req: NextRequest) {
   const state = req.nextUrl.searchParams.get("state");
   const expectedState = req.cookies.get(EBAY_STATE_COOKIE)?.value;
 
-  if (!code) {
-    return NextResponse.redirect(appUrl(req, "/?ebay=error&msg=No+authorization+code"));
-  }
-  if (!state || !expectedState || state !== expectedState) {
+  if (!validEbayState(state,expectedState,accountsEnabled() ? currentAccount()!.id : undefined)) {
     return NextResponse.redirect(appUrl(req, "/?ebay=error&msg=State+mismatch"));
+  }
+
+  if (req.nextUrl.searchParams.has("error") || !code || code.length>6000 || req.nextUrl.searchParams.getAll("code").length!==1 || req.nextUrl.searchParams.getAll("state").length!==1) {
+    const res=NextResponse.redirect(appUrl(req,"/?ebay=error&msg=eBay-Anmeldung+abgebrochen+oder+ungültig"));
+    res.cookies.delete(EBAY_STATE_COOKIE);
+    return res;
   }
 
   try {
@@ -44,7 +51,8 @@ export async function GET(req: NextRequest) {
       connectionFromToken(token.refresh_token, token.refresh_token_expires_in)
     );
     const res = NextResponse.redirect(appUrl(req, "/?ebay=connected"));
-    res.cookies.set(EBAY_COOKIE, sealed, {
+    if(accountsEnabled()) await saveCredentials({...currentAccount()!.secrets,ebay:sealed});
+    else res.cookies.set(EBAY_COOKIE, sealed, {
       httpOnly: true,
       secure: true,
       sameSite: "lax",
@@ -55,6 +63,16 @@ export async function GET(req: NextRequest) {
     return res;
   } catch (e) {
     const msg = encodeURIComponent((e as Error).message);
-    return NextResponse.redirect(appUrl(req, `/?ebay=error&msg=${msg}`));
+    const res=NextResponse.redirect(appUrl(req, `/?ebay=error&msg=${msg}`));
+    res.cookies.delete(EBAY_STATE_COOKIE);
+    return res;
   }
+}
+
+const accountCallback=withAccount(handleGET);
+export async function GET(req:NextRequest){
+ const response=await accountCallback(req);
+ response.headers.set("Referrer-Policy","no-referrer");
+ response.headers.set("Cache-Control","private, no-store");
+ return response;
 }

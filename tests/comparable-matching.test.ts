@@ -236,3 +236,28 @@ it("rejects the wrong color, hood, sizing and graphic found in live retrieval", 
   ])
     expect(apparelMatchScore(title, l)).toBe(0);
 });
+it("prices exact eyewear models from German eBay item prices, without retail/new-tag stock, shipping or lookalike IDs", async () => {
+  const item = (id:string, price:number, model="1234", condition="1500", host="www.ebay.de") => ({itemId:id,title:`Lindberg ${model} Brille`,itemWebUrl:`https://${host}/itm/${id}`,conditionId:condition,price:{value:String(price),currency:"USD"},shippingOptions:[{shippingCost:{value:"20",currency:"USD"}}]});
+  const fetchMock=vi.fn(async (url:unknown) => {
+    expect(new URL(String(url)).searchParams.get("q")).toBe("Lindberg 1234 Brille");
+    expect(new URL(String(url)).searchParams.get("filter")).toContain("conditionIds:{1500}");
+    return Response.json({itemSummaries:[item("a",60),item("b",70),item("c",80),item("retail",500,"1234","1000"),item("wrong",10,"12345"),item("shop",900,"1234","1500","shop.example"),{...item("brand",1000),title:"Otherbrand 1234 Brille"}]});
+  });
+  vi.stubGlobal("fetch",fetchMock);
+  try {
+    const r=await searchComps("token",{title:"Lindberg Brille",description:"",brand:"Lindberg",item_type:"Brille",eyewear_kind:"optical",ebay_condition:"NEW_OTHER",category_id:"180957",item_specifics:{Modellnummer:"1234"},search_terms:["Titan","Luxus"]});
+    expect(r.sources?.map(s=>s.id)).toEqual(["a","b","c"]);
+    expect(r.median).toBe(70);
+    expect(r.recommendedPrice).toBe(70);
+    expect(r.recommendationBasis).toContain("keine verkauften Preise");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  } finally {vi.unstubAllGlobals();}
+});
+it("does not generate a market-backed eyewear recommendation from brand-only matches", async () => {
+  vi.stubGlobal("fetch",vi.fn(async()=>Response.json({itemSummaries:[1,2,3].map(n=>({itemId:`brand-only-${n}`,title:"Lindberg Brille",itemWebUrl:`https://www.ebay.de/itm/${n}`,conditionId:"1500",price:{value:"100",currency:"USD"}}))})));
+  try {
+    const r=await searchComps("token",{title:"Lindberg unknown model",description:"",brand:"Lindberg",item_type:"Brille",eyewear_kind:"optical",ebay_condition:"NEW_OTHER",category_id:"180957"});
+    expect(r.ok).toBe(true);
+    expect(r.recommendedPrice).toBeUndefined();
+  } finally {vi.unstubAllGlobals();}
+});

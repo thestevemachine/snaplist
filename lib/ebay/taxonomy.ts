@@ -93,7 +93,7 @@ async function taxGet(path: string): Promise<any | null> {
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: "application/json",
-        "Accept-Language": "en-US",
+        "Accept-Language": EBAY_MARKETPLACE_ID === "EBAY_DE" ? "de-DE" : "en-US",
       },
     },
   );
@@ -240,7 +240,7 @@ export async function acceptedConditionIds(
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: "application/json",
-        "Accept-Language": "en-US",
+        "Accept-Language": EBAY_MARKETPLACE_ID === "EBAY_DE" ? "de-DE" : "en-US",
       },
     });
     if (!resp.ok) {

@@ -1,0 +1,13 @@
+# Bügelaufdrucke und überprüfbare Brillendaten
+
+Die bestehende Fotoanalyse liefert weiterhin belegte `specifics`. Zusätzlich fordert ihr Prompt exakte Bügel-/Stegaufdrucke sowie getrennte Modellnummer, Modellname und Farbcode an. `extractEyewear` verarbeitet ausschließlich akzeptierte Label-Fakten; Rohtext und Fotoindex bleiben in `listing.eyewear` erhalten. Das Modul ist unabhängig vom KI-Anbieter. Es prüft Transkriptionen, nicht die Bildpixel selbst: die Lesegenauigkeit bleibt im Fototest zu prüfen.
+
+Kastenmaße werden aus den ausdrücklich gedruckten Zahlen zerlegt (Quadrat, Bindestrich oder Schrägstrich). Fehlende Bügellänge/Gesamtbreite bleiben leer. Widersprüchliche Aufdrucke werden nicht still zusammengeführt. Übliche Wertebereiche erzeugen Hinweise, keine pauschale Vintage-Ablehnung. Modell-/Farbcodeklassifikation erfolgt durch den bestehenden Bildanalyseschritt; als Modell klassifizierte Kastenmaße werden verworfen.
+
+Lindberg + belegte Marke ohne widersprechende Materialbelege ergibt Titan als sichtbare **Shop-Vorgabe**, nicht als bewiesene Materialerkennung. Gedrucktes Titanium/Titan bestätigt das Material. Andere erkannte Materialien verhindern die automatische Titan-Vorgabe und erzeugen einen Hinweis. Manuelle Korrekturen bleiben möglich.
+
+Vorbereitung ordnet Lesedaten nur den tatsächlich gelieferten Kategorie-Merkmalen zu und respektiert bereits vorhandene, auch geleerte Felder. Die zusätzliche Lesedaten-Anzeige ist kein erfundenes eBay-Merkmal. Änderungen in der Karte synchronisieren passende Felder; Änderungen an eBay-Merkmalen synchronisieren die gespeicherten Lesedaten. Titel werden nur vor dem ersten Review oder auf ausdrücklichen Knopfdruck gebildet. Manuelle Titel sind gesondert geschützt. Titan/Acetat/Metall/Kunststoff/Stahl im Titel ohne entsprechendes Material verhindert die Übertragung, bis Titel oder Merkmal korrigiert ist.
+
+Alte Entwürfe werden nicht automatisch erneut analysiert. Für sie ist „Ausgewählte Fotos neu analysieren“ ein bewusstes Ersetzen des Entwurfs. Veröffentlichte Karten bleiben gesperrt. Es gibt keine automatische Veröffentlichung.
+
+Manueller Test: eine neue Brille mit scharfem Foto des kompletten Bügelaufdrucks analysieren. Modell, Farbcode, Glas-/Stegbreite und Bügellänge mit Foto vergleichen. Gesamtbreite muss ohne ausdrücklichen Beleg leer sein. Lindberg-Materialhinweis prüfen, eine Angabe korrigieren, speichern und neu laden. Eigenen Titel eingeben, weitere Angabe ändern: Titel muss bleiben. Erst über „Titel aus geprüften Angaben neu bilden“ neue Titelregeln anwenden. Anschließend „Bei eBay prüfen · nicht veröffentlichen“ verwenden.

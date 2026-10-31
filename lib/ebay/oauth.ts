@@ -8,6 +8,7 @@ import {
   EBAY_SCOPES,
   basicAuthHeader,
   getEbayCreds,
+  getEbayAppCreds,
   type EbayCreds,
 } from "./config";
 
@@ -73,7 +74,7 @@ function tokenErrorMessage(status: number, body: string): string {
 }
 
 async function postToken(
-  creds: EbayCreds,
+  creds: Pick<EbayCreds,"clientId"|"clientSecret">,
   body: Record<string, string>,
 ): Promise<TokenResponse> {
   const resp = await boundedFetch(EBAY_TOKEN_URL, {
@@ -105,7 +106,7 @@ export function exchangeCode(code: string): Promise<TokenResponse> {
 export function refreshAccessToken(
   refreshToken: string,
 ): Promise<TokenResponse> {
-  const creds = getEbayCreds();
+  const creds = getEbayAppCreds();
   return postToken(creds, {
     grant_type: "refresh_token",
     refresh_token: refreshToken,

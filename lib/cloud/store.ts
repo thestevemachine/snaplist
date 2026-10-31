@@ -1,8 +1,10 @@
+import {accountsEnabled} from "../accounts/context";
 import { createClient } from "@supabase/supabase-js";
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import type { NextRequest } from "next/server";
 export const OWNER_COOKIE = "lister_cloud_owner";
 export function cloudEnabled() {
+  if(accountsEnabled()) return false; // Existing jobs use a shared background identity. Never reuse it for tenants.
   return (
     process.env.CLOUD_BATCH_ENABLED === "true" &&
     Boolean(

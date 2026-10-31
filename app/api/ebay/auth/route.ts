@@ -1,5 +1,8 @@
+import {accountsEnabled,currentAccount} from "@/lib/accounts/context";
+import {withAccount} from "@/lib/accounts/server";
 import { NextRequest, NextResponse } from "next/server";
 import { guardApiRequest } from "@/lib/api-guard";
+import {ebayState} from "@/lib/ebay/oauth-state";
 import { buildAuthorizeUrl } from "@/lib/ebay/oauth";
 import { EBAY_STATE_COOKIE } from "@/lib/ebay/session";
 
@@ -19,12 +22,13 @@ function setStateCookie(res: NextResponse, state: string): void {
 // Kick off the eBay connection after the app access code has been verified.
 // This cannot be a plain link/GET, because GET redirects cannot carry the
 // x-app-secret header stored by the browser.
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const denied = guardApiRequest(req);
   if (denied) return denied;
 
+  if(accountsEnabled() && !process.env.SNAPLIST_EBAY_RU_NAME) return NextResponse.json({ok:false,code:"PERSONAL_EBAY_SETUP_REQUIRED",error:currentAccount()?.owner ? "Die persönliche eBay-Verbindung benötigt noch eine eigene eBay-Rückleitungsadresse. Dein gespeicherter Zugang bleibt erhalten." : "Die persönliche eBay-Verbindung ist noch nicht freigeschaltet. Bitte Stefan um Abschluss der eBay-Einrichtung bitten."},{status:503});
   try {
-    const state = crypto.randomUUID();
+    const state = ebayState(accountsEnabled() ? currentAccount()!.id : undefined);
     const url = buildAuthorizeUrl(state);
     const res = NextResponse.json({ ok: true, url });
     setStateCookie(res, state);
@@ -37,9 +41,12 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET() {
+async function handleGET() {
   return NextResponse.json(
     { ok: false, code: "ACCESS_CODE_REQUIRED", error: "Use the app to start eBay authorization." },
     { status: 401 }
   );
 }
+
+export const POST=withAccount(handlePOST);
+export const GET=withAccount(handleGET);

@@ -34,8 +34,12 @@ async function seed(page: Page, count: number, unfinished = false) {
     });
   });
   await page.goto("/");
-  await expect(page.getByText("Restoring saved work…")).toBeHidden();
-  await expect(page.getByRole("status")).toContainText("Saved on this device");
+  await expect(
+    page.getByText("Gespeicherte Arbeit wird geladen…"),
+  ).toBeHidden();
+  await expect(page.getByRole("status")).toContainText(
+    "Auf diesem Gerät gespeichert",
+  );
   await page.evaluate(
     async ({ count, photo, unfinished }) => {
       const photos = Array.from({ length: count * 5 }, (_, i) => ({
@@ -51,6 +55,12 @@ async function seed(page: Page, count: number, unfinished = false) {
         name: `Item ${i}`,
         photoIds: photos.slice(i * 5, i * 5 + 5).map((p) => p.id),
         status: unfinished ? "idle" : "done",
+        shipping: {
+          fulfillmentPolicyId: "usual",
+          paymentPolicyId: "pay",
+          returnPolicyId: "ret",
+          locationKey: "home",
+        },
         listing: {
           title: `Item ${i}`,
           description: "Seller description",
@@ -101,153 +111,68 @@ async function seed(page: Page, count: number, unfinished = false) {
     { count, photo, unfinished },
   );
   await page.reload();
+  await expect(page.getByRole("heading",{name:"Deine Angebote",exact:true})).toBeVisible();
+  if(await page.getByRole("button",{name:"Stapeltabelle",exact:true}).count()) await page.getByRole("button",{name:"Stapeltabelle",exact:true}).click();
   await expect(
-    page.getByRole("heading", { name: "Your listings" }),
+    page.getByRole("heading", { name: "Deine Angebote" }),
   ).toBeVisible();
   return () => optionsCalls;
 }
 for (const count of [10, 25, 100])
-  test(`${count} items: one policy load, edits persist, bounded publication with no duplicates`, async ({
+  test(`${count} items: edits persist while bulk publication stays unavailable for the single-item test`, async ({
     page,
-  }, testInfo) => {
-    const started = Date.now();
+  }) => {
     const optionsCalls = await seed(page, count);
-    await expect(
-      page.getByRole("button", {
-        name: `🚀 Post all ${count} to eBay`,
-        exact: true,
-      }),
-    ).toBeEnabled();
-    expect(optionsCalls()).toBe(1);
     await expect(page.locator(".batch-table tbody > tr")).toHaveCount(
       Math.min(count, 25),
     );
+    // The seed visits once before a reload; each document loads its own seller
+    // cache. This also guards against one request per item in large batches.
+    expect(optionsCalls()).toBe(2);
+    await expect(
+      page.getByRole("button", { name: /Post all|Post selected/ }),
+    ).toHaveCount(0);
     await page
-      .getByLabel("Title BATCH-0", { exact: true })
+      .getByLabel("Titel BATCH-0", { exact: true })
       .fill("Reviewed first item");
-    await page.getByLabel("Select BATCH-0", { exact: true }).check();
+    await page.getByLabel("Auswahl BATCH-0", { exact: true }).check();
     await page
-      .getByLabel("Shipping for selected", { exact: true })
+      .getByLabel("Versand für Auswahl", { exact: true })
       .selectOption("heavy");
     await page
-      .getByRole("button", { name: "Apply shipping", exact: true })
+      .getByRole("button", { name: "Versand übernehmen", exact: true })
       .click();
     await expect(
-      page.getByLabel("Shipping BATCH-0", { exact: true }),
+      page.getByLabel("Versand BATCH-0", { exact: true }),
     ).toHaveValue("heavy");
     await expect(page.getByRole("status")).toContainText(
-      "Saved on this device",
+      "Auf diesem Gerät gespeichert",
     );
     await page.reload();
-    await expect(page.getByLabel("Title BATCH-0", { exact: true })).toHaveValue(
+  await expect(page.getByRole("heading",{name:"Deine Angebote",exact:true})).toBeVisible();
+  if(await page.getByRole("button",{name:"Stapeltabelle",exact:true}).count()) await page.getByRole("button",{name:"Stapeltabelle",exact:true}).click();
+    await expect(page.getByLabel("Titel BATCH-0", { exact: true })).toHaveValue(
       "Reviewed first item",
     );
     await expect(
-      page.getByLabel("Shipping BATCH-0", { exact: true }),
+      page.getByLabel("Versand BATCH-0", { exact: true }),
     ).toHaveValue("heavy");
-    const skus: string[] = [];
-    let active = 0,
-      maximum = 0;
-    await page.route("**/api/ebay/upload-photos", async (r) => {
-      const { images } = r.request().postDataJSON();
-      return r.fulfill({
-        json: {
-          ok: true,
-          urls: images.map(
-            (_: unknown, i: number) => `https://i.ebayimg.com/${i}.jpg`,
-          ),
-        },
-      });
-    });
-    await page.route("**/api/ebay/publish", async (r) => {
-      const body = r.request().postDataJSON();
-      active++;
-      maximum = Math.max(maximum, active);
-      skus.push(body.sku);
-      if (body.sku === "BATCH-0") {
-        expect(body.listing.title).toBe("Reviewed first item");
-        expect(body.shipping.fulfillmentPolicyId).toBe("heavy");
-      }
-      expect(body.expectedPhotoCount).toBe(5);
-      await new Promise((resolve) => setTimeout(resolve, 20));
-      active--;
-      return r.fulfill({
-        json: { success: true, listingId: `listing-${body.sku}` },
-      });
-    });
-    await page
-      .getByRole("button", {
-        name: `🚀 Post all ${count} to eBay`,
-        exact: true,
-      })
-      .click();
-    await expect(page.locator(".result-head .badge")).toContainText(
-      `${count} posted`,
-      { timeout: 30000 },
-    );
-    expect(skus).toHaveLength(count);
-    expect(new Set(skus).size).toBe(count);
-    expect(maximum).toBe(2);
-    await testInfo.attach("simulated-batch-metrics", {
-      body: JSON.stringify({
-        items: count,
-        photos: count * 5,
-        policyRequestsPerLoad: optionsCalls() / 2,
-        maxConcurrentPublish: maximum,
-        published: skus.length,
-        totalTestMs: Date.now() - started,
-        externalAPIs: "mocked; not real AI/eBay throughput",
-      }),
-      contentType: "application/json",
-    });
+    await expect(
+      page.getByRole("button", { name: /Post all|Post selected/ }),
+    ).toHaveCount(0);
   });
-test("paused publication resumes only the selected items", async ({ page }) => {
-  await seed(page, 10);
-  let release!: () => void;
-  const hold = new Promise<void>((r) => (release = r));
-  const skus: string[] = [];
-  await page.route("**/api/ebay/upload-photos", async (r) => {
-    await hold;
-    return r.fulfill({
-      json: {
-        ok: true,
-        urls: Array.from(
-          { length: r.request().postDataJSON().images.length },
-          (_, i) => `https://i.ebayimg.com/${i}.jpg`,
-        ),
-      },
-    });
-  });
-  await page.route("**/api/ebay/publish", (r) => {
-    const sku = r.request().postDataJSON().sku;
-    skus.push(sku);
-    return r.fulfill({ json: { success: true, listingId: sku } });
-  });
-  for (const i of [0, 1, 2])
-    await page.getByLabel(`Select BATCH-${i}`, { exact: true }).check();
-  await page
-    .getByRole("button", { name: "Post selected ready (3)", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Pause batch", exact: true }).click();
-  release();
-  await expect(
-    page.getByRole("button", { name: "Resume batch", exact: true }),
-  ).toBeVisible();
-  expect(skus).toHaveLength(2);
-  await page.getByRole("button", { name: "Resume batch", exact: true }).click();
-  await expect(page.locator(".result-head .badge")).toContainText("3 posted");
-  expect(skus.sort()).toEqual(["BATCH-0", "BATCH-1", "BATCH-2"]);
-});
 test("batch table fits a phone and exposes missing fields through attention filter", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await seed(page, 100);
-  await page.getByLabel("Price BATCH-0", { exact: true }).fill("");
-  await page.getByLabel("Show", { exact: true }).selectOption("attention");
+  await page.getByLabel("Preis BATCH-0", { exact: true }).fill("");
+  await page.getByLabel("Anzeigen", { exact: true }).selectOption("attention");
   await expect(page.locator(".batch-table tbody > tr")).toHaveCount(1);
   await expect(
-    page.getByText("Enter a positive price.", { exact: true }),
+    page.getByText("Bitte einen Preis größer als null eingeben.", {
+      exact: true,
+    }),
   ).toBeVisible();
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth),
@@ -261,6 +186,7 @@ test("batch table fits a phone and exposes missing fields through attention filt
 test("100 draft writes use three workers; failed items retry without rewriting successes", async ({
   page,
 }) => {
+  page.on("dialog", (dialog) => dialog.accept());
   await seed(page, 100, true);
   let analyzeCalls = 0,
     active = 0,
@@ -320,25 +246,113 @@ test("100 draft writes use three workers; failed items retry without rewriting s
     r.fulfill({ json: { ok: false } }),
   );
   await page
-    .getByRole("button", { name: "Write / retry 100 remaining", exact: true })
+    .getByRole("button", {
+      name: "100 verbleibende Entwürfe erstellen / erneut versuchen",
+      exact: true,
+    })
     .click();
   await expect(page.locator(".result-head .badge")).toContainText(
-    "99/100 drafts written",
+    "99/100 Entwürfe erstellt",
     { timeout: 30000 },
   );
   await expect(
     page.getByRole("button", {
-      name: "Write / retry 1 remaining",
+      name: "1 verbleibende Entwürfe erstellen / erneut versuchen",
       exact: true,
     }),
   ).toBeEnabled();
   expect(analyzeCalls).toBe(100);
   expect(maximum).toBe(3);
   await page
-    .getByRole("button", { name: "Write / retry 1 remaining", exact: true })
+    .getByRole("button", {
+      name: "1 verbleibende Entwürfe erstellen / erneut versuchen",
+      exact: true,
+    })
     .click();
   await expect(page.locator(".result-head .badge")).toContainText(
-    "100/100 drafts written",
+    "100/100 Entwürfe erstellt",
   );
   expect(analyzeCalls).toBe(101);
+});
+test("first SKU assigns a persistent sequence to open items and skips published items", async ({
+  page,
+}) => {
+  await seed(page, 3);
+  // Let the restored document finish its debounced save before the fixture edits IndexedDB.
+  await page.waitForTimeout(800);
+  await page.evaluate(async () => {
+    await new Promise<void>((resolve, reject) => {
+      const r = indexedDB.open("listing-writer-drafts");
+      r.onsuccess = () => {
+        const db = r.result,
+          tx = db.transaction("workspace", "readwrite"),
+          store = tx.objectStore("workspace"),
+          get = store.get("current");
+        get.onsuccess = () => {
+          const d = get.result;
+          d.groups[0].postStatus = "posted";
+          store.put(d, "current");
+        };
+        tx.oncomplete = () => {
+          db.close();
+          resolve();
+        };
+        tx.onerror = () => reject(tx.error);
+      };
+    });
+  });
+  await page.reload();
+  await expect(page.getByRole("heading",{name:"Deine Angebote",exact:true})).toBeVisible();
+  if(await page.getByRole("button",{name:"Stapeltabelle",exact:true}).count()) await page.getByRole("button",{name:"Stapeltabelle",exact:true}).click();
+  await page.getByLabel("Erste SKU", { exact: true }).fill("5-23001");
+  await expect(
+    page.getByText("5-23001 bis 5-23002 (2 offene Angebote)", { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "SKU fortlaufend übernehmen", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Titel BATCH-0", { exact: true }),
+  ).toBeDisabled();
+  await expect(page.getByLabel("Titel 5-23001", { exact: true })).toHaveValue(
+    "Item 1",
+  );
+  await expect(page.getByLabel("Titel 5-23002", { exact: true })).toHaveValue(
+    "Item 2",
+  );
+  await expect(
+    page.getByText("Auf diesem Gerät gespeichert", { exact: true }),
+  ).toBeVisible();
+  await page.waitForTimeout(800);
+  await page.reload();
+  await expect(page.getByRole("heading",{name:"Deine Angebote",exact:true})).toBeVisible();
+  if(await page.getByRole("button",{name:"Stapeltabelle",exact:true}).count()) await page.getByRole("button",{name:"Stapeltabelle",exact:true}).click();
+  await expect(page.getByLabel("Titel 5-23001", { exact: true })).toHaveValue(
+    "Item 1",
+  );
+  await expect(page.getByLabel("Titel 5-23002", { exact: true })).toHaveValue(
+    "Item 2",
+  );
+});
+
+test("first SKU can be assigned while analysis runs and survives completion and reload",async({page})=>{
+ page.on("dialog",dialog=>dialog.accept());
+ await seed(page,2,true);
+ let release!:()=>void;const pending=new Promise<void>(resolve=>{release=resolve});let started=0;
+ await page.route("**/api/analyze",async r=>{started++;await pending;await r.fulfill({json:{ok:true,listing:{title:"Neue Brille",description:"Text",suggested_price:30,item_specifics:{}}}})});
+ await page.route("**/api/ebay/prepare",r=>r.fulfill({json:{ok:false,error:"Test: keine Kategorie"}}));
+ await page.route("**/api/ebay/comps",r=>r.fulfill({json:{ok:false}}));
+ await page.getByRole("button",{name:"2 verbleibende Entwürfe erstellen / erneut versuchen",exact:true}).click();
+ await expect.poll(()=>started).toBe(2);
+ const input=page.getByLabel("Erste SKU",{exact:true});await expect(input).toBeEnabled();
+ await expect(input).toHaveCSS("border-top-width","2px");await input.fill("65-23577");
+ await page.getByRole("button",{name:"SKU fortlaufend übernehmen",exact:true}).click();
+ await expect(page.getByText(/SKU für 2 offene Angebote reserviert/)).toBeVisible();
+ release();await expect(page.locator(".result-head .badge")).toContainText("2/2 Entwürfe erstellt");
+ await expect(page.getByLabel("Titel 65-23577",{exact:true})).toHaveValue("Neue Brille");
+ await expect(page.getByLabel("Titel 65-23578",{exact:true})).toHaveValue("Neue Brille");
+ await expect(page.getByRole("status").filter({hasText:"Auf diesem Gerät gespeichert"})).toBeVisible();await page.reload();
+  await expect(page.getByRole("heading",{name:"Deine Angebote",exact:true})).toBeVisible();
+  if(await page.getByRole("button",{name:"Stapeltabelle",exact:true}).count()) await page.getByRole("button",{name:"Stapeltabelle",exact:true}).click();
+ await expect(page.getByLabel("Titel 65-23577",{exact:true})).toHaveValue("Neue Brille");
 });

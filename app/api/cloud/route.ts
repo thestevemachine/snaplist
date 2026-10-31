@@ -1,3 +1,5 @@
+import {withAccount} from "@/lib/accounts/server";
+import { storeCloudDraft, restoreCloudDraft } from "@/lib/cloud/draft-sku";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { guardApiRequest } from "@/lib/api-guard";
@@ -14,6 +16,7 @@ import {
 } from "@/lib/cloud/store";
 import { inngest } from "@/lib/cloud/inngest";
 import { EBAY_COOKIE } from "@/lib/ebay/session";
+import { isAllowedModel } from "@/lib/models";
 export const maxDuration = 300;
 const id = z.string().uuid();
 const clientId = z
@@ -22,16 +25,20 @@ const clientId = z
   .max(100)
   .regex(/^[a-zA-Z0-9_-]+$/);
 const groupSchema = z.object({
+  analysisModel: z
+    .string()
+    .refine(isAllowedModel, "Modell nicht freigegeben")
+    .optional(),
   id: clientId,
-  sku: z.string().min(1).max(50),
+  sku: z.string().max(50),
   name: z.string().max(200),
   photoIds: z.array(clientId).min(1).max(24),
   analysisPhotoIds: z.array(clientId).min(1).max(24).optional(),
 });
-export async function GET() {
+async function handleGET() {
   return NextResponse.json({ enabled: cloudEnabled() });
 }
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const denied = guardApiRequest(req);
   if (denied) return denied;
   if (!cloudEnabled())
@@ -49,7 +56,8 @@ export async function POST(req: NextRequest) {
       const groups = z.array(groupSchema).min(1).max(100).parse(body.groups);
       if (
         new Set(groups.map((g) => g.id)).size !== groups.length ||
-        new Set(groups.map((g) => g.sku)).size !== groups.length
+        new Set(groups.filter((g) => g.sku).map((g) => g.sku)).size !==
+          groups.filter((g) => g.sku).length
       )
         throw new Error("Every item needs a unique ID and SKU.");
       for (const g of groups)
@@ -77,7 +85,9 @@ export async function POST(req: NextRequest) {
           p_id: batchId,
           p_workspace: workspace,
           p_environment: environment(),
-          p_groups: groups,
+          // SQL has a unique (batch_id, sku) constraint. Keep its storage key
+          // separate from the seller SKU, which may remain blank until review.
+          p_groups: groups.map(storeCloudDraft),
           p_connection: req.cookies.get(EBAY_COOKIE)?.value ?? null,
         }),
       );
@@ -276,7 +286,7 @@ export async function POST(req: NextRequest) {
       const jobs = checked(
         await db()
           .from("lister_jobs")
-          .select("id,item_id,status,error")
+          .select("id,item_id,status,error,failed_usage:result->failedUsage")
           .in(
             "item_id",
             items.map((i) => i.id),
@@ -310,7 +320,7 @@ export async function POST(req: NextRequest) {
         moreResults: pendingResults.length > 5,
         items: items.map((i) => ({
           clientId: i.client_id,
-          draft: i.draft,
+          draft: restoreCloudDraft(i.draft),
           job: (() => {
             const job = jobs.find((j) => j.item_id === i.id);
             const result = results.find((r) => r.id === job?.id)?.result;
@@ -322,6 +332,7 @@ export async function POST(req: NextRequest) {
                         prepared: result.prepared,
                         analysis: { usage: result.analysis?.usage ?? [] },
                         research: result.research,
+                        failedUsage: result.failedUsage ?? [],
                       }
                     : undefined,
                 }
@@ -344,3 +355,6 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const GET=withAccount(handleGET);
+export const POST=withAccount(handlePOST);

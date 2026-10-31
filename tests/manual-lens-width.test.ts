@@ -1,0 +1,20 @@
+import {it,expect} from "vitest";
+import {mapEyewear} from "@/lib/eyewear-inscriptions";
+import {manualLensWidth} from "@/lib/manual-lens-width";
+import type {AspectMeta} from "@/lib/ebay/taxonomy";
+const meta:AspectMeta={name:"Glasbreite",mode:"FREE_TEXT",cardinality:"SINGLE",values:["50 mm"],required:false};
+it("records a manual optical lens width even without taxonomy and transfers to real free-text category fields",()=>{
+ const l={title:"Brille",description:"Original",item_specifics:{Glasbreite:"50 mm"},evidence:{Glasbreite:[1]},estimates:{Glasbreite:90}};
+ const patch=manualLensWidth(l,"46",[meta]);
+ expect(patch.eyewear?.fields.lensWidth).toEqual({value:"46",source:"manual"});
+ expect(patch.item_specifics?.Glasbreite).toBe("46");
+ expect(patch.evidence?.Glasbreite).toBeUndefined();
+ expect(manualLensWidth(l,"46",[]).eyewear?.fields.lensWidth?.value).toBe("46");
+ expect(manualLensWidth(l,"",[meta]).item_specifics?.Glasbreite).toBe("");
+ expect(manualLensWidth(l,"46",[{...meta,mode:"SELECTION_ONLY"}]).item_specifics?.Glasbreite).toBe("");
+ const restored={...l,...manualLensWidth(l,"46",[])};
+ const later:Record<string,string[]>={};
+ mapEyewear(restored,later,[{...meta,values:[]}]);
+ expect(later.Glasbreite).toEqual(["46"]);
+ expect(l.item_specifics.Glasbreite).toBe("50 mm");
+});

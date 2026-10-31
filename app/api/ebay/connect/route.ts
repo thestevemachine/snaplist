@@ -1,3 +1,6 @@
+import {accountsEnabled,currentAccount} from "@/lib/accounts/context";
+import {saveCredentials} from "@/lib/accounts/server";
+import {withAccount} from "@/lib/accounts/server";
 import { NextRequest, NextResponse } from "next/server";
 import { exchangeCode } from "@/lib/ebay/oauth";
 import { guardApiRequest } from "@/lib/api-guard";
@@ -32,7 +35,7 @@ function extractCode(input: string): string | null {
   return null;
 }
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const denied = guardApiRequest(req);
   if (denied) return denied;
 
@@ -43,6 +46,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Invalid request." }, { status: 400 });
   }
 
+  if(accountsEnabled()) return NextResponse.json({ok:false,error:"Bitte eBay über den Anmeldeknopf verbinden und automatisch zu SNAPLIST zurückkehren."},{status:400});
   const code = body.code?.trim() || extractCode(body.url || "");
   if (!code) {
     return NextResponse.json(
@@ -60,7 +64,8 @@ export async function POST(req: NextRequest) {
       connectionFromToken(token.refresh_token, token.refresh_token_expires_in)
     );
     const res = NextResponse.json({ ok: true });
-    res.cookies.set(EBAY_COOKIE, sealed, {
+    if(accountsEnabled()) await saveCredentials({...currentAccount()!.secrets,ebay:sealed});
+    else res.cookies.set(EBAY_COOKIE, sealed, {
       httpOnly: true,
       secure: true,
       sameSite: "lax",
@@ -75,3 +80,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST=withAccount(handlePOST);

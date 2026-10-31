@@ -20,7 +20,10 @@ export function validateAspects(
     if (a?.cardinality === "SINGLE" && vals.length > 1)
       issues.push(`Choose one ${key}`);
     if (
-      (a?.mode === "SELECTION_ONLY" || (a && isStandardSizeAspect(a))) &&
+      (a?.mode === "SELECTION_ONLY" ||
+        (a &&
+          (isStandardSizeAspect(a) ||
+            (/farbe|material/i.test(a.name) && a.values.length > 0)))) &&
       vals.some((v) => !a.values.includes(v))
     )
       issues.push(`Choose an allowed value for ${key}`);

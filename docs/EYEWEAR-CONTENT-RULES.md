@@ -1,0 +1,13 @@
+# Brillenart, Wortliste und fester Zustandstext
+
+Neue Fotoanalysen liefern die Brillenart getrennt von Titel, Kategorie-Hinweis und Stil. Korrektionsfassung/klare Demogläser, Sonnenbrille, unklar und kein Brillenartikel sind getrennte Werte. Eine explizite Brillenart hat Vorrang vor alten Texten. Reflexionen, dunkle Beleuchtung, Form oder Marke allein sollen keine Sonnenbrille begründen. Unklar blockiert die Kategorievorbereitung bis zur Verkäuferauswahl.
+
+Die Karte bietet „Brillenart“. Eine Korrektur setzt Haupt- und Zweitkategorie zurück und korrigiert das Produktwort im Titel, ohne die übrigen Titelteile zu ersetzen. Die nächste Kategorievorbereitung sucht für Korrektionsfassungen ausschließlich Brillenfassungen. Das tatsächlich verwendete Analysemodell wird aus den gespeicherten Nutzungsdaten angezeigt. Der bestehende Opus-Standard bleibt unverändert; aus einem Screenshot lässt sich kein konkreter Modellaufruf nachweisen.
+
+Die Verkäufer-Wortliste sperrt Flieger/Fliegerbrille/Fliegerform und Aviator samt Wortvarianten; Pilot/Pilotenbrille/Pilotenform sind ausdrücklich erlaubt, unabhängig von einer rechtlichen Bewertung. Neue Texte und Kategorievorbereitung bereinigen sie; die Übertragungsprüfung lehnt erneut eingetragene gesperrte Wörter ab.
+
+„Zustand und Hinweise“ ist für Brillen „Ungetragen ohne Etui“. Die neue Fotoanalyse erzeugt keine freie Zustandsbeschreibung mehr: vor Anwendung der Shop-Vorlage wird eine kurze Beschreibung aus separat belegten Identifikations- und Maßdaten erstellt. Zustandsprosa aus der Modellantwort wird verworfen. Die eBay-Zustandsauswahl bleibt gesondert bearbeitbar. Beim Neuladen werden offene vorhandene Brillenentwürfe einmalig um gesperrte Wörter bereinigt und erhalten den festen Hinweistext. Veröffentlichte und gerade übertragene Angebote werden nicht geändert.
+
+Manueller Test: Seite neu laden, betroffenen offenen Entwurf auf „Korrektionsfassung / Brille“ stellen, ggf. „Kategorie und Merkmale vorbereiten“ klicken. Kategorie muss Brillenfassungen sein; keine Sonnenbrillen-Zweitkategorie. Zustandstext kontrollieren. Anschließend ausschließlich „Bei eBay prüfen · nicht veröffentlichen“ benutzen. Neue Fotoanalyse separat an der tatsächlichen Brille prüfen; eine bessere automatische Klassifikation ist keine Garantie fehlerfreier Bilderkennung.
+
+Neue Wortlisten-Version 2 bereinigt auch offene Entwürfe aus Version 1. Zuvor entfernte Wörter werden nicht geraten oder automatisch wieder eingefügt. Für vollständige Neubewertung vorhandener Fotos dient „Ausgewählte Fotos neu analysieren (ersetzt diesen Entwurf)“. Diese Aktion ersetzt die erzeugten Inhalte, behält SKU und vorhandene Versandregeln und veröffentlicht nichts.

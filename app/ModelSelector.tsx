@@ -1,5 +1,7 @@
 "use client";
 
+import {PersonalAiKeys} from "./PersonalAiKeys";
+import {workspaceStorageKey} from "@/lib/workspace-scope";
 import { useEffect, useState } from "react";
 import {
   getAnalysisModel,
@@ -8,6 +10,9 @@ import {
   saveSortModel,
 } from "@/lib/model-preferences";
 import type { ModelOption } from "@/app/api/models/route";
+import { apiPost } from "@/lib/api-client";
+import { AiUsageSummary } from "./AiUsageSummary";
+import type { AiUsage } from "@/lib/ai-usage";
 
 interface ModelsPayload {
   sortModels: ModelOption[];
@@ -15,6 +20,46 @@ interface ModelsPayload {
 }
 
 export function ModelSelector() {
+  const [testing, setTesting] = useState(false);
+  const [testMessage, setTestMessage] = useState("");
+  const [testUsage, setTestUsage] = useState<AiUsage[]>([]);
+  useEffect(() => {
+    try {
+      setTestUsage(
+        JSON.parse(localStorage.getItem(workspaceStorageKey("listing-writer:ai-tests")) || "[]"),
+      );
+    } catch {}
+  }, []);
+  async function test(model: string) {
+    if (
+      testing ||
+      !model ||
+      !window.confirm(
+        `Kostenpflichtigen Verbindungstest mit ${model} starten? Ein kurzer Textaufruf, kein automatischer Modellwechsel oder Neuversuch.`,
+      )
+    )
+      return;
+    setTesting(true);
+    setTestMessage("");
+    try {
+      const r = await apiPost("/api/ai/test", { model, confirmed: true });
+      const d = await r.json();
+      setTestMessage(d.message || d.error || "Test fehlgeschlagen.");
+      setTestUsage((prev) => {
+        const next = [...prev, ...(d.usage ?? [])];
+        try {
+          localStorage.setItem(workspaceStorageKey("listing-writer:ai-tests"), JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+    } catch {
+      setTestMessage(
+        "Verbindungstest unterbrochen. Bitte bewusst erneut versuchen.",
+      );
+    } finally {
+      setTesting(false);
+    }
+  }
   const [open, setOpen] = useState(false);
   const [models, setModels] = useState<ModelsPayload | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -22,37 +67,43 @@ export function ModelSelector() {
   const [analysisModel, setAnalysisModel] = useState("");
 
   useEffect(() => {
+    let active=true,sequence=0;
+    const load=()=>{
+    const request=++sequence;
     const savedSort = getSortModel();
     const savedAnalysis = getAnalysisModel();
 
-    fetch("/api/models")
-      .then((r) => r.json())
+    fetch("/api/models",{cache:"no-store"})
+      .then((r) => {if(!r.ok)throw Error();return r.json();})
       .then((data: ModelsPayload) => {
+        if(!active || request!==sequence)return;
+        if(!Array.isArray(data.sortModels) || !Array.isArray(data.analysisModels))throw Error();
+        setLoadError(false);
         setModels(data);
 
         const defaultSort =
-          data.sortModels.find((m) => m.isDefault)?.id ?? data.sortModels[0]?.id ?? "";
-        setSortModel(
-          savedSort && data.sortModels.some((m) => m.id === savedSort)
-            ? savedSort
-            : defaultSort
-        );
+          data.sortModels.find((m) => m.isDefault)?.id ??
+          data.sortModels[0]?.id ??
+          "";
+        setSortModel(savedSort || defaultSort);
+        if (!savedSort && defaultSort) saveSortModel(defaultSort);
 
         const defaultAnalysis =
           data.analysisModels.find((m) => m.isDefault)?.id ??
           data.analysisModels[0]?.id ??
           "";
-        setAnalysisModel(
-          savedAnalysis && data.analysisModels.some((m) => m.id === savedAnalysis)
-            ? savedAnalysis
-            : defaultAnalysis
-        );
+        setAnalysisModel(savedAnalysis || defaultAnalysis);
+        if (!savedAnalysis && defaultAnalysis) saveAnalysisModel(defaultAnalysis);
       })
       .catch(() => {
+        if(!active || request!==sequence)return;
         setLoadError(true);
         setSortModel(savedSort ?? "");
         setAnalysisModel(savedAnalysis ?? "");
       });
+    };
+    load();window.addEventListener("ai-credentials-changed",load);
+    return()=>{active=false;window.removeEventListener("ai-credentials-changed",load);};
   }, []);
 
   const handleSortChange = (id: string) => {
@@ -65,8 +116,12 @@ export function ModelSelector() {
     saveAnalysisModel(id);
   };
 
-  const sortDesc = models?.sortModels.find((m) => m.id === sortModel)?.description;
-  const analysisDesc = models?.analysisModels.find((m) => m.id === analysisModel)?.description;
+  const sortDesc = models?.sortModels.find(
+    (m) => m.id === sortModel,
+  )?.description;
+  const analysisDesc = models?.analysisModels.find(
+    (m) => m.id === analysisModel,
+  )?.description;
 
   return (
     <>
@@ -77,20 +132,24 @@ export function ModelSelector() {
         aria-expanded={open}
         aria-controls="model-settings-body"
       >
-        ⚙ Model Settings{" "}
-        <span aria-hidden="true">{open ? "▲" : "▼"}</span>
+        ⚙ KI-Einstellungen <span aria-hidden="true">{open ? "▲" : "▼"}</span>
       </button>
 
       {open && (
         <div id="model-settings-body" className="model-settings-body">
           {loadError && (
-            <p className="note note-error" style={{ margin: 0, gridColumn: "1 / -1" }}>
-              Couldn&rsquo;t load the model list — the app will use its defaults.
+            <p
+              className="note note-error"
+              style={{ margin: 0, gridColumn: "1 / -1" }}
+            >
+              Modellliste nicht verfügbar. Die gespeicherte Wahl bleibt
+              erhalten; es erfolgt kein automatischer Wechsel.
             </p>
           )}
 
+          <PersonalAiKeys/>
           <div className="field">
-            <label htmlFor="sort-model">Photo Sorting Model</label>
+            <label htmlFor="sort-model">KI für die Fotosortierung</label>
             {models ? (
               <select
                 id="sort-model"
@@ -98,23 +157,43 @@ export function ModelSelector() {
                 onChange={(e) => handleSortChange(e.target.value)}
                 className="model-select"
               >
+                {sortModel &&
+                  !models.sortModels.some((m) => m.id === sortModel) && (
+                    <option value={sortModel}>
+                      {sortModel} · nicht mehr verfügbar, bitte neu auswählen
+                    </option>
+                  )}
                 {models.sortModels.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.displayName}
-                    {m.isDefault ? " (default)" : ""}
+                    {m.recommended ? " · Empfehlung" : ""}
+                    {m.isDefault ? " (Standard)" : ""}
+                    {m.configured === false ? " · API-Schlüssel fehlt" : ""}
                   </option>
                 ))}
               </select>
             ) : (
               <select disabled className="model-select">
-                <option>Loading…</option>
+                <option>Wird geladen…</option>
               </select>
             )}
-            {sortDesc && <span className="field-hint model-hint">{sortDesc}</span>}
+            {sortDesc && (
+              <span className="field-hint model-hint">{sortDesc}</span>
+            )}
+            <button
+              type="button"
+              className="btn-ghost"
+              disabled={testing || !sortModel}
+              onClick={() => test(sortModel)}
+            >
+              Sortiermodell: Verbindung testen (kostenpflichtig)
+            </button>
           </div>
 
           <div className="field">
-            <label htmlFor="analysis-model">Listing Generation Model</label>
+            <label htmlFor="analysis-model">
+              KI für die Angebotserstellung
+            </label>
             {models ? (
               <select
                 id="analysis-model"
@@ -122,20 +201,47 @@ export function ModelSelector() {
                 onChange={(e) => handleAnalysisChange(e.target.value)}
                 className="model-select"
               >
+                {analysisModel &&
+                  !models.analysisModels.some(
+                    (m) => m.id === analysisModel,
+                  ) && (
+                    <option value={analysisModel}>
+                      {analysisModel} · nicht mehr verfügbar, bitte neu
+                      auswählen
+                    </option>
+                  )}
                 {models.analysisModels.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.displayName}
-                    {m.isDefault ? " (default)" : ""}
+                    {m.recommended ? " · Empfehlung" : ""}
+                    {m.isDefault ? " (Standard)" : ""}
+                    {m.configured === false ? " · API-Schlüssel fehlt" : ""}
                   </option>
                 ))}
               </select>
             ) : (
               <select disabled className="model-select">
-                <option>Loading…</option>
+                <option>Wird geladen…</option>
               </select>
             )}
-            {analysisDesc && <span className="field-hint model-hint">{analysisDesc}</span>}
+            {analysisDesc && (
+              <span className="field-hint model-hint">{analysisDesc}</span>
+            )}
+            <button
+              type="button"
+              className="btn-ghost"
+              disabled={testing || !analysisModel}
+              onClick={() => test(analysisModel)}
+            >
+              Listingmodell: Verbindung testen (kostenpflichtig)
+            </button>
           </div>
+          <p className="note">Die Auswahl bleibt für deinen Arbeitsbereich auf diesem Gerät gespeichert. Schlüssel speichern oder Modelle auswählen startet keine Analyse und keinen Verbindungstest.</p>
+          {testMessage && <p role="status">{testMessage}</p>}
+          <AiUsageSummary
+            rows={testUsage}
+            label="Verbindungstests · separat von Listings"
+          />
         </div>
       )}
     </>

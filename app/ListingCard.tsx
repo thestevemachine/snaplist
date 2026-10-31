@@ -1,8 +1,17 @@
 "use client";
+import {EyewearMeasurements} from "./EyewearMeasurements";
+import { issueField, focusReviewField } from "@/lib/review-navigation";
+import { manualLensWidth } from "@/lib/manual-lens-width";
+import { isSunglasses } from "@/lib/category-selection";
+import { materialTitleIssues } from "@/lib/eyewear-inscriptions";
+import { originalSellerSku } from "@/lib/batch-sku";
+import { FrontMeasurementControls } from "./FrontMeasurementControls";
 
+import { EyewearDetails } from "./EyewearDetails";
+import { isGlasses } from "@/lib/glasses-rules";
 import { DraftControls } from "./DraftControls";
 import { draftIssues } from "@/lib/client-review";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { SIZE_REQUIRED_CATEGORIES } from "@/lib/categories";
 import type { ItemGroup, ListingResult, Photo } from "@/lib/types";
 
@@ -10,19 +19,19 @@ const TITLE_LIMIT = 80;
 
 // eBay's pre-owned condition tiers, matching the values the model returns.
 const CONDITIONS: { value: string; label: string }[] = [
-  { value: "NEW_WITH_TAGS", label: "New with tags" },
-  { value: "NEW_NO_TAGS", label: "New without tags" },
-  { value: "EXCELLENT", label: "Pre-owned · Excellent" },
-  { value: "VERY_GOOD", label: "Pre-owned · Very good" },
-  { value: "GOOD", label: "Pre-owned · Good" },
-  { value: "FAIR", label: "Pre-owned · Fair" },
-  { value: "FOR_PARTS_OR_NOT_WORKING", label: "For parts / not working" },
+  { value: "NEW_WITH_TAGS", label: "Neu mit Etikett" },
+  { value: "NEW_NO_TAGS", label: "Neu ohne Etikett" },
+  { value: "EXCELLENT", label: "Gebraucht · ausgezeichnet" },
+  { value: "VERY_GOOD", label: "Gebraucht · sehr gut" },
+  { value: "GOOD", label: "Gebraucht · gut" },
+  { value: "FAIR", label: "Gebraucht · akzeptabel" },
+  { value: "FOR_PARTS_OR_NOT_WORKING", label: "Defekt / Ersatzteile" },
 ];
 
 function formatPrice(value: ListingResult["suggested_price"]): string {
   const n = typeof value === "string" ? parseFloat(value) : value;
-  if (n === undefined || Number.isNaN(n)) return "$0.00";
-  return `$${n.toFixed(2)}`;
+  if (n === undefined || Number.isNaN(n)) return "0,00 €";
+  return `${n.toFixed(2)} €`;
 }
 
 function priceToInput(value: ListingResult["suggested_price"]): string {
@@ -50,7 +59,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
         }
       }}
     >
-      {copied ? "✓ Copied" : `📋 Copy ${label}`}
+      {copied ? "✓ Kopiert" : `📋 ${label} kopieren`}
     </button>
   );
 }
@@ -62,8 +71,12 @@ interface ListingCardProps {
   onGroupEdit: (id: string, patch: Partial<ItemGroup>) => void;
   onEdit: (groupId: string, patch: Partial<ListingResult>) => void;
   onRenameSku: (groupId: string, sku: string) => void;
-  onRetry: (groupId: string) => void;
-  onPost: (groupId: string) => void;
+  onRetry: (groupId: string, hint?: string) => void;
+  onSaveDraft: () => Promise<void>;
+  onPost: (
+    groupId: string,
+    mode?: "verify" | "publish" | "resolve" | "repair",
+  ) => void;
 }
 
 export function ListingCard({
@@ -75,9 +88,52 @@ export function ListingCard({
   onRenameSku,
   onRetry,
   onPost,
+  onSaveDraft,
 }: ListingCardProps) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(group.postStatus!=="posted");
+  useEffect(() => { if (group.postStatus === "posted") setOpen(false); }, [group.id, group.postStatus]);
+  const [analysisHint, setAnalysisHint] = useState("");
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [draftNotice, setDraftNotice] = useState("");
+  useEffect(
+    () => setDraftNotice(""),
+    [group.listing, group.shipping, group.sku, group.photoIds],
+  );
+  const save = async () => {
+    setSavingDraft(true);
+    setDraftNotice("");
+    try {
+      await onSaveDraft();
+      setDraftNotice(
+        "Entwurf auf diesem Gerät gespeichert. Nicht an eBay übertragen.",
+      );
+    } catch {
+      setDraftNotice(
+        "Speichern fehlgeschlagen. Bitte diesen Tab offen lassen und erneut versuchen.",
+      );
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+  const navigateIssue = (element:HTMLElement,message:string) => {
+    const card=element.closest<HTMLElement>(".listing-card");
+    const field=issueField(message,[...(group.preparation?.aspects.map(a=>a.name) ?? []),"Glasbreite"]);
+    setOpen(true);
+    if(card && field) requestAnimationFrame(()=>focusReviewField(card,field));
+  };
   const listing = group.listing;
+  const titleRef = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const resize = () => {
+      const element = titleRef.current;
+      if (!element) return;
+      element.style.height = "auto";
+      element.style.height = `${element.scrollHeight + 4}px`;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, [listing?.title, open]);
   const cover = photoById(group.photoIds[0]);
 
   const specifics = useMemo(() => {
@@ -105,7 +161,7 @@ export function ListingCard({
     (priceNum === undefined || Number.isNaN(priceNum) || priceNum <= 0);
 
   return (
-    <article className={`listing-card status-${group.status}`}>
+    <article className={`listing-card status-${group.status}${group.postStatus === "posted" ? " is-posted" : !open ? " is-compact" : ""}`}>
       <header className="listing-card-head" onClick={() => setOpen((o) => !o)}>
         {cover && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -119,18 +175,23 @@ export function ListingCard({
           <span className="listing-card-sub">
             {group.status === "writing" && (
               <>
-                <span className="spinner small" aria-hidden="true" /> Writing…
+                <span className="spinner small" aria-hidden="true" /> Wird
+                erstellt…
               </>
             )}
             {group.status === "done" &&
               (priceMissing ? (
                 <span style={{ color: "var(--color-danger)" }}>
-                  ⚠️ needs a price
+                  ⚠️ Preis fehlt
                 </span>
               ) : (
                 <>
                   {formatPrice(listing?.suggested_price)} ·{" "}
-                  {draftIssues(group).length ? "needs review" : "ready"}
+                  {group.postStatus === "posted"
+                    ? "Bei eBay veröffentlicht"
+                    : draftIssues(group).length
+                      ? "Bitte prüfen"
+                      : "Bereit"}
                 </>
               ))}
             {group.status === "error" && (
@@ -138,8 +199,11 @@ export function ListingCard({
                 ⚠️ {group.error || "Failed"}
               </span>
             )}
-            {group.status === "idle" && "Waiting…"}
+            {group.status === "idle" && "Wartet…"}
           </span>
+          {group.postStatus === "posted" && group.listingId && (
+            <a className="posted-summary-link" href={`https://www.ebay.de/itm/${group.listingId}`} target="_blank" rel="noopener noreferrer" onClick={event=>event.stopPropagation()}>Angebot bei eBay öffnen ↗</a>
+          )}
         </div>
         {group.status === "error" ? (
           <button
@@ -150,66 +214,99 @@ export function ListingCard({
               onRetry(group.id);
             }}
           >
-            ↻ Retry
+            ↻ Erneut versuchen
           </button>
         ) : (
-          <span className="chevron" aria-hidden="true">
-            {open ? "▾" : "▸"}
-          </span>
+          <button id={`expand-${group.id}`} type="button" className="chevron card-details-toggle"
+            aria-label={open ? "Angebotsdetails einklappen" : "Angebotsdetails aufklappen"}
+            aria-expanded={open} aria-controls={`details-${group.id}`}
+            onClick={event=>{event.stopPropagation();setOpen(value=>!value)}}>
+            <span className="card-toggle-label">{open ? "Einklappen" : "Ausklappen"}</span>
+            <svg className={`card-toggle-arrow${open ? " is-open" : ""}`} aria-hidden="true" viewBox="0 0 32 32"><path d="M5 10 L16 22 L27 10" /></svg>
+          </button>
         )}
       </header>
 
-      {open && listing && group.status === "done" && (
+      {(open || group.postStatus !== "posted") && listing && group.status === "done" && (
         <fieldset
           className="listing-card-body"
           disabled={
-            group.postStatus === "posted" || group.postStatus === "posting"
+            savingDraft ||
+            group.postStatus === "posted" ||
+            group.postStatus === "posting"
           }
         >
           <div className="result-field">
             <label>
-              Title
+              Titel
               <span className={`count${titleLen > TITLE_LIMIT ? " over" : ""}`}>
                 {titleLen}/{TITLE_LIMIT}
               </span>
             </label>
-            <input
-              type="text"
-              className="title-input"
+            <textarea
+              rows={3}
+              ref={titleRef}
+              aria-label="Titel bearbeiten"
+              data-review-field="Titel"
+              className={`title-input${!listing.title.trim() || titleLen>TITLE_LIMIT ? " missing-required-control" : ""}`}
               value={listing.title}
               onChange={(e) => onEdit(group.id, { title: e.target.value })}
             />
-            <div className="copy-row">
-              <CopyButton text={listing.title} label="title" />
+            <div className="copy-row title-actions">
+              <CopyButton text={listing.title} label="Titel" />
+              {group.postStatus !== "posted" && <button type="button" className="btn btn-primary" onClick={()=>onPost(group.id)}
+                aria-label={group.postStatus === "posting" ? "eBay-Anfrage läuft…" : "Auf eBay.de veröffentlichen…"}
+                disabled={!ebayConnected || group.postStatus === "posting" || draftIssues(group).length > 0}>
+                {group.postStatus === "posting" ? "Anfrage läuft…" : "Veröffentlichen…"}
+              </button>}
             </div>
           </div>
 
           <div className="meta-row">
             {/* SKU stays editable up until the item is posted, so a SKU fix
                 never requires going back and re-writing listings (issue #30). */}
-            <div className="stat editable">
+            <div className={`stat editable${!group.sku.trim() ? " needs-attention" : ""}`}>
               <label className="k" htmlFor={`sku-${group.id}`}>
                 SKU
               </label>
               <input
                 id={`sku-${group.id}`}
+                data-review-field="SKU"
                 type="text"
                 className="size-input"
                 value={group.sku}
-                disabled={group.postStatus === "posted"}
+                placeholder="z. B. 65-23537"
+                autoComplete="off"
+                disabled={
+                  group.postStatus === "posted" ||
+                  group.postStatus === "posting"
+                }
                 onChange={(e) => onRenameSku(group.id, e.target.value)}
               />
+              {originalSellerSku(group.sku) &&
+                group.postStatus !== "posted" && (
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={() =>
+                      onRenameSku(group.id, originalSellerSku(group.sku)!)
+                    }
+                  >
+                    SKU {originalSellerSku(group.sku)} übernehmen
+                  </button>
+                )}
             </div>
             <div
               className={`stat editable${priceMissing ? " needs-attention" : ""}`}
             >
               <label className="k" htmlFor={`price-${group.id}`}>
-                Price
+                Preis
               </label>
               <div className="price-input">
-                <span aria-hidden="true">$</span>
+                <span aria-hidden="true">€</span>
                 <input
                   id={`price-${group.id}`}
+                  data-review-field="Preis"
                   type="number"
                   min="0"
                   step="0.01"
@@ -223,10 +320,24 @@ export function ListingCard({
                   }
                 />
               </div>
+              <small>Inklusive 19 % MwSt.</small>
+              <div hidden={!open}>
+              {isGlasses(listing) && <small>{group.comps?.recommendedPrice === Number(listing.suggested_price)
+                ? "eBay-Angebotspreise · ohne Versand" : "Preis noch nicht durch passende eBay-Angebote belegt"}</small>}
+              <label style={{ display: "block", marginTop: ".5rem" }}>
+                <input
+                  type="checkbox"
+                  checked={listing.best_offer_enabled !== false}
+                  onChange={(e) =>
+                    onEdit(group.id, { best_offer_enabled: e.target.checked })
+                  }
+                />
+                Preisvorschläge zulassen
+              </label>
               {group.comps?.ok && group.comps.median !== undefined && (
                 <span className="comps-line" title={group.comps.basis}>
-                  Market: {group.comps.count} similar active listings, $
-                  {group.comps.low?.toFixed(0)}–${group.comps.high?.toFixed(0)}
+                  eBay: {group.comps.count} aktive Angebote (keine Verkaufspreise), €
+                  {group.comps.low?.toFixed(0)}–€{group.comps.high?.toFixed(0)}
                   {" · "}
                   <button
                     type="button"
@@ -234,21 +345,25 @@ export function ListingCard({
                     onClick={() =>
                       onEdit(group.id, {
                         suggested_price:
-                          group.comps!.listPrice ?? group.comps!.median,
+                          group.comps!.recommendedPrice ?? group.comps!.listPrice ?? group.comps!.median,
                       })
                     }
                   >
                     {/* listPrice = median + the deployment's storewide markup */}
-                    {group.comps.listPrice !== undefined
-                      ? `use $${group.comps.listPrice.toFixed(2)} (median + markup)`
-                      : `use median $${group.comps.median.toFixed(2)}`}
+                    {group.comps.recommendedPrice !== undefined
+                      ? `eBay-Vorschlag €${group.comps.recommendedPrice.toFixed(2)} übernehmen`
+                      : group.comps.listPrice !== undefined
+                      ? `use €${group.comps.listPrice.toFixed(2)} (median + markup)`
+                      : `use median €${group.comps.median.toFixed(2)}`}
                   </button>
                 </span>
               )}
+              </div>
             </div>
+            <div className="extended-meta" hidden={!open}>
             <div className="stat editable">
               <label className="k" htmlFor={`cond-${group.id}`}>
-                Condition
+                Zustand
               </label>
               <select
                 id={`cond-${group.id}`}
@@ -276,29 +391,37 @@ export function ListingCard({
             </div>
             {listing.brand && (
               <div className="stat">
-                <div className="k">Brand</div>
+                <div className="k">Marke</div>
                 <div className="v">{listing.brand}</div>
               </div>
             )}
-            {(sizeRequired || listing.size) && (
-              <div
-                className={`stat editable${sizeMissing ? " needs-attention" : ""}`}
-              >
-                <label className="k" htmlFor={`size-${group.id}`}>
-                  Size
-                </label>
-                <input
-                  id={`size-${group.id}`}
-                  type="text"
-                  className="size-input"
-                  value={listing.size ?? ""}
-                  placeholder={sizeRequired ? "e.g. M, 32x34, 10.5" : "—"}
-                  onChange={(e) => onEdit(group.id, { size: e.target.value })}
-                />
-              </div>
-            )}
+            {(isGlasses(listing) || sizeRequired || listing.size) && (
+                <div
+                  className={`stat editable${sizeMissing ? " needs-attention" : ""}`}
+                >
+                  <label className="k" htmlFor={`size-${group.id}`}>
+                    {isGlasses(listing) ? "Größe (Kastenmaß)" : "Größe"}
+                  </label>
+                  <input
+                    id={`size-${group.id}`}
+                    type="text"
+                    className="size-input"
+                    value={listing.size ?? ""}
+                    placeholder={sizeRequired ? "e.g. M, 32x34, 10.5" : "—"}
+                    onChange={(e) => onEdit(group.id, { size: e.target.value, ...(isGlasses(listing) ? {manual_measurement_fields:[...new Set([...(listing.manual_measurement_fields ?? []),"Größe"])]} : {}) })}
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
+          {!open && group.postStatus !== "posted" && draftIssues(group).length > 0 && <ul className="compact-issues" aria-label="Noch zu prüfen">
+            {draftIssues(group).map(message=><li key={message}><button type="button" className="issue-link" onClick={event=>{
+              navigateIssue(event.currentTarget,message);
+            }}>{message}</button></li>)}
+          </ul>}
+          {!open && group.postError && <p className="post-result err"><button type="button" className="issue-link" onClick={event=>navigateIssue(event.currentTarget,group.postError!)}>{group.postError}</button></p>}
+          <div id={`details-${group.id}`} className="listing-card-details" hidden={!open}>
           {sizeMissing && (
             <p className="size-warning" role="alert">
               ⚠️ No size found on the tag. eBay now blocks apparel listings
@@ -315,9 +438,20 @@ export function ListingCard({
             </p>
           )}
 
+          {group.postStatus === "posted" && (
+            <p className="note">
+              Dieses Angebot wurde bereits veröffentlicht. Änderungen jetzt
+              direkt bei eBay vornehmen; Shop-Vorgaben ändern dieses Angebot
+              nicht.
+            </p>
+          )}
+          {isGlasses(listing) && <EyewearMeasurements listing={listing} meta={group.preparation?.aspects ?? []} onEdit={patch=>onEdit(group.id,patch)} />}
           <div className="result-field">
-            <label>Description</label>
+            <label htmlFor={`description-${group.id}`}>Beschreibung</label>
             <textarea
+              id={`description-${group.id}`}
+              className={!listing.description.trim() ? "missing-required-control" : undefined}
+              data-review-field="Beschreibung"
               value={listing.description}
               onChange={(e) =>
                 onEdit(group.id, { description: e.target.value })
@@ -325,36 +459,60 @@ export function ListingCard({
               rows={8}
             />
             <div className="copy-row">
-              <CopyButton text={listing.description} label="description" />
+              <CopyButton text={listing.description} label="Beschreibung" />
             </div>
           </div>
 
-          <button type="button" onClick={() => onRetry(group.id)}>
-            Re-analyze selected photos (replaces this draft)
+          <label className="reanalysis-hint">
+            Hinweis für die Neuanalyse (optional)
+            <input value={analysisHint} maxLength={500}
+              placeholder="z. B. Das ist eine Sonnenbrille"
+              onChange={(e) => setAnalysisHint(e.target.value)} />
+          </label>
+          <button type="button" onClick={() => onRetry(group.id, analysisHint)}>
+            Ausgewählte Fotos neu analysieren (ersetzt diesen Entwurf)
           </button>
+          <div className="analysis-tools">
+          <EyewearDetails
+            listing={listing}
+            meta={group.preparation?.aspects ?? []}
+            onEdit={(patch) => onEdit(group.id, patch)}
+          />
+          <FrontMeasurementControls
+            group={group}
+            photoById={photoById}
+            onEdit={onGroupEdit}
+          />
+          </div>
           <DraftControls
             group={group}
             photoById={photoById}
             onGroupEdit={onGroupEdit}
           />
+          {materialTitleIssues(listing).map(warning => <p className="material-warning" key={warning}><button type="button" className="issue-link" onClick={event=>navigateIssue(event.currentTarget,warning)}>{warning}</button></p>)}
+          {group.postStatus !== "posted" && (
+            <div className="draft-save-row">
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={save}
+                disabled={savingDraft || group.postStatus === "posting"}
+              >
+                {savingDraft ? "Wird gespeichert…" : "Entwurf speichern"}
+              </button>
+              <p className="post-hint">
+                In SNAPLIST auf diesem Gerät. Änderungen werden auch automatisch
+                gespeichert.
+              </p>
+              {draftNotice && <p role="status">{draftNotice}</p>}
+            </div>
+          )}
           {/* eBay posting */}
           {group.postStatus === "posted" ? (
             <>
               <p className="post-result ok">
-                ✅ Posted to eBay
-                {group.listingId ? (
-                  <>
-                    {" "}
-                    ·{" "}
-                    <a
-                      href={`https://www.ebay.com/itm/${group.listingId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      View listing ↗
-                    </a>
-                  </>
-                ) : null}
+                ✅ Bei eBay veröffentlicht
+
               </p>
               {(group.postWarnings ?? []).map((w) => (
                 <p className="post-result warn" key={w}>
@@ -364,33 +522,100 @@ export function ListingCard({
             </>
           ) : ebayConnected ? (
             <div className="post-row">
+              {(group.publicationAttemptSku ||
+                group.postStatus === "error") && (
+                <div className="publication-recovery">
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    disabled={group.postStatus === "posting"}
+                    onClick={() => onPost(group.id, "resolve")}
+                  >
+                    Veröffentlichungsstatus abgleichen
+                  </button>
+                  {group.publicationConflict && (
+                    <div>
+                      <p>
+                        Bereits bei eBay:{" "}
+                        <a
+                          target="_blank"
+                          rel="noreferrer"
+                          href={`https://www.ebay.de/itm/${group.publicationConflict.listingId}`}
+                        >
+                          {group.publicationConflict.title ||
+                            group.publicationConflict.listingId}
+                        </a>{" "}
+                        · SKU {group.publicationConflict.sku}
+                      </p>
+                      <p>
+                        Nur wenn dies eine andere Brille ist: Der offene Entwurf
+                        behält seine SKU und erhält bei alten Versuchen eine
+                        eigene technische Kennung. Seine Inhalte und das
+                        bestehende Angebot bleiben unverändert.
+                      </p>
+                      <button
+                        type="button"
+                        className="btn-ghost"
+                        disabled={group.postStatus === "posting"}
+                        onClick={() => onPost(group.id, "repair")}
+                      >
+                        Andere Brille – diesen Entwurf reparieren
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
               <button
                 type="button"
-                className="btn btn-primary"
-                onClick={() => onPost(group.id)}
+                className="btn-ghost"
+                onClick={() => onPost(group.id, "verify")}
                 disabled={
                   group.postStatus === "posting" ||
                   draftIssues(group).length > 0
                 }
               >
-                {group.postStatus === "posting" ? (
-                  <>
-                    <span className="spinner" aria-hidden="true" /> Posting to
-                    eBay…
-                  </>
-                ) : (
-                  "🚀 Post this to eBay"
-                )}
+                Bei eBay prüfen · nicht veröffentlichen
               </button>
+              {group.verificationMessage && (
+                <p role="status">{group.verificationMessage}</p>
+              )}
               {group.postStatus === "error" && group.postError && (
-                <p className="post-result err">⚠️ {group.postError}</p>
+                <div className="post-result err">
+                  <p>⚠️ {issueField(group.postError,[...(group.preparation?.aspects.map(a=>a.name) ?? []),"Glasbreite"]) ? <button type="button" className="issue-link" onClick={event=>navigateIssue(event.currentTarget,group.postError!)}>{group.postError}</button> : group.postError}</p>
+                  {/eBay 488\b/.test(group.postError) && (
+                    <p>
+                      Diese Übertragungskennung wurde bereits verwendet. Bitte
+                      zuerst das vorhandene Angebot prüfen; nicht mit einer
+                      neuen SKU erneut veröffentlichen.
+                    </p>
+                  )}
+                  {/eBay 488\b/.test(group.postError) &&
+                    /(?:Artikelnummer|ItemID)=(\d+)/i.test(group.postError) && (
+                      <a
+                        href={`https://www.ebay.de/itm/${group.postError.match(/(?:Artikelnummer|ItemID)=(\d+)/i)![1]}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Vorhandenes eBay-Angebot öffnen
+                      </a>
+                    )}
+                </div>
               )}
             </div>
           ) : (
             <p className="post-hint">
-              Connect eBay (top of page) to post this listing.
+              Verbinde oben dein eBay-Konto, um dieses Angebot zu
+              veröffentlichen.
             </p>
           )}
+          </div>
+          {group.postStatus !== "posted" && <div className="bottom-publication">
+            <button type="button" className="btn btn-primary" onClick={()=>onPost(group.id)}
+              aria-label="Veröffentlichen am Kartenende"
+              disabled={!ebayConnected || group.postStatus === "posting" || draftIssues(group).length>0}>
+              {group.postStatus === "posting" ? "Anfrage läuft…" : "Veröffentlichen…"}
+            </button>
+          </div>}
         </fieldset>
       )}
     </article>

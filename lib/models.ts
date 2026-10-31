@@ -1,5 +1,6 @@
 // Exact model IDs prevent browser requests from selecting arbitrary billed models.
 // Deployment owners can override this list with ANTHROPIC_ALLOWED_MODELS.
+import { aiModel } from "./ai-catalog";
 const DEFAULT_MODELS = [
   "claude-opus-4-8",
   "claude-opus-4-7",
@@ -22,7 +23,7 @@ export function isAllowedModel(model: unknown): model is string {
     typeof model === "string" &&
     model.length > 0 &&
     model.length <= MAX_MODEL_ID_LEN &&
-    allowedModels().has(model)
+    (allowedModels().has(model) || Boolean(aiModel(model)))
   );
 }
 
@@ -33,5 +34,10 @@ export function isAllowedModel(model: unknown): model is string {
  */
 export function resolveModel(requested: unknown, fallback: string): string {
   const m = typeof requested === "string" ? requested.trim() : "";
-  return isAllowedModel(m) ? m : fallback;
+  if (!m) return fallback;
+  if (!isAllowedModel(m))
+    throw new Error(
+      "Das ausgewählte Modell ist nicht freigegeben. Bitte erneut auswählen; kein automatischer Modellwechsel.",
+    );
+  return m;
 }

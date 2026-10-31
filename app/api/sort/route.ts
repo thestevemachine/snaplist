@@ -1,3 +1,6 @@
+import {withAccount} from "@/lib/accounts/server";
+import {recognizePhotoMarkers} from "@/lib/ai-photo-separators";
+import { DEFAULT_AI_MODEL } from "@/lib/ai-defaults";
 import { collectUsage, currentUsage } from "@/lib/ai-usage";
 import { NextRequest, NextResponse } from "next/server";
 import { getClient, AnthropicAuthError } from "@/lib/anthropic";
@@ -5,6 +8,7 @@ import { guardApiRequest, safeErrorResponse } from "@/lib/api-guard";
 import { sortPhotos, SortUnavailableError } from "@/lib/sortPipeline";
 import { isAllowedModel } from "@/lib/models";
 import type { WireImage } from "@/lib/images";
+import { AiProviderError } from "@/lib/ai-providers";
 
 // Sorting makes several model calls across grouping/verify/merge stages. 300s
 // (already used by the publish route) gives slow Anthropic days room to finish;
@@ -18,7 +22,7 @@ async function handle(req: NextRequest) {
   const denied = guardApiRequest(req);
   if (denied) return denied;
 
-  let body: { images?: WireImage[]; sortModel?: string };
+  let body: { images?: WireImage[]; sortModel?: string; action?: string };
   try {
     body = await req.json();
   } catch {
@@ -37,6 +41,14 @@ async function handle(req: NextRequest) {
   const requestedSort =
     typeof body.sortModel === "string" ? body.sortModel.trim() : "";
   const sortModel = isAllowedModel(requestedSort) ? requestedSort : undefined;
+  if (requestedSort && !sortModel)
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Modell nicht freigegeben. Kein automatischer Wechsel.",
+      },
+      { status: 400 },
+    );
   if (images.length === 0) {
     return NextResponse.json(
       { ok: false, error: "Please add some photos first." },
@@ -46,8 +58,13 @@ async function handle(req: NextRequest) {
 
   let client;
   try {
-    client = getClient();
+    client = getClient(sortModel ?? DEFAULT_AI_MODEL);
   } catch (e) {
+    if (e instanceof AiProviderError)
+      return NextResponse.json(
+        { ok: false, error: e.message },
+        { status: 502 },
+      );
     return NextResponse.json(
       { ok: false, error: (e as Error).message },
       { status: 500 },
@@ -55,6 +72,10 @@ async function handle(req: NextRequest) {
   }
 
   try {
+    if(body.action === "detect-separators") {
+      const markers=await recognizePhotoMarkers(client,images,sortModel ?? DEFAULT_AI_MODEL);
+      return NextResponse.json({ok:true,...markers,usage:currentUsage()});
+    }
     const result = await sortPhotos(client, images, sortModel);
     if (result.groups.length === 0) {
       return NextResponse.json(
@@ -68,6 +89,11 @@ async function handle(req: NextRequest) {
     }
     return NextResponse.json({ ok: true, usage: currentUsage(), ...result });
   } catch (e) {
+    if (e instanceof AiProviderError)
+      return NextResponse.json(
+        { ok: false, error: e.message },
+        { status: 502 },
+      );
     if (e instanceof AnthropicAuthError) {
       console.error("[sort] auth/billing failure:", e.message);
       return NextResponse.json(
@@ -86,6 +112,14 @@ async function handle(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
-  return (await collectUsage(() => handle(req))).result;
+async function handlePOST(req: NextRequest) {
+  const { result, usage } = await collectUsage(() => handle(req));
+  if (!result.ok)
+    return NextResponse.json(
+      { ...(await result.json()), usage },
+      { status: result.status },
+    );
+  return result;
 }
+
+export const POST=withAccount(handlePOST);

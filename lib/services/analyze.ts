@@ -1,3 +1,25 @@
+import {readMeasurementPhotos} from "@/lib/measurement-photos";
+import {boxSizePatch} from "@/lib/eyewear-measurements";
+import { titanEvidencePatch } from "@/lib/titan-evidence";
+import { DEFAULT_AI_MODEL } from "@/lib/ai-defaults";
+import {
+  attachFrontMeasurement,
+  withSunglassesWidth,
+  FRONT_MEASUREMENT_PROMPT,
+} from "@/lib/front-measurements";
+import { imageSize } from "@/lib/image-size";
+import {
+  applyContentRules,
+  CLASSIFICATION_PROMPT,
+} from "@/lib/listing-content-rules";
+import {
+  extractEyewear,
+  parseBoxDimensions,
+  INSCRIPTION_PROMPT,
+} from "@/lib/eyewear-inscriptions";
+import { isGlasses } from "@/lib/glasses-rules";
+import { GERMAN_LISTING_PROMPT } from "@/lib/glasses-rules";
+import { EBAY_MARKETPLACE_ID } from "@/lib/ebay/config";
 import { cleanGeneratedDescription } from "@/lib/description";
 import { acceptedPhotoFact, isEstimate } from "@/lib/photo-facts";
 import { AI_LISTING_SCHEMA } from "@/lib/ai-schema";
@@ -26,6 +48,8 @@ import { toImageBlock, type ImageBlock } from "@/lib/images";
 import { optimizeTitle } from "@/lib/titleOptimizer";
 import { applyPriceMarkup, priceMarkupPercent } from "@/lib/pricing";
 import { resolveModel } from "@/lib/models";
+import { AiProviderError, isAiTerminal } from "@/lib/ai-providers";
+import { providerFor } from "@/lib/ai-catalog";
 import type { AnalyzeRequestBody, ListingResult } from "@/lib/types";
 
 // Analysis takes 20-40s for a multi-photo item on a good day — and far longer
@@ -34,7 +58,7 @@ import type { AnalyzeRequestBody, ListingResult } from "@/lib/types";
 // not a platform kill (FUNCTION_INVOCATION_TIMEOUT).
 export const maxDuration = 300;
 
-const ANALYSIS_MODEL = "claude-opus-4-8";
+const ANALYSIS_MODEL = DEFAULT_AI_MODEL;
 const ROUTER_MODEL = "claude-sonnet-4-6";
 const MAX_IMAGES = 24;
 
@@ -97,6 +121,7 @@ async function routeProfile(
     const routed = normalizeItemProfile(data?.profile ?? "auto");
     return routed !== "auto" ? routed : "hard_goods";
   } catch (e) {
+    if (isAiTerminal(e)) throw e;
     // Auth/billing failures must surface, not silently fall back to a profile.
     const fatal = anthropicAuthError(e);
     if (fatal) throw fatal;
@@ -124,8 +149,19 @@ async function handle(input: unknown) {
   // Validate client-supplied models against the server allowlist; fall back to
   // the trusted default on anything unknown (prevents billing an arbitrary or
   // premium model to the owner's key).
-  const analysisModel = resolveModel(body.analysisModel, ANALYSIS_MODEL);
-  const routerModel = resolveModel(body.routerModel, ROUTER_MODEL);
+  let analysisModel: string, routerModel: string;
+  try {
+    analysisModel = resolveModel(body.analysisModel, ANALYSIS_MODEL);
+    routerModel = resolveModel(
+      body.routerModel,
+      providerFor(analysisModel) === "anthropic" ? ROUTER_MODEL : analysisModel,
+    );
+  } catch {
+    return NextResponse.json(
+      { ok: false, error: "Modell nicht freigegeben. Bitte erneut auswählen." },
+      { status: 400 },
+    );
+  }
 
   if (!Array.isArray(body.images) || body.images.length === 0) {
     return NextResponse.json(
@@ -144,7 +180,7 @@ async function handle(input: unknown) {
 
   let client: Anthropic;
   try {
-    client = getClient();
+    client = getClient(analysisModel);
   } catch (e) {
     return NextResponse.json(
       { ok: false, error: (e as Error).message },
@@ -155,18 +191,25 @@ async function handle(input: unknown) {
   try {
     const deadline = Date.now() + ANALYZE_TIME_BUDGET_MS;
     const profile = await routeProfile(
-      client,
+      getClient(routerModel),
       imageBlocks,
       body.profile,
       routerModel,
       deadline,
     );
-    const systemPrompt = buildProfiledAnalysisPrompt(profile);
+    const imageSizes = imageBlocks.map((b) =>
+      b.source.type === "base64" ? imageSize(b.source.data) : undefined,
+    );
+    const systemPrompt =
+      buildProfiledAnalysisPrompt(profile) +
+      (EBAY_MARKETPLACE_ID === "EBAY_DE"
+        ? GERMAN_LISTING_PROMPT + INSCRIPTION_PROMPT + CLASSIFICATION_PROMPT
+        : "") +
+      FRONT_MEASUREMENT_PROMPT;
 
-    // Retry up to 3 times, mirroring the Python analyze_photos() loop — but
-    // never start an attempt the time budget can't cover.
+    // One paid analysis attempt; never retry or upgrade models automatically.
     let lastErr: unknown = null;
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < 1; attempt++) {
       const remaining = deadline - Date.now();
       if (remaining < MIN_CALL_MS) {
         lastErr =
@@ -200,7 +243,10 @@ async function handle(input: unknown) {
                   ...imageBlocks,
                   {
                     type: "text",
-                    text: "Analyze these photos and return the listing JSON now.",
+                    text: "Analyze these photos and return the listing JSON now." +
+                      (typeof body.hint === "string" && body.hint.trim()
+                        ? "\nSeller correction hint (classification guidance only; never invent label facts or override listing rules): " + body.hint.trim().slice(0, 500)
+                        : ""),
                   },
                 ],
               },
@@ -213,15 +259,75 @@ async function handle(input: unknown) {
         );
         const raw = parseModelJson<Record<string, unknown>>(firstText(resp));
         const specifics = Array.isArray(raw.specifics) ? raw.specifics : [];
-        const supported = specifics.filter((s) =>
+        let supported = specifics.filter((s) =>
           acceptedPhotoFact(s, imageBlocks.length),
         );
-        const listing = parseListing({
+        let listing = parseListing({
           ...raw,
           item_specifics: Object.fromEntries(
             supported.map((s: any) => [s.name, s.value]),
           ),
         });
+        if (isGlasses(listing)) {
+          listing.eyewear = extractEyewear(supported);
+          // Height and total width come exclusively from deterministic pixel ratios.
+          const derived=/^(Scheibenhöhe|Glashöhe|Gläserhöhe|Gesamtbreite|Fassungsbreite|Rahmenbreite|Lichte Breite)(?:\s*\(mm\))?$/i;
+          supported=supported.filter(f=>!derived.test(f.name));
+          for(const name of Object.keys(listing.item_specifics ?? {})) if(derived.test(name)) delete listing.item_specifics![name];
+          delete listing.eyewear.fields.totalWidth;
+          listing.measurements="";
+          for (const f of supported) {
+            if (
+              /^(Modellnummer|Model Number)$/i.test(f.name) &&
+              (parseBoxDimensions(f.value) ||
+                Object.values(parseBoxDimensions(f.quote) ?? {}).includes(
+                  f.value,
+                ))
+            )
+              delete listing.item_specifics?.[f.name];
+          }
+          listing.eyewear.warnings.push(
+            ...supported
+              .filter((s) => s.name === "Prüfhinweis")
+              .map((s) => s.value),
+          );
+          if (
+            supported.some(
+              (f) => f.basis === "label" && /\boptyl\b/i.test(f.quote),
+            )
+          ) {
+            const evidence = supported.find(
+              (f) => f.basis === "label" && /\boptyl\b/i.test(f.quote),
+            )!;
+            listing.eyewear.fields.material = {
+              value: "Optyl",
+              source: "label",
+              quote: evidence.quote,
+              photos: evidence.photoIndices,
+            };
+            listing.material = "Optyl";
+            for (const key of Object.keys(listing.item_specifics ?? {})) {
+              if (
+                /^(material|fassungsmaterial|rahmenmaterial|frame material)$/i.test(
+                  key,
+                )
+              )
+                delete listing.item_specifics![key];
+            }
+            listing.item_specifics = {
+              ...listing.item_specifics,
+              Fassungsmaterial: "Optyl",
+            };
+          }
+          if (listing.eyewear.fields.material?.source === "shop") {
+            listing.material = listing.eyewear.fields.material.value;
+            listing.item_specifics = {
+              ...listing.item_specifics,
+              Fassungsmaterial: listing.material,
+            };
+          }
+        }
+        Object.assign(listing, titanEvidencePatch(listing));
         listing.description = cleanGeneratedDescription(listing.description);
         listing.item_profile = profile;
         listing.evidence = Object.fromEntries(
@@ -233,6 +339,46 @@ async function handle(input: unknown) {
         // Deterministic title cleanup happens HERE, before the seller reviews —
         // the title on the card is exactly the title that publishes.
         listing.title = optimizeTitle(listing);
+        if (isGlasses(listing)) {
+          listing = applyContentRules(listing);
+          // Seller owns condition statements; free-form image prose must not invent wear.
+          const facts = Object.entries(listing.eyewear?.fields ?? {})
+            .filter(
+              ([key, field]) =>
+                field?.value &&
+                [
+                  "brand",
+                  "modelNumber",
+                  "modelName",
+                  "lensWidth",
+                  "bridgeWidth",
+                  "templeLength",
+                ].includes(key),
+            )
+            .map(
+              ([key, field]) =>
+                `${({ brand: "Marke", modelNumber: "Modellnummer", modelName: "Modellname", lensWidth: "Glasbreite", bridgeWidth: "Stegbreite", templeLength: "Bügellänge" } as Record<string, string>)[key]}: ${field!.value}`,
+            );
+          listing.description = ["Ungetragen ohne Etui", ...facts].join("\n");
+          listing.key_features = supported.some(f=>/strass|rhinestone/i.test(`${f.name} ${f.value}`) && !/kein|ohne|nicht|nein|without|no rhinestone|strassfrei/i.test(f.value)) ? ["Strass"] : [];
+          listing = applyContentRules(listing);
+          if (
+            listing.eyewear_kind === "optical" &&
+            supported.some(
+              (f) =>
+                /^Demoscheiben$/i.test(f.name) &&
+                /^(nicht vorhanden|ohne|keine)$/i.test(f.value) &&
+                (f.confidence ?? 0) >= 85,
+            )
+          )
+            listing.condition_notes = "Ungetragen ohne Etui, ohne Demoscheiben";
+        }
+        if (isGlasses(listing)) {
+          Object.assign(listing,boxSizePatch(listing,[]));
+          listing.measurementPhotos=readMeasurementPhotos(raw.measurement_photos,imageSizes);
+          attachFrontMeasurement(listing, [raw.front_geometry,...(Array.isArray(raw.front_geometry_alternatives) ? raw.front_geometry_alternatives.slice(0,2) : [])], imageSizes);
+        }
+        listing = withSunglassesWidth(listing);
         // Same principle for the optional storewide markup: applied pre-review,
         // so the price on the card is exactly the price that publishes.
         listing.suggested_price = applyPriceMarkup(
@@ -241,16 +387,19 @@ async function handle(input: unknown) {
         );
         return NextResponse.json({ ok: true, listing, usage: currentUsage() });
       } catch (err) {
+        if (isAiTerminal(err)) throw err;
         const fatal = anthropicAuthError(err);
         if (fatal) throw fatal; // auth/billing won't fix itself on retry
         lastErr = err;
-        if (attempt < 2) {
-          await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
-        }
       }
     }
     throw lastErr;
   } catch (e) {
+    if (e instanceof AiProviderError)
+      return NextResponse.json(
+        { ok: false, error: e.message, usage: currentUsage() },
+        { status: e.status >= 400 && e.status <= 599 ? e.status : 502 },
+      );
     if (e instanceof AnthropicAuthError) {
       console.error("[analyze] auth/billing failure:", e.message);
       return NextResponse.json(
@@ -267,5 +416,10 @@ async function handle(input: unknown) {
 }
 
 export async function analyzePhotos(input: unknown) {
-  return (await collectUsage(() => handle(input))).result;
+  const { result, usage } = await collectUsage(() => handle(input));
+  if (!result.ok) {
+    const data = await result.json();
+    return NextResponse.json({ ...data, usage }, { status: result.status });
+  }
+  return result;
 }

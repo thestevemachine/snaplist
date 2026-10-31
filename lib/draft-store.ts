@@ -1,5 +1,8 @@
+import {workspaceStorageKey} from "./workspace-scope";
+import { withPublicationIdentity } from "./publication-identity";
 import type { ItemGroup, Photo } from "./types";
 export interface WorkspaceDraft {
+  sortUsage?: import("./ai-usage").AiUsage[];
   version: 1;
   photos: Photo[];
   groups: ItemGroup[];
@@ -12,7 +15,7 @@ export interface WorkspaceDraft {
 const DB = "listing-writer-drafts";
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const r = indexedDB.open(DB, 3);
+    const r = indexedDB.open(workspaceStorageKey(DB), 3);
     r.onupgradeneeded = () => {
       if (!r.result.objectStoreNames.contains("workspace"))
         r.result.createObjectStore("workspace");
@@ -91,11 +94,11 @@ export async function loadDraft(
       throw new Error(
         "A saved photo is missing. Keep this tab open and restore the original photo.",
       );
-    photos.push({ ...stored, analysisSelected: p.analysisSelected });
+    photos.push({ ...stored, analysisSelected: p.analysisSelected, separator: p.separator ?? stored.separator, separatorManual: p.separatorManual ?? stored.separatorManual,skuMarker:p.skuMarker ?? stored.skuMarker });
   }
   d.photos = photos;
   d.groups = d.groups.map((g: ItemGroup) => ({
-    ...g,
+    ...withPublicationIdentity(g),
     status: g.status === "writing" ? "idle" : g.status,
     postStatus: g.postStatus === "posting" ? "error" : g.postStatus,
     postError:
@@ -139,9 +142,13 @@ export function saveDraft(draft: WorkspaceDraft): Promise<void> {
           tx.objectStore("workspace").put(
             {
               ...draft,
+              groups: draft.groups.map(withPublicationIdentity),
               photos: draft.photos.map((p) => ({
                 id: p.id,
                 analysisSelected: p.analysisSelected,
+                separator: p.separator,
+                separatorManual: p.separatorManual,
+                skuMarker:p.skuMarker,
               })),
             },
             "current",

@@ -1,0 +1,550 @@
+import { test, expect, type Page } from "@playwright/test";
+async function expandUnpostedCards(page: Page) {
+ await expect(page.getByRole("status").filter({hasText:"Auf diesem Gerät gespeichert"})).toBeVisible();
+ const cards=page.locator(".listing-card:not(.is-posted)");
+ for(let i=0;i<await cards.count();i++){const button=cards.nth(i).locator(".card-details-toggle");if(await button.getAttribute("aria-expanded")==="false") await button.click();}
+}
+const picture =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=";
+const options = [
+  {
+    id: "claude-opus-4-8",
+    displayName: "Claude Opus 4.8",
+    isDefault: false,
+    configured: true,
+  },
+  { id: "gpt-6-luna", displayName: "OpenAI GPT-6 Luna", configured: true },
+  {
+    id: "gemini-3.5-flash-lite",
+    displayName: "Gemini 3.5 Flash-Lite",
+    isDefault: true,
+    configured: true,
+  },
+];
+const usage = [
+  {
+    id: "test-call",
+    stage: "analysis",
+    model: "gpt-6-luna",
+    requestedModel: "gpt-6-luna",
+    input: 1000,
+    output: 100,
+    cacheRead: 0,
+    cacheWrite: 0,
+    ms: 10,
+    ok: true,
+    usageReported: true,
+    estimatedUsd: 0.00015,
+  },
+];
+async function setup(page: Page) {
+  // All eBay endpoints are intercepted. These tests never reach eBay.
+  await page.route("**/api/ebay/**", (r) =>
+    r.fulfill({ json: { ok: false, connected: false, configured: false } }),
+  );
+  await page.route("**/api/cloud", (r) =>
+    r.fulfill({ json: { enabled: false } }),
+  );
+  await page.route("**/api/models", (r) =>
+    r.fulfill({ json: { sortModels: options, analysisModels: options } }),
+  );
+  await page.goto("/");
+  await expect(page.getByRole("status")).toContainText(
+    "Auf diesem Gerät gespeichert",
+  );
+}
+test("independent model choices survive reload; switching and cancelling do not spend", async ({
+  page,
+}) => {
+  let tests = 0,
+    analyses = 0;
+  await page.route("**/api/ai/test", (r) => {
+    tests++;
+    expect(r.request().postDataJSON()).toEqual({
+      model: "gpt-6-luna",
+      confirmed: true,
+    });
+    return r.fulfill({ json: { ok: true, message: "Test bestätigt", usage } });
+  });
+  await page.route("**/api/analyze", (r) => {
+    analyses++;
+    return r.fulfill({ json: { ok: false } });
+  });
+  await setup(page);
+  await page.getByRole("button", { name: /KI-Einstellungen/ }).click();
+  await expect(page.getByLabel("KI für die Fotosortierung")).toHaveValue("gemini-3.5-flash-lite");
+  await expect(page.getByLabel("KI für die Angebotserstellung")).toHaveValue("gemini-3.5-flash-lite");
+  await page
+    .getByLabel("KI für die Fotosortierung")
+    .selectOption("gemini-3.5-flash-lite");
+  await page
+    .getByLabel("KI für die Angebotserstellung")
+    .selectOption("gpt-6-luna");
+  expect(tests).toBe(0);
+  expect(analyses).toBe(0);
+  await page.reload();
+  await expandUnpostedCards(page);
+  await page.getByRole("button", { name: /KI-Einstellungen/ }).click();
+  await expect(page.getByLabel("KI für die Fotosortierung")).toHaveValue(
+    "gemini-3.5-flash-lite",
+  );
+  await expect(page.getByLabel("KI für die Angebotserstellung")).toHaveValue(
+    "gpt-6-luna",
+  );
+  page.once("dialog", (d) => d.dismiss());
+  await page
+    .getByRole("button", {
+      name: "Listingmodell: Verbindung testen (kostenpflichtig)",
+    })
+    .click();
+  expect(tests).toBe(0);
+  page.once("dialog", (d) => d.accept());
+  await page
+    .getByRole("button", {
+      name: "Listingmodell: Verbindung testen (kostenpflichtig)",
+    })
+    .click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Test bestätigt" }),
+  ).toBeVisible();
+  expect(tests).toBe(1);
+  expect(analyses).toBe(0);
+});
+test("comparison keeps draft, SKU and manual changes and persists the separate variant", async ({
+  page,
+}) => {
+  let calls = 0;
+  await page.route("**/api/analyze", (r) => {
+    calls++;
+    const b = r.request().postDataJSON();
+    expect(b.analysisModel).toBe("gpt-6-luna");
+    expect(b.routerModel).toBeUndefined();
+    expect(b.images).toEqual([
+      { mediaType: "image/jpeg", data: picture.split(",")[1] },
+    ]);
+    return r.fulfill({
+      json: {
+        ok: true,
+        listing: {
+          title: "Vergleichstitel",
+          description: "Vergleichsbeschreibung",
+          brand: "Testmarke",
+          item_specifics: { Material: "Titan" },
+        },
+        usage,
+      },
+    });
+  });
+  await setup(page);
+  await page.evaluate(async (picture) => {
+    const photo = {
+      id: "p1",
+      mediaType: "image/png",
+      previewUrl: picture,
+      data: picture.split(",")[1],
+      uploadData: picture.split(",")[1],
+    };
+    const group = {
+      id: "g1",
+      sku: "MEINE-SKU",
+      name: "Brille",
+      photoIds: ["p1"],
+      evidencePhotoIds: ["p1"],
+      status: "done",
+      listing: {
+        title: "Mein manuell bearbeiteter Titel",
+        description: "Meine manuelle Beschreibung",
+        brand: "Mein Hersteller",
+        category_id: "123",
+        suggested_price: 30,
+        item_specifics: { Material: "Gold" },
+      },
+      usage: [],
+    };
+    await new Promise<void>((resolve, reject) => {
+      const r = indexedDB.open("listing-writer-drafts");
+      r.onsuccess = () => {
+        const db = r.result;
+        const tx = db.transaction("workspace", "readwrite");
+        tx.objectStore("workspace").put(
+          {
+            version: 1,
+            photos: [photo],
+            groups: [group],
+            orphanIds: [],
+            binPrefix: "",
+            skuStart: 0,
+            step: "listings",
+            updatedAt: Date.now(),
+          },
+          "current",
+        );
+        tx.oncomplete = () => {
+          db.close();
+          resolve();
+        };
+        tx.onerror = () => reject(tx.error);
+      };
+    });
+  }, picture);
+  await page.reload();
+  await expandUnpostedCards(page);
+
+  await page
+    .getByText("Modelle vergleichen · Entwurf bleibt erhalten", { exact: true })
+    .click();
+  await page.getByLabel("Vergleichsmodell").selectOption("gpt-6-luna");
+  page.once("dialog", (d) => d.dismiss());
+  await page
+    .getByRole("button", { name: "Kostenpflichtigen Vergleich starten" })
+    .click();
+  expect(calls).toBe(0);
+  page.once("dialog", (d) => d.accept());
+  await page
+    .getByRole("button", { name: "Kostenpflichtigen Vergleich starten" })
+    .click();
+  await expect(
+    page.locator("details summary").filter({ hasText: /gpt-6-luna ·/ }),
+  ).toHaveCount(1);
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Auf diesem Gerät gespeichert" }),
+  ).toBeVisible();
+  await page.waitForTimeout(450);
+  const check = () =>
+    page.evaluate(
+      () =>
+        new Promise<any>((resolve) => {
+          const r = indexedDB.open("listing-writer-drafts");
+          r.onsuccess = () => {
+            const db = r.result;
+            const q = db
+              .transaction("workspace")
+              .objectStore("workspace")
+              .get("current");
+            q.onsuccess = () => {
+              const g = q.result.groups[0];
+              db.close();
+              resolve(g);
+            };
+          };
+        }),
+    );
+  const saved = await check();
+  expect(saved.listing.title).toBe("Mein manuell bearbeiteter Titel");
+  expect(saved.listing.item_specifics.Material).toBe("Gold");
+  expect(saved.sku).toBe("MEINE-SKU");
+  expect(saved.comparisons[0].listing.title).toBe("Vergleichstitel");
+  expect(saved.comparisons[0].usage[0].input).toBe(1000);
+  expect(calls).toBe(1);
+  await page.reload();
+  await expandUnpostedCards(page);
+  await page
+    .getByText("Modelle vergleichen · Entwurf bleibt erhalten", { exact: true })
+    .click();
+  await expect(
+    page.locator("details summary").filter({ hasText: /gpt-6-luna ·/ }),
+  ).toHaveCount(1);
+  expect(calls).toBe(1);
+});
+
+test("front-photo estimates remain visible and persisted without overwriting manual dimensions", async ({
+  page,
+}) => {
+  let calls = 0;
+  await page.route("**/api/analyze", (r) => {
+    calls++;
+    return r.fulfill({ json: { ok: false } });
+  });
+  await setup(page);
+  await page.evaluate(async (picture) => {
+    const db = await new Promise<IDBDatabase>((resolve) => {
+      const r = indexedDB.open("listing-writer-drafts");
+      r.onsuccess = () => resolve(r.result);
+    });
+    const tx = db.transaction("workspace", "readwrite");
+    tx.objectStore("workspace").put(
+      {
+        version: 1,
+        photos: [
+          {
+            id: "p1",
+            mediaType: "image/png",
+            previewUrl: picture,
+            data: picture.split(",")[1],
+          },
+        ],
+        groups: [
+          {
+            id: "g1",
+            sku: "MAß-TEST",
+            name: "Brille",
+            photoIds: ["p1"],
+            evidencePhotoIds: ["p1"],
+            status: "done",
+            preparation: {
+              categoryId: "123",
+              categoryName: "Brillen",
+              signature: "test",
+              expiresAt: Date.now() + 3600000,
+              conditions: [],
+              issues: [],
+              aspects: [
+                {
+                  name: "Glashöhe",
+                  mode: "FREE_TEXT",
+                  values: [],
+                  cardinality: "SINGLE",
+                  usage: "OPTIONAL",
+                },
+                {
+                  name: "Rahmenbreite",
+                  mode: "FREE_TEXT",
+                  values: [],
+                  cardinality: "SINGLE",
+                  usage: "OPTIONAL",
+                },
+                {
+                  name: "Besonderheiten",
+                  required: true,
+                  usage: "REQUIRED",
+                  mode: "SELECTION_ONLY",
+                  cardinality: "MULTI",
+                  values: ["Wasserfest", "Randlos"],
+                },
+              ],
+            },
+            listing: {
+              category_fields_version: 4,
+              glasses_rules_version: 4,
+              title: "Mein Brillentitel",
+              description: "Mein Text",
+              eyewear_kind: "optical",
+              category_id: "123",
+              suggested_price: 30,
+              content_rules_version: 3,
+              item_specifics: { Gesamtbreite: "141 mm" },
+              eyewear: {
+                fields: {
+                  lensWidth: {
+                    value: "50",
+                    source: "label",
+                    quote: "50□18 140",
+                    photos: [1],
+                  },
+                },
+                warnings: [],
+              },
+              measurements:
+                "Scheibenhöhe: ca. 40 mm; Gesamtbreite: ca. 180 mm (unsicher)",
+              frontMeasurement: {
+                method: "front-photo-ratio-v1",
+                status: "uncertain",
+                photoIndex: 1,
+                referenceMm: 50,
+                referenceQuote: "50□18 140",
+                referencePhotos: [1],
+                lensWidthPx: 250,
+                lensHeightPx: 200,
+                totalWidthPx: 900,
+                lensHeightMm: 40,
+                totalWidthMm: 180,
+                reasons: ["Bügel liegen außerhalb der Messebene."],
+              },
+            },
+          },
+        ],
+        orphanIds: [],
+        binPrefix: "",
+        skuStart: 0,
+        step: "listings",
+        updatedAt: Date.now(),
+      },
+      "current",
+    );
+    await new Promise<void>((resolve) => {
+      tx.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+    });
+  }, picture);
+  await page.reload();
+  await expandUnpostedCards(page);
+  const open = async () => {
+    await page
+      .getByText("Aufdrucke & Maße", { exact: true })
+      .click();
+    const section = page.getByRole("region", {
+      name: "Pixelmaße aus Frontfoto",
+    });
+    await expect(section).toContainText("unsicher / nicht verfügbar");
+    await expect(section).toContainText("Scheibenhöhe: ca. 40 mm");
+    await expect(section).toContainText(
+      "Bügel liegen außerhalb der Messebene.",
+    );
+    await expect(section).toContainText("Referenz: Scheibenbreite 50 mm");
+  };
+  await open();
+  await expect(
+    page.getByRole("textbox", { name: "Glashöhe", exact: true }),
+  ).toHaveValue("40 mm");
+  await page.getByRole("textbox", { name: "Glashöhe", exact: true }).fill("");
+  await expect(
+    page.getByLabel("Besonderheiten: Auswahl bearbeiten"),
+  ).toContainText("Wasserfest");
+  await expect(
+    page.getByText(/Shop-Vorgabe bei leerem Feld: Wasserfest/),
+  ).toHaveCount(0);
+  await page.getByLabel("Besonderheiten: Auswahl bearbeiten").click();
+  await page
+    .getByRole("checkbox", { name: "Wasserfest", exact: true })
+    .uncheck();
+  await page.getByRole("checkbox", { name: "Randlos", exact: true }).check();
+  await page
+    .getByLabel("Geschätzte Maße", { exact: true })
+    .fill("Meine geprüfte Messnotiz");
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Auf diesem Gerät gespeichert" }),
+  ).toBeVisible();
+  await page.waitForTimeout(450);
+  await page.reload();
+  await expandUnpostedCards(page);
+  await open();
+  await expect(
+    page.getByRole("textbox", { name: "Glashöhe", exact: true }),
+  ).toHaveValue("");
+  await expect(page.getByLabel("Geschätzte Maße", { exact: true })).toHaveValue(
+    "Meine geprüfte Messnotiz",
+  );
+  const stored = await page.evaluate(
+    () =>
+      new Promise<any>((resolve) => {
+        const r = indexedDB.open("listing-writer-drafts");
+        r.onsuccess = () => {
+          const db = r.result;
+          const q = db
+            .transaction("workspace")
+            .objectStore("workspace")
+            .get("current");
+          q.onsuccess = () => {
+            resolve(q.result.groups[0]);
+            db.close();
+          };
+        };
+      }),
+  );
+  expect(stored.listing.item_specifics.Gesamtbreite).toBe("141 mm");
+  expect(stored.listing.item_specifics.Besonderheiten).toBe("Randlos");
+  expect(stored.listing.feature_defaults_version).toBe(1);
+  expect(stored.listing.title).toBe("Mein Brillentitel");
+  expect(stored.listing.frontMeasurement.status).toBe("uncertain");
+  expect(calls).toBe(0);
+  let measureCalls = 0;
+  await page.route("**/api/ai/measure", (r) => {
+    measureCalls++;
+    const b = r.request().postDataJSON();
+    expect(b.confirmed).toBe(true);
+    expect(b.photoIndex).toBe(1);
+    expect(b.model).toBe("gemini-3.5-flash-lite");
+    return r.fulfill({
+      json: {
+        ok: true,
+        measurement: { ...stored.listing.frontMeasurement, lensHeightMm: 41 },
+        usage: [],
+      },
+    });
+  });
+  await page.evaluate(() =>
+    localStorage.setItem(
+      "listing-writer:analysis-model",
+      "gemini-3.5-flash-lite",
+    ),
+  );
+  await page.reload();
+  await expandUnpostedCards(page);
+  await page
+    .getByText("Maße berechnen", { exact: true })
+    .click();
+  page.once("dialog", (d) => d.dismiss());
+  await page
+    .getByRole("button", {
+      name: "Nur Maße berechnen (kostenpflichtig)",
+      exact: true,
+    })
+    .click();
+  expect(measureCalls).toBe(0);
+  page.once("dialog", (d) => d.accept());
+  await page
+    .getByRole("button", {
+      name: "Nur Maße berechnen (kostenpflichtig)",
+      exact: true,
+    })
+    .click();
+  await expect.poll(() => measureCalls).toBe(1);
+  await expect(
+    page.getByRole("textbox", { name: "Glashöhe", exact: true }),
+  ).toHaveValue("");
+  await expect(page.locator(".title-input")).toHaveValue("Mein Brillentitel");
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Auf diesem Gerät gespeichert" }),
+  ).toBeVisible();
+  expect(calls).toBe(0);
+});
+
+test("unproven scale removes old automatic measurements without charging and preserves seller height",async({page})=>{
+ let calls=0;await page.route("**/api/ai/measure",r=>{calls++;return r.fulfill({json:{ok:false}})});
+ await setup(page);
+ await page.evaluate(async picture=>{
+  const db=await new Promise<IDBDatabase>(resolve=>{const r=indexedDB.open("listing-writer-drafts");r.onsuccess=()=>resolve(r.result)});
+  const tx=db.transaction("workspace","readwrite");
+  tx.objectStore("workspace").put({version:1,photos:[{id:"p1",mediaType:"image/png",previewUrl:picture,data:picture.split(",")[1]}],groups:[{id:"g1",sku:"65-23580",name:"Brille",photoIds:["p1"],evidencePhotoIds:["p1"],status:"done",preparation:{categoryId:"123",categoryName:"Brillen",signature:"test",expiresAt:Date.now()+3600000,conditions:[],issues:[],aspects:[]},listing:{title:"Test Brille",description:"Mein Text",eyewear_kind:"optical",category_id:"123",suggested_price:30,category_fields_version:4,glasses_rules_version:4,content_rules_version:3,item_specifics:{Glashöhe:"35 mm",Gesamtbreite:"179 mm"},manual_measurement_fields:["Glashöhe"],estimates:{Gesamtbreite:90},eyewear:{fields:{lensWidth:{value:"51",source:"label",quote:"Modell 51 CE",photos:[1]}},warnings:[]},frontMeasurement:{method:"front-photo-ratio-v1",status:"estimated",photoIndex:1,referenceMm:51,lensHeightMm:48,totalWidthMm:179,reasons:[]}}}],orphanIds:[],binPrefix:"",skuStart:0,step:"listings",updatedAt:Date.now()},"current");
+  await new Promise<void>(resolve=>{tx.oncomplete=()=>{db.close();resolve()}});
+ },picture);
+ await page.reload();await expandUnpostedCards(page);
+ await expect(page.getByLabel("Gesamtbreite manuell (mm)",{exact:true})).toHaveValue("");
+ await expect(page.getByLabel("Glashöhe manuell (mm)",{exact:true})).toHaveValue("35");
+ await expect(page.getByRole("region",{name:"Brillenmaße"})).toContainText("ohne Referenz keine Berechnung");
+ await page.reload();await expandUnpostedCards(page);
+ await expect(page.getByLabel("Gesamtbreite manuell (mm)",{exact:true})).toHaveValue("");expect(calls).toBe(0);
+});
+
+test("removes a stored 3 mm offset on reload, preserves manual width and spends nothing",async({page})=>{
+ let calls=0;await page.route("**/api/ai/measure",r=>{calls++;return r.fulfill({json:{ok:false}})});
+ await setup(page);
+ await page.evaluate(async picture=>{
+  const db=await new Promise<IDBDatabase>(resolve=>{const r=indexedDB.open("listing-writer-drafts");r.onsuccess=()=>resolve(r.result)});
+  const tx=db.transaction("workspace","readwrite");
+  tx.objectStore("workspace").put({version:1,photos:[1,2].map(i=>({id:`p${i}`,mediaType:"image/png",previewUrl:picture,data:picture.split(",")[1]})),groups:[false,true].map((manual,i)=>({id:`g${i}`,sku:`TEST-${i}`,name:"Brille",photoIds:[`p${i+1}`],evidencePhotoIds:[`p${i+1}`],status:"done",preparation:{categoryId:"123",categoryName:"Brillen",signature:"test",expiresAt:Date.now()+3600000,conditions:[],issues:[],aspects:[{name:"Rahmenbreite",mode:"FREE_TEXT",cardinality:"SINGLE",values:[],required:false}]},listing:{title:"Test Brille",description:"Mein Originaltext",eyewear_kind:"optical",category_id:"123",suggested_price:30,category_fields_version:4,glasses_rules_version:4,content_rules_version:3,item_specifics:{Rahmenbreite:manual ? "144 mm" : "138 mm"},manual_measurement_fields:manual ? ["Rahmenbreite"] : [],estimates:{Rahmenbreite:95},eyewear:{fields:{lensWidth:{value:"54",source:"manual"}},warnings:[]},frontMeasurement:{method:"front-photo-ratio-v1",status:"estimated",photoIndex:1,referenceMm:54,totalWidthMm:138,totalWidthCorrectionMm:3,reasons:[]}}})),orphanIds:[],binPrefix:"",skuStart:0,step:"listings",updatedAt:Date.now()},"current");
+  await new Promise<void>(resolve=>{tx.oncomplete=()=>{db.close();resolve()}});
+ },picture);
+ await page.reload();await expect(page.getByRole("heading",{name:"Deine Angebote",exact:true})).toBeVisible();if(await page.getByRole("button",{name:"Detailkarten",exact:true}).count()) await page.getByRole("button",{name:"Detailkarten",exact:true}).click();await expandUnpostedCards(page);
+ const widths=page.getByLabel("Gesamtbreite manuell (mm)",{exact:true});
+ await expect(widths.nth(0)).toHaveValue("141");await expect(widths.nth(1)).toHaveValue("144");
+ await expect(page.getByText(/pauschaler Testabzug/)).toHaveCount(0);
+ await expect(page.getByRole("status").filter({hasText:"Auf diesem Gerät gespeichert"})).toBeVisible();await page.reload();await expect(page.getByRole("heading",{name:"Deine Angebote",exact:true})).toBeVisible();if(await page.getByRole("button",{name:"Detailkarten",exact:true}).count()) await page.getByRole("button",{name:"Detailkarten",exact:true}).click();await expandUnpostedCards(page);
+ await expect(widths.nth(0)).toHaveValue("141");await expect(widths.nth(1)).toHaveValue("144");expect(calls).toBe(0);
+});
+test("recovers full box provenance and fills height and frame width from saved front contours without AI calls",async({page})=>{
+ let calls=0;await page.route("**/api/ai/measure",r=>{calls++;return r.fulfill({json:{ok:false}})});await setup(page);
+ await page.evaluate(async picture=>{
+ const db=await new Promise<IDBDatabase>(resolve=>{const r=indexedDB.open("listing-writer-drafts");r.onsuccess=()=>resolve(r.result)});const tx=db.transaction("workspace","readwrite");
+ const lens=(left:number,right:number)=>({left:{x:left,y:.38},right:{x:right,y:.38},top:{x:(left+right)/2,y:.2},bottom:{x:(left+right)/2,y:.56}});
+ tx.objectStore("workspace").put({version:1,photos:[{id:"p1",mediaType:"image/png",previewUrl:picture,data:picture.split(",")[1]}],groups:[{id:"g1",sku:"65-23582",name:"Brille",photoIds:["p1"],evidencePhotoIds:["p1"],status:"done",preparation:{categoryId:"123",categoryName:"Brillen",signature:"test",expiresAt:Date.now()+3600000,conditions:[],issues:[],aspects:["Glashöhe","Rahmenbreite"].map(name=>({name,mode:"FREE_TEXT",cardinality:"SINGLE",values:[],required:false}))},listing:{title:"Test Brille",description:"Original",size:"50-19",eyewear_kind:"optical",category_id:"123",suggested_price:30,category_fields_version:4,glasses_rules_version:4,content_rules_version:3,item_specifics:{},eyewear:{fields:{lensWidth:{value:"50",source:"label",quote:"50",photos:[1]},bridgeWidth:{value:"19",source:"label",quote:"50 □ 19",photos:[1]}},warnings:[]},frontMeasurement:{method:"front-photo-ratio-v1",status:"unavailable",photoIndex:1,reasons:["Belegte Glasbreite fehlt"],imageSize:{width:1000,height:500},observation:{photoIndex:1,leftLens:lens(.1,.4),rightLens:lens(.514,.814),outerLeft:{x:.05,y:.4},outerRight:{x:.864,y:.4},frontal:true,groovesVisible:true,complete:true,samePlane:true,confidence:90,note:""}}}}],orphanIds:[],binPrefix:"",skuStart:0,step:"listings",updatedAt:Date.now()},"current");await new Promise<void>(resolve=>{tx.oncomplete=()=>{db.close();resolve()}});
+ },picture);await page.reload();await expandUnpostedCards(page);
+ await expect(page.getByLabel("Glashöhe manuell (mm)",{exact:true})).toHaveValue("30");await expect(page.getByLabel("Gesamtbreite manuell (mm)",{exact:true})).toHaveValue("136");
+ await expect(page.getByRole("status").filter({hasText:"Auf diesem Gerät gespeichert"})).toBeVisible();await page.reload();await expandUnpostedCards(page);await expect(page.getByLabel("Gesamtbreite manuell (mm)",{exact:true})).toHaveValue("136");expect(calls).toBe(0);
+});
+test("saved caliper and millimetre grid measurements populate actual fields without a lens label or automatic charges",async({page})=>{
+ let calls=0;await page.route("**/api/ai/measure",r=>{calls++;return r.fulfill({json:{ok:false}})});await setup(page);
+ await page.evaluate(async picture=>{
+ const db=await new Promise<IDBDatabase>(resolve=>{const r=indexedDB.open("listing-writer-drafts");r.onsuccess=()=>resolve(r.result)});const tx=db.transaction("workspace","readwrite");const zero={x:0,y:0};
+ const common={photoIndex:1,reading:"",scaleMm:0,scaleStart:zero,scaleEnd:zero,start:zero,end:zero,readable:true,aligned:true,samePlane:true,confidence:95,note:"Ablesbares Messfoto",imageSize:{width:1600,height:1200}};
+ tx.objectStore("workspace").put({version:1,photos:[{id:"p1",mediaType:"image/png",previewUrl:picture,data:picture.split(",")[1]}],groups:[{id:"g1",sku:"65-23584",name:"Brille",photoIds:["p1"],evidencePhotoIds:["p1"],status:"done",preparation:{categoryId:"123",categoryName:"Brillen",signature:"test",expiresAt:Date.now()+3600000,conditions:[],issues:[],aspects:["Glashöhe","Rahmenbreite"].map(name=>({name,mode:"FREE_TEXT",cardinality:"SINGLE",values:[],required:false}))},listing:{title:"Test Brille",description:"Original",eyewear_kind:"optical",category_id:"123",suggested_price:30,category_fields_version:4,glasses_rules_version:4,content_rules_version:3,item_specifics:{},measurementPhotos:[{...common,dimension:"totalWidth",method:"caliper",reading:"144 mm"},{...common,dimension:"lensHeight",method:"grid",scaleMm:10,scaleStart:{x:.1,y:.1},scaleEnd:{x:.1,y:.2},start:{x:.5,y:.2},end:{x:.5,y:.48},note:"10 sichtbare 1-mm-Zellen"}]}}],orphanIds:[],binPrefix:"",skuStart:0,step:"listings",updatedAt:Date.now()},"current");await new Promise<void>(resolve=>{tx.oncomplete=()=>{db.close();resolve()}});
+ },picture);await page.reload();await expandUnpostedCards(page);await expect(page.getByLabel("Glashöhe manuell (mm)",{exact:true})).toHaveValue("28");await expect(page.getByLabel("Gesamtbreite manuell (mm)",{exact:true})).toHaveValue("144");await expect(page.getByText("Messfoto · Messschieber · prüfen")).toBeVisible();await expect(page.getByText("Messfoto · Millimeterpapier · prüfen")).toBeVisible();expect(calls).toBe(0);
+});
