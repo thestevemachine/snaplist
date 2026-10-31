@@ -35,3 +35,16 @@ User-confirmed approximately 37 mm height / 135 mm complete width; Kastenmaß 52
 | Complete width | ca. 135 mm | 135 mm | 0 mm |
 
 This is a development example, not a held-out validation sample. No fixed offset or target-matching correction was introduced. The noego example is still rejected (bridge 11.8 vs 19 mm). All 12 engine tests still pass. Automatic listing transfer remains disabled; one successful example is insufficient for release.
+
+## Third real example — Lindberg RUI 45, s-l1600.jpg (prototype v4, 2026-11-01)
+User explicitly confirmed that 37 mm height / 130 mm complete width were manually measured. Calibration: lens width 45 mm, bridge check 22 mm. Photo SHA256: `0f3812b8e838b41290d517d9308efc91904d2c9b87a3eca4d253ac96d8e1db66`.
+
+The bright silver bridge does not form a connected dark silhouette. Added Canny-gradient components and a separately checked left/right outer-component fallback. Reject contours touching the image edge; this caught a false table/background horizon. The fallback requires visible component continuity through the temporal lens boundary and remains explicitly provisional. It never derives full width from lens width plus bridge.
+
+| Independent dimension | Known | Predicted | Deviation |
+|---|---:|---:|---:|
+| Bridge | 22 mm | 23.8 mm | +1.8 mm |
+| Lens height | 37 mm | 37 mm | 0 mm |
+| Complete width | 130 mm | 128 mm | −2 mm |
+
+The pink 52–18 frame still produces 35 / 135 mm. The noego remains rejected for the 11.8 vs 19 mm bridge discrepancy. 12 automatic engine tests pass. On the two accepted development examples, mean absolute height error is 1 mm and complete-width error is 1 mm; worst observed error is 2 mm for each. This is NOT a representative or held-out accuracy claim: the algorithm was developed while viewing these examples, and one of three real examples is rejected. Automatic listing transfer remains disabled.
