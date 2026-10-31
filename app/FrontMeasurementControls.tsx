@@ -21,6 +21,7 @@ export function FrontMeasurementControls({
       "",
   );
   const [measurementPhoto,setMeasurementPhoto]=useState(false);
+  const [preview, setPreview] = useState<string>("");
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [preferredModel, setPreferredModel] = useState("");
@@ -32,7 +33,7 @@ export function FrontMeasurementControls({
     group.analysisModel ??
     group.usage?.find((u) => u.stage === "analysis")?.requestedModel ??
     preferredModel;
-  async function measure() {
+  async function measure(previewOnly = false) {
     if (
       !window.confirm(
         `Nur Maße mit ${model} kostenpflichtig berechnen? Ein vorhandenes Front- oder Messfoto wird analysiert. Titel, Beschreibung und manuelle Maße bleiben erhalten. Kein automatischer weiterer Versuch.`,
@@ -42,6 +43,7 @@ export function FrontMeasurementControls({
     const snapshot = latest.current.listing!;
     setBusy(true);
     setError("");
+    setPreview("");
     try {
       const saved = await loadPhoto(photoId);
       const photo = saved ?? photoById(photoId);
@@ -51,6 +53,7 @@ export function FrontMeasurementControls({
         );
       const response = await apiPost("/api/ai/measure", {
         confirmed: true,
+        diagnostics: previewOnly,
         measurementPhoto,
         model,
         photoIndex: group.photoIds.indexOf(photoId) + 1,
@@ -59,6 +62,10 @@ export function FrontMeasurementControls({
       });
       const data = await response.json();
       const usage = [...(latest.current.usage ?? []), ...(data.usage ?? [])];
+      if (previewOnly) {
+        setPreview(JSON.stringify({ measurement: data.measurement, diagnostics: data.diagnostics, usage: data.usage, error: data.error }, null, 2));
+        return;
+      }
       onEdit(group.id, { usage });
       if (!data.ok || !data.measurement)
         throw Error(data.error || "Keine Maßberechnung erhalten.");
@@ -137,12 +144,16 @@ export function FrontMeasurementControls({
           group.postStatus === "posted" ||
           group.postStatus === "posting"
         }
-        onClick={measure}
+        onClick={() => measure()}
       >
         {busy
           ? "Maße werden berechnet…"
           : "Nur Maße berechnen (kostenpflichtig)"}
       </button>
+      <button type="button" disabled={busy || !photoId || !model || group.postStatus === "posting"} onClick={() => measure(true)}>
+        Messvorschau testen · Entwurf unverändert
+      </button>
+      {preview && <pre aria-label="Ergebnis der Messvorschau" style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{preview}</pre>}
       {error && <p role="alert">{error}</p>}
     </details>
   );
