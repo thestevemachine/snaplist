@@ -66,4 +66,16 @@ class GradientRefinementTests(unittest.TestCase):
         seed={'box':(155,110,268,178),'contour':np.zeros((4,1,2),np.int32),'hole':False}
         self.assertIs(refine_opening(image,seed),seed)
 
+
+class RimlessHorizonTests(unittest.TestCase):
+    def test_visible_lower_glass_edge_not_table_horizon(self):
+        image=np.full((500,800,3),110,np.uint8);image[200:]=225
+        for centre in [(225,210),(565,210)]:
+            cv2.ellipse(image,centre,(125,100),0,0,360,(245,245,245),2)
+        cv2.line(image,(350,185),(440,185),(210,210,210),2)
+        _,data=cv2.imencode('.png',image)
+        result=measure(detect(data.tobytes()),REF,18)
+        self.assertIn('lensHeightMm',result['metrics'])
+        self.assertAlmostEqual(result['metrics']['lensHeightMm'],40,delta=3)
+
 if __name__=='__main__':unittest.main()
