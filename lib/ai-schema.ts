@@ -61,6 +61,7 @@ export const AI_LISTING_SCHEMA = {
   properties: {
     measurement_photos:{type:"array",items:measurementPhoto},
     front_geometry: frontGeometry,
+    front_geometry_alternatives: {type:"array",items:frontGeometry},
     eyewear_kind: {
       type: "string",
       enum: ["optical", "sunglasses", "uncertain", "not_eyewear"],
@@ -98,6 +99,7 @@ export const AI_LISTING_SCHEMA = {
   },
   required: [
     "front_geometry",
+    "front_geometry_alternatives",
     "measurement_photos",
     "eyewear_kind",
     "classification_note",

@@ -113,7 +113,7 @@ describe("front photo pixel ratios", () => {
     o.note = "Reflexion am Rand";
     const m = calculateFrontMeasurement(o, sizes, listing());
     expect(m.status).toBe("uncertain");
-    expect(m.reasons).toHaveLength(3);
+    expect(m.reasons).toHaveLength(4);
   });
   it.each([
     undefined,
@@ -352,4 +352,17 @@ it("distinguishes missing model output from invalid coordinates without blaming 
  expect(invalid.reasons.join(" ")).toContain("leftLens.top.x");
  expect(invalid.reasons.join(" ")).toContain("keinen Fehler am Foto");
  expect(invalid.lensHeightMm).toBeUndefined();expect(invalid.totalWidthMm).toBeUndefined();
+});
+
+it("selects independently observed alternative contours after a failed bridge cross-check",()=>{
+ const good=observation();const l=listing();l.eyewear!.fields.bridgeWidth={value:"40",source:"manual"};
+ const bad=observation();bad.leftLens.right.x=.45;bad.rightLens.left.x=.55;
+ const result=calculateFrontMeasurement([bad,good],sizes,l);
+ expect(result.status).toBe("estimated");expect(result.observation).toEqual(good);
+ expect(bad.leftLens.right.x).toBe(.45);
+});
+it("rejects asymmetric cheek spans from automatic acceptance",()=>{
+ const o=observation();o.outerLeft.x=.01;
+ const m=calculateFrontMeasurement(o,sizes,listing());
+ expect(m.status).toBe("uncertain");expect(m.reasons.some(r=>r.includes("Backe"))).toBe(true);
 });

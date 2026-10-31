@@ -376,7 +376,7 @@ async function handle(input: unknown) {
         if (isGlasses(listing)) {
           Object.assign(listing,boxSizePatch(listing,[]));
           listing.measurementPhotos=readMeasurementPhotos(raw.measurement_photos,imageSizes);
-          attachFrontMeasurement(listing, raw.front_geometry, imageSizes);
+          attachFrontMeasurement(listing, [raw.front_geometry,...(Array.isArray(raw.front_geometry_alternatives) ? raw.front_geometry_alternatives.slice(0,2) : [])], imageSizes);
         }
         listing = withSunglassesWidth(listing);
         // Same principle for the optional storewide markup: applied pre-review,

@@ -63,7 +63,7 @@ async function handlePOST(req: NextRequest) {
         getClient(body.model),
         {
           model: body.model,
-          max_tokens: 2600,
+          max_tokens: 5200,
           system: FRONT_MEASUREMENT_PROMPT,
           output_config: {
             format: {
@@ -73,9 +73,10 @@ async function handlePOST(req: NextRequest) {
                 additionalProperties: false,
                 properties: {
                   front_geometry: AI_LISTING_SCHEMA.properties.front_geometry,
+                  front_geometry_alternatives: AI_LISTING_SCHEMA.properties.front_geometry_alternatives,
                   measurement_photos: AI_LISTING_SCHEMA.properties.measurement_photos,
                 },
-                required: ["front_geometry","measurement_photos"],
+                required: ["front_geometry","front_geometry_alternatives","measurement_photos"],
               },
             },
           },
@@ -96,10 +97,10 @@ async function handlePOST(req: NextRequest) {
       );
       const block = response.content.find((b) => b.type === "text");
       if (!block || block.type !== "text") throw Error();
-      const raw = parseModelJson<{ front_geometry: unknown;measurement_photos?:unknown }>(block.text);
+      const raw = parseModelJson<{ front_geometry: unknown;front_geometry_alternatives?:unknown;measurement_photos?:unknown }>(block.text);
       const photoMeasurements=readMeasurementPhotos(raw.measurement_photos,[imageSize(body.image.data)]).map(m=>({...m,photoIndex:body.photoIndex}));
       const measurement = calculateFrontMeasurement(
-        raw.front_geometry,
+        [raw.front_geometry,...(Array.isArray(raw.front_geometry_alternatives) ? raw.front_geometry_alternatives.slice(0,2) : [])],
         [imageSize(body.image.data)],
         {...listing,measurementPhotos:[...(listing.measurementPhotos ?? []).filter(m=>m.photoIndex!==body.photoIndex),...photoMeasurements]},
       );
