@@ -1,3 +1,4 @@
+import {calculateFrontMeasurement} from "@/lib/front-measurements";
 import { expect, it } from "vitest";
 import { frontMeasurementFields } from "@/lib/front-measurement-fields";
 import { parseListing } from "@/lib/validation";
@@ -119,4 +120,14 @@ it("keeps a perspective-uncertain total width for seller review and preserves ma
 it("never projects cached geometry results without a valid current reference",()=>{
  const l=listing();delete l.eyewear;
  expect(frontMeasurementFields(l,meta)).toBeUndefined();
+});
+
+it("transfers the real noego contour response as an approximate height and frame width",()=>{
+ const l={...listing(),eyewear:{fields:{lensWidth:{value:"50",source:"manual" as const},bridgeWidth:{value:"19",source:"manual" as const}},warnings:[]},item_specifics:{}};
+ const g={photoIndex:1,leftLens:{left:{x:.118,y:.4195},right:{x:.443,y:.4195},top:{x:.231,y:.2952},bottom:{x:.278,y:.678}},rightLens:{left:{x:.548,y:.4195},right:{x:.88,y:.4195},top:{x:.777,y:.3013},bottom:{x:.717,y:.6811}},outerLeft:{x:.042,y:.3844},outerRight:{x:.963,y:.3844},frontal:true,groovesVisible:true,complete:true,samePlane:true,confidence:95,note:""};
+ const m=calculateFrontMeasurement(g,[{width:4032,height:3024}],l);
+ expect(m.status).toBe("uncertain");
+ expect(m.lensHeightMm).toBe(44);expect(m.totalWidthMm).toBe(140);
+ const patch=frontMeasurementFields({...l,frontMeasurement:m},meta)!;
+ expect(patch.item_specifics).toEqual({Glashöhe:"44 mm",Rahmenbreite:"140 mm"});
 });

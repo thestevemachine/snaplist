@@ -1,3 +1,4 @@
+import {singlePhotoGeometrySchema} from "@/lib/ai-output-schema";
 import {readMeasurementPhotos} from "@/lib/measurement-photos";
 import {lensReference} from "@/lib/lens-reference";
 import {withAccount} from "@/lib/accounts/server";
@@ -73,8 +74,8 @@ async function handlePOST(req: NextRequest) {
                 type: "object",
                 additionalProperties: false,
                 properties: {
-                  front_geometry: AI_LISTING_SCHEMA.properties.front_geometry,
-                  front_geometry_alternatives: AI_LISTING_SCHEMA.properties.front_geometry_alternatives,
+                  front_geometry: singlePhotoGeometrySchema(AI_LISTING_SCHEMA.properties.front_geometry),
+                  front_geometry_alternatives: {type:"array",items:singlePhotoGeometrySchema(AI_LISTING_SCHEMA.properties.front_geometry)},
                   measurement_photos: AI_LISTING_SCHEMA.properties.measurement_photos,
                 },
                 required: ["front_geometry","front_geometry_alternatives","measurement_photos"],

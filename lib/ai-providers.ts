@@ -1,3 +1,4 @@
+import {geminiOutputSchema} from "./ai-output-schema";
 import {accountsEnabled,providerKey} from "./accounts/context";
 // Server-only provider adapters. Reuse the existing image/prompt/schema pipeline.
 import "node:crypto";
@@ -174,7 +175,7 @@ export async function providerMessage(
       generationConfig: {
         maxOutputTokens: params.max_tokens,
         responseMimeType: "application/json",
-        ...(schema ? { responseJsonSchema: schema } : {}),
+        ...(schema ? { responseJsonSchema: geminiOutputSchema(schema) } : {}),
       },
     };
   }

@@ -119,7 +119,9 @@ it("maps Gemini image bytes and schema and authenticates outside the URL", async
   expect(url).not.toContain("private");
   expect(init.headers["x-goog-api-key"]).toBe("private-google-key");
   expect(body.contents[0].parts[0].inlineData.data).toBe("AAAA");
-  expect(body.generationConfig.responseJsonSchema).toEqual(AI_LISTING_SCHEMA);
+  expect(body.generationConfig.responseJsonSchema.properties.front_geometry.properties.leftLens.properties.left.properties.x).toMatchObject({minimum:0,maximum:1});
+  expect(body.generationConfig.responseJsonSchema.properties.front_geometry.properties.confidence).toMatchObject({type:"integer",minimum:0,maximum:100});
+  expect(AI_LISTING_SCHEMA.properties.front_geometry.properties.confidence.type).toBe("number");
   expect(message.usage.input_tokens).toBe(80);
   expect(message.usage.output_tokens).toBe(40);
   expect(message.reasoningTokens).toBe(10);
