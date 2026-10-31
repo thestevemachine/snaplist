@@ -47,4 +47,23 @@ class MeasurementTests(unittest.TestCase):
         cv2.line(image,(350,180),(440,180),(20,20,20),12)
         _,data=cv2.imencode('.png',image)
         self.assertIsNotNone(detect(data.tobytes())['points'])
+
+class GradientRefinementTests(unittest.TestCase):
+    def test_refines_visible_ellipse_instead_of_rear_temple_extent(self):
+        from engine import refine_opening
+        image=np.full((400,600,3),110,np.uint8)
+        cv2.line(image,(145,165),(210,90),(60,90,100),4)
+        cv2.ellipse(image,(300,200),(120,85),0,0,360,(245,245,245),3)
+        contour=np.array([[[155,200]],[[300,110]],[[423,200]],[[300,288]]],np.int32)
+        result=refine_opening(image,{'box':(155,110,268,178),'contour':contour,'hole':True})
+        x,y,w,h=result['box']
+        self.assertAlmostEqual(w,240,delta=8)
+        self.assertAlmostEqual(h,170,delta=8)
+        self.assertGreaterEqual(result['edgeSupport'],.7)
+    def test_no_edge_evidence_preserves_seed_without_inventing_points(self):
+        from engine import refine_opening
+        image=np.full((400,600,3),110,np.uint8)
+        seed={'box':(155,110,268,178),'contour':np.zeros((4,1,2),np.int32),'hole':False}
+        self.assertIs(refine_opening(image,seed),seed)
+
 if __name__=='__main__':unittest.main()
