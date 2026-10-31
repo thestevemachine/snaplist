@@ -2,7 +2,7 @@
 import hashlib, math
 import cv2
 import numpy as np
-VERSION = 'opencv-boxing-prototype-v3'
+VERSION = 'opencv-boxing-prototype-v4'
 
 def decode(data):
     image=cv2.imdecode(np.frombuffer(data,np.uint8),cv2.IMREAD_COLOR)
@@ -56,21 +56,56 @@ def detect(data):
     gray=cv2.cvtColor(im,cv2.COLOR_BGR2GRAY); outer=[]
     hsv=cv2.cvtColor(im,cv2.COLOR_BGR2HSV)
     coloured=cv2.inRange(hsv,np.array([0,70,30]),np.array([179,255,255]))
-    for t in (45,65,85,105):
-        dark=cv2.threshold(gray,t,255,cv2.THRESH_BINARY_INV)[1]
-        mask=cv2.bitwise_or(dark,coloured)
+    outer_masks=[cv2.bitwise_or(cv2.threshold(gray,t,255,cv2.THRESH_BINARY_INV)[1],coloured) for t in (45,65,85,105)]
+    # Silver bridges and hinges may be brighter than the background. Their
+    # gradient edges connect the two rims even when a dark mask cannot.
+    for low,high in ((30,90),(60,140)):
+        edges=cv2.Canny(gray,low,high)
+        # A table/background horizon can join the frame to the image border.
+        # Remove long horizontal background strokes before connecting frame edges.
+        lines=cv2.HoughLinesP(edges,1,np.pi/180,80,minLineLength=int(w*.23),maxLineGap=8)
+        if lines is not None:
+            for line in lines[:,0]:
+                x1,y1,x2,y2=map(int,line)
+                if abs(y2-y1)<3:cv2.line(edges,(x1,y1),(x2,y2),0,3)
+        outer_masks.append(cv2.bitwise_or(edges,coloured))
+    for mask in outer_masks:
         mask=cv2.morphologyEx(mask,cv2.MORPH_CLOSE,np.ones((3,3),np.uint8))
         mask[:top]=0;mask[bottom:]=0
         contours,_=cv2.findContours(mask,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
         for c in contours:
             ox,oy,ow,oh=cv2.boundingRect(c)
-            if ox<x and ox+ow>xx+bw and .5*w<ow<.99*w and oh>.5*max(ah,bh):outer.append(c)
+            if 2<ox<x and xx+bw<ox+ow<w-2 and .5*w<ow<.99*w and oh>.5*max(ah,bh):outer.append(c)
     reasons=[]
     if outer:
         c=max(outer,key=lambda c:cv2.boundingRect(c)[2]);pts=c.reshape(-1,2)
         for name,idx in [('outer_left',np.argmin(pts[:,0])),('outer_right',np.argmax(pts[:,0]))]:
             p=pts[idx];points[name]=[float(p[0]/w),float(p[1]/h)]
-    else: reasons.append('Äußerste Fassungsgrenzen nicht geschlossen erkennbar; Gesamtbreite fehlt.')
+    else:
+        # Disconnected silver bridge: measure each temple/rim component separately
+        # in the upper lens band, away from the horizontal table boundary.
+        band_top=max(0,min(y,yy)+int(.08*max(ah,bh)))
+        band_bottom=min(h,min(y,yy)+int(.48*max(ah,bh)))
+        edge=cv2.Canny(gray,35,100)
+        extrema=[]
+        for side,lo,hi,touch in [('left',0,x+int(aw*.18),x),('right',xx+bw-int(bw*.18),w,xx+bw)]:
+            mask=np.zeros_like(edge);mask[band_top:band_bottom,lo:hi]=edge[band_top:band_bottom,lo:hi]
+            mask=cv2.morphologyEx(mask,cv2.MORPH_CLOSE,np.ones((3,3),np.uint8))
+            count,labels,stats,_=cv2.connectedComponentsWithStats(mask)
+            options=[]
+            for k in range(1,count):
+                ox,oy,ow,oh,area=stats[k]
+                if ox<=2 or ox+ow>=w-2 or oh<max(8,.1*max(ah,bh)):continue
+                if side=='left' and ox<touch and ox+ow>touch:options.append(k)
+                if side=='right' and ox<touch and ox+ow>touch:options.append(k)
+            if options:
+                k=max(options,key=lambda k:stats[k,4]);ys,xs=np.where(labels==k)
+                index=np.argmin(xs) if side=='left' else np.argmax(xs)
+                extrema.append((side,[float(xs[index]/w),float(ys[index]/h)]))
+        if len(extrema)==2:
+            for side,p in extrema:points['outer_'+side]=p
+            reasons.append('Getrennte äußere Konturen: Scharniere und Bügelenden visuell prüfen.')
+        else:reasons.append('Äußerste Fassungsgrenzen nicht geschlossen erkennbar; Gesamtbreite fehlt.')
     if not(a['hole'] and b['hole']):reasons.append('Glaskanten können Fassungsränder sein; prüfen.')
     reasons.append('Symmetrie allein beweist keine unverzerrte Perspektive. Vorläufig, keine Listing-Übernahme.')
     return {'version':VERSION,'status':'preliminary','points':points,'reasons':reasons,'rank':round(score,4),'size':[w,h],'closedOpenings':a['hole'] and b['hole']}
