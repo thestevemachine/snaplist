@@ -74,3 +74,18 @@ SHA256 `6575f6a7c7394a56c0d81771352adfbdc9b817a2eb64d60ecbfe429369aa4af9`. Exist
 | Complete width | 124 mm | 114 mm | −10 mm |
 
 This does not meet the ±2 mm target. The independent bridge and lens-symmetry tests passed despite incorrect temporal lens boundaries; a bridge check alone cannot establish accurate contour detection. Candidate inspection shows rear-temple/frame contours extending into the opening bounding boxes. No new algorithm tuning or target-based correction was applied. The automatic listing transfer remains disabled. Confirm the screenshot dimensions were independently measured before treating them as ground truth.
+
+## Gradient refinement after manual confirmation — prototype v6
+The user explicitly confirmed the blue Lindberg values 39 / 124 mm were measured. Retained the v5 failure above as the unmodified baseline. Added a classical-CV radial gradient path around each candidate opening: Sobel image evidence plus angular continuity, rather than trusting the entire threshold component (which can include rear temples). No physical target measurements are passed to this refinement. Fewer than 70% supported angular samples leaves the seed unchanged; no invented edge points. Algorithm version changes the cache key.
+
+All confirmed development examples rerun:
+
+| Photo | Calibration / bridge check | Manual height / width | v6 height / width | Error height / width |
+|---|---|---|---|---|
+| Pink IMG_7769 | 52 / 18 mm | ca. 37 / 135 mm | 37 / 134 mm | 0 / −1 mm |
+| Red Lindberg RUI | 45 / 22 mm | 37 / 130 mm | 36 / 129 mm | −1 / −1 mm |
+| Blue Lindberg 076 | 46 / 17 mm | 39 / 124 mm | 37 / 124 mm | −2 / 0 mm |
+
+Mean absolute errors on these three development examples: height 1 mm, width 0.67 mm. Maximum observed height error 2 mm, width 1 mm. The noego now yields candidate 40 / 144 mm with a 20.6 vs 19 mm bridge check; its height/width remain unconfirmed, so it is NOT counted as an accuracy success. All samples were seen during development; independent validation and rimless/semi-rimless coverage are still outstanding. No auto-transfer enabled.
+
+14 automatic tests pass, including a synthetic front ellipse with a rear-temple extension and a no-edge blank-input test. The visible overlay now labels provisional mm values on the projection lines and hides stale values while points are being edited. Headless Chrome verified the actual blue-photo response (37 / 124), point correction, persistence and cached restoration. No model/API call is required for this measurement.
