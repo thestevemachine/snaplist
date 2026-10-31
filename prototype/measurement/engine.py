@@ -2,7 +2,7 @@
 import hashlib, math
 import cv2
 import numpy as np
-VERSION = 'opencv-boxing-prototype-v5'
+VERSION = 'opencv-boxing-prototype-v6'
 
 def decode(data):
     image=cv2.imdecode(np.frombuffer(data,np.uint8),cv2.IMREAD_COLOR)
@@ -36,6 +36,38 @@ def candidates(image):
             found.append({'box':(x,y,bw,bh),'contour':c,'hole':bool(hierarchy[0][i][3]>=0)})
     return found
 
+def refine_opening(image,candidate):
+    """Follow a coherent radial image edge; never use physical target dimensions.
+
+    The binary mask is only a seed. Rear temples can merge into it; a continuous
+    gradient path around the opening is better evidence than its bounding box.
+    """
+    gray=cv2.GaussianBlur(cv2.cvtColor(image,cv2.COLOR_BGR2GRAY),(3,3),0).astype(np.float32)
+    gx=cv2.Sobel(gray,cv2.CV_32F,1,0,ksize=3);gy=cv2.Sobel(gray,cv2.CV_32F,0,1,ksize=3)
+    x,y,w,h=candidate['box'];cx=x+w/2;cy=y+h/2
+    theta=np.linspace(0,2*np.pi,180,endpoint=False);rho=np.linspace(.68,1.12,89)
+    xs=cx+np.cos(theta[:,None])*w/2*rho;ys=cy+np.sin(theta[:,None])*h/2*rho
+    dx=cv2.remap(gx,xs.astype(np.float32),ys.astype(np.float32),cv2.INTER_LINEAR)
+    dy=cv2.remap(gy,xs.astype(np.float32),ys.astype(np.float32),cv2.INTER_LINEAR)
+    strength=np.abs(dx*np.cos(theta[:,None])+dy*np.sin(theta[:,None]))
+    # Smooth angular continuity rejects isolated reflections/background horizons.
+    strength=np.minimum(strength,180)/180
+    cost=-strength+0.15*(rho[None,:]-1)**2
+    tiled=np.tile(cost,(3,1));dp=np.zeros(len(rho));back=[]
+    transitions=(np.arange(len(rho))[:,None]-np.arange(len(rho))[None,:])**2*.025
+    transitions[transitions>1.6]=1e6
+    for row in tiled:
+        paths=dp[:,None]+transitions;prev=paths.argmin(axis=0)
+        dp=row+paths[prev,np.arange(len(rho))];back.append(prev)
+    path=[];state=int(dp.argmin())
+    for previous in reversed(back):path.append(state);state=int(previous[state])
+    path=np.array(path[::-1])[180:360]
+    support=strength[np.arange(180),path]
+    if np.mean(support>.12)<.7:return candidate
+    points=np.stack([xs[np.arange(180),path],ys[np.arange(180),path]],axis=-1)
+    contour=np.rint(points).astype(np.int32).reshape(-1,1,2)
+    return {**candidate,'contour':contour,'box':cv2.boundingRect(contour),'edgeSupport':float(np.mean(support>.12))}
+
 def detect(data):
     im=decode(data);h,w=im.shape[:2]; cs=candidates(im); pairs=[]
     for a in cs:
@@ -49,7 +81,7 @@ def detect(data):
             score=(aw*bw)**.5/w - wd-hd-dy + .1*(a['hole']+b['hole'])
             pairs.append((score,a,b))
     if not pairs:return {'version':VERSION,'status':'unavailable','reasons':['Keine zwei geschlossenen Glasöffnungen gefunden. Randlose, Halbrand- oder verdeckte Konturen bitte manuell markieren.'],'points':None,'rank':-1}
-    score,a,b=max(pairs,key=lambda p:p[0]); points={}
+    score,a,b=max(pairs,key=lambda p:p[0]);a=refine_opening(im,a);b=refine_opening(im,b); points={}
     for name,c in [('left',a),('right',b)]:
         pts=c['contour'].reshape(-1,2)
         for axis,idx in [('left',np.argmin(pts[:,0])),('right',np.argmax(pts[:,0])),('top',np.argmin(pts[:,1])),('bottom',np.argmax(pts[:,1]))]:
