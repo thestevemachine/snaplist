@@ -48,3 +48,18 @@ The bright silver bridge does not form a connected dark silhouette. Added Canny-
 | Complete width | 130 mm | 128 mm | −2 mm |
 
 The pink 52–18 frame still produces 35 / 135 mm. The noego remains rejected for the 11.8 vs 19 mm bridge discrepancy. 12 automatic engine tests pass. On the two accepted development examples, mean absolute height error is 1 mm and complete-width error is 1 mm; worst observed error is 2 mm for each. This is NOT a representative or held-out accuracy claim: the algorithm was developed while viewing these examples, and one of three real examples is rejected. Automatic listing transfer remains disabled.
+
+## Review of supplied Python code — 2026-11-01
+Reviewed the complete pasted code. Reused its Otsu threshold plus 3×3 morphological closing as an additional contour candidate in prototype v5. Existing Gaussian blur and contour hierarchy already use the same basic OpenCV building blocks. Otsu is not a guarantee of a correct frame segmentation. The new candidate does not change results on the three current real images; all 12 tests still pass.
+
+The supplied script's measurement function was also run unchanged with the independently supplied reference widths injected instead of OCR. OCR itself was NOT tested; no extra OCR dependency or paid AI request was installed/called. Output-image writes were disabled for this comparison.
+
+| Photo | Supplied function: height / width | Current prototype: height / width | Manual comparison |
+|---|---|---|---|
+| Pink 52–18 | 18.1 / 179.2 mm | 35 / 135 mm | ca. 37 / 135 mm |
+| Lindberg 45–22 | 18.3 / 155.5 mm | 37 / 128 mm | 37 / 130 mm |
+| noego 50–19 | 21.0 / 166.7 mm | rejected | height/width unconfirmed |
+
+Not adopted: treating the largest contour as the frame (can select background), using only one child contour as a lens, and the hardcoded fallback `lensWidthPx=frameWidthPx*0.39` / `lensHeightPx=frameHeightPx*0.85`. These can produce plausible numbers without observed glass boundaries and violate the no-invented-measurement rule. Its OCR regex also needs full Kastenmaß separators (including □ and []), plausible ranges, provenance and ambiguity checks before it could replace the already available Gemini text extraction. For now the lab continues reusing existing reference evidence, which avoids another OCR stage and calls.
+
+The user's accepted target is approximately ±2 mm for height and complete width. Current two accepted development examples meet that observed error, but this is not independent validation; the noego rejection remains unresolved.
