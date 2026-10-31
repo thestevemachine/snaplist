@@ -78,4 +78,12 @@ class RimlessHorizonTests(unittest.TestCase):
         self.assertIn('lensHeightMm',result['metrics'])
         self.assertAlmostEqual(result['metrics']['lensHeightMm'],40,delta=3)
 
+
+class ResolutionTests(unittest.TestCase):
+    def test_thumbnail_is_explicitly_rejected(self):
+        _,data=cv2.imencode('.png',np.full((105,140,3),255,np.uint8))
+        result=detect(data.tobytes())
+        self.assertEqual(result['status'],'unavailable')
+        self.assertIn('Bildauflösung',result['reasons'][0])
+
 if __name__=='__main__':unittest.main()
