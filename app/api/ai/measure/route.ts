@@ -20,6 +20,7 @@ export const runtime = "nodejs";
 export const maxDuration = 90;
 const requestSchema = z.object({
   confirmed: z.literal(true),
+  diagnostics: z.boolean().optional(),
   measurementPhoto:z.boolean().optional(),
   model: z.string(),
   photoIndex: z.number().int().min(1).max(24),
@@ -107,7 +108,17 @@ async function handlePOST(req: NextRequest) {
       measurement.photoIndex = body.photoIndex;
       if (measurement.observation)
         measurement.observation.photoIndex = body.photoIndex;
-      return { ok: true, measurement,measurementPhotos:photoMeasurements };
+      const diagnostics = body.diagnostics ? [raw.front_geometry,...(Array.isArray(raw.front_geometry_alternatives) ? raw.front_geometry_alternatives.slice(0,2) : [])].map(geometry => {
+        const g = geometry as Record<string, any> | null;
+        return Object.fromEntries(["leftLens.left","leftLens.right","leftLens.top","leftLens.bottom","rightLens.left","rightLens.right","rightLens.top","rightLens.bottom","outerLeft","outerRight"].map(path => {
+          const point = path.split(".").reduce((value, key) => value && typeof value === "object" ? value[key] : undefined, g as any);
+          return [path, Object.fromEntries(["x","y"].map(axis => {
+            const value = point?.[axis];
+            return [axis, typeof value === "number" ? value : typeof value === "string" ? value.slice(0,40) : null];
+          }))];
+        }));
+      }) : undefined;
+      return { ok: true, measurement,measurementPhotos:photoMeasurements,diagnostics };
     } catch (e) {
       return {
         ok: false,
