@@ -2,7 +2,7 @@
 import hashlib, math
 import cv2
 import numpy as np
-VERSION = 'opencv-boxing-prototype-v4'
+VERSION = 'opencv-boxing-prototype-v5'
 
 def decode(data):
     image=cv2.imdecode(np.frombuffer(data,np.uint8),cv2.IMREAD_COLOR)
@@ -16,6 +16,10 @@ def candidates(image):
     h,w=gray.shape; found=[]
     # Multiple thresholds, plus Canny. Retain actual closed contours, not guessed boxes.
     masks=[cv2.threshold(gray,t,255,cv2.THRESH_BINARY_INV)[1] for t in (45,65,85,105,125,145,165)]
+    # Additional adaptive candidate from the supplied prototype. Otsu selects
+    # a threshold; it is not evidence that the resulting contour is a lens.
+    otsu=cv2.threshold(gray,0,255,cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)[1]
+    masks.append(cv2.morphologyEx(otsu,cv2.MORPH_CLOSE,np.ones((3,3),np.uint8)))
     masks += [cv2.Canny(gray,40,110),cv2.Canny(gray,75,160)]
     # Coloured rims can disappear in grayscale against a gray background.
     # Saturation separates their actual frame band from transparent openings.
