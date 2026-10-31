@@ -89,3 +89,16 @@ All confirmed development examples rerun:
 Mean absolute errors on these three development examples: height 1 mm, width 0.67 mm. Maximum observed height error 2 mm, width 1 mm. The noego now yields candidate 40 / 144 mm with a 20.6 vs 19 mm bridge check; its height/width remain unconfirmed, so it is NOT counted as an accuracy success. All samples were seen during development; independent validation and rimless/semi-rimless coverage are still outstanding. No auto-transfer enabled.
 
 14 automatic tests pass, including a synthetic front ellipse with a rear-temple extension and a no-edge blank-input test. The visible overlay now labels provisional mm values on the projection lines and hides stale values while points are being edited. Headless Chrome verified the actual blue-photo response (37 / 124), point correction, persistence and cached restoration. No model/API call is required for this measurement.
+
+## Unseen rimless Lindberg Spirit — 2026-11-01
+Photo `s-l1600-2.jpg`, SHA256 `f3a0a0a6c4db0a57f1f1fea529adbc87986dd179a96b7526d492349bc98a464c`. Screenshot comparison: 53–18, height 42 mm, width 137 mm. Independent manual confirmation for this example is pending.
+
+Frozen v6 before tuning returned 24 / 129 mm (errors −18 / −8 mm vs screenshot). It followed the background/table horizon, not the lower glass boundary. V7 adds low-contrast CLAHE/Canny candidates and marks candidate boundaries coinciding with a common horizon visible at both image margins as incomplete. Search expanded visible edge paths above/below that horizon, choosing by image gradient support, never the target physical height. Added an automatic synthetic transparent-lens/table-horizon regression test.
+
+| Dimension | Screenshot | v7 | Difference |
+|---|---:|---:|---:|
+| Bridge | 18 mm | 18.3 mm | +0.3 mm |
+| Height | 42 mm | 41 mm | −1 mm |
+| Complete width | 137 mm | 132 mm | −5 mm |
+
+This width still fails the ±2 mm target. The outer image points are provisional and no fixed offset or target-dependent correction was added. Symmetry and bridge agreement do not resolve the discrepancy or prove a coplanar 3D frame. All outputs remain provisional and automatic listing transfer is disabled. V7 passes 15 automatic tests. Red and blue full-rim Lindberg examples remain 36/129 and 37/124 mm respectively. The earlier pink/noego original local paths were no longer available during this iteration, so they were not rerun and are not claimed as revalidated for v7.
