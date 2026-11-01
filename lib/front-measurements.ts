@@ -1,3 +1,4 @@
+import {cvRecordSchema,cvMeasurement} from "./cv-measurement";
 import {MEASUREMENT_PHOTO_PROMPT} from "./measurement-photos";
 import {lensReference} from "./lens-reference";
 import { isSunglasses } from "./category-selection";
@@ -29,7 +30,8 @@ export const frontObservationSchema = z.object({
 });
 export type FrontObservation = z.infer<typeof frontObservationSchema>;
 export const frontMeasurementSchema = z.object({
-  method: z.literal("front-photo-ratio-v1"),
+  method: z.enum(["front-photo-ratio-v1", "opencv-boxing-v1"]),
+  cv: cvRecordSchema.optional(),
   status: z.enum(["estimated", "uncertain", "unavailable"]),
   photoIndex: z.number().int().min(0).max(24),
   imageSize: z.object({width:z.number().positive(),height:z.number().positive()}).optional(),
@@ -282,6 +284,7 @@ export function withSunglassesWidth(listing: ListingResult): ListingResult {
 export function recalculateStoredMeasurement(listing: ListingResult): FrontMeasurement | undefined {
  const m=listing.frontMeasurement,o=m?.observation;
  if(!m) return;
+ if(m.cv)return cvMeasurement(m.cv,listing,m.photoIndex);
  if(!lensReference(listing)) return {method:"front-photo-ratio-v1",status:"unavailable",photoIndex:m.photoIndex,reasons:["Belegte Glasbreite fehlt. Glasbreite manuell eintragen oder Aufdruck prüfen."],observation:o,imageSize:m.imageSize} as FrontMeasurement;
  if(!o || !o.photoIndex) return;
  let size=m.imageSize;

@@ -6,6 +6,13 @@ const isProd =
   process.env.VERCEL_ENV === "production";
 
 export function middleware(request: NextRequest) {
+  // Emscripten generates bindings dynamically. Permit this only inside the
+  // isolated local-image worker, which has no network or credential access.
+  if(request.nextUrl.pathname === '/cv/worker.js') {
+    const response=NextResponse.next();
+    response.headers.set('Content-Security-Policy', "default-src 'none'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; connect-src 'none'");
+    return response;
+  }
   // Fresh nonce for every HTML response. Buffer is polyfilled by Next.js for
   // the Edge runtime; crypto.randomUUID() is part of the Web Crypto API.
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");

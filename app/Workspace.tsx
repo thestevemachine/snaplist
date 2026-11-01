@@ -1113,973 +1113,691 @@ export default function Home() {
       try {
         // A changed display SKU must not hide an earlier successful request.
         // Resolve the original SKU first; never rotate the publication identity.
-        i…60565 tokens truncated…Pmlzr4YBe7uyE+Du4oVqTDXZSHGGGXRtTJEGSSePyQCMBglQ==",
-      "license": "MIT",
-      "dependencies": {
-        "scheduler": "^0.27.0"
-      },
-      "peerDependencies": {
-        "react": "^19.2.8"
-      }
-    },
-    "node_modules/require-directory": {
-      "version": "2.1.1",
-      "resolved": "https://registry.npmjs.org/require-directory/-/require-directory-2.1.1.tgz",
-      "integrity": "sha512-fGxEI7+wsG9xrvdjsrlmL22OMTTiHRwAMroiEeMgq8gzoLC/PQr7RsRDSTLUg/bZAZtF+TVIkHc6/4RIKrui+Q==",
-      "license": "MIT",
-      "engines": {
-        "node": ">=0.10.0"
-      }
-    },
-    "node_modules/require-in-the-middle": {
-      "version": "8.0.1",
-      "resolved": "https://registry.npmjs.org/require-in-the-middle/-/require-in-the-middle-8.0.1.tgz",
-      "integrity": "sha512-QT7FVMXfWOYFbeRBF6nu+I6tr2Tf3u0q8RIEjNob/heKY/nh7drD/k7eeMFmSQgnTtCzLDcCu/XEnpW2wk4xCQ==",
-      "license": "MIT",
-      "dependencies": {
-        "debug": "^4.3.5",
-        "module-details-from-path": "^1.0.3"
-      },
-      "engines": {
-        "node": ">=9.3.0 || >=8.10.0 <9.0.0"
-      }
-    },
-    "node_modules/resolve": {
-      "version": "1.22.12",
-      "resolved": "https://registry.npmjs.org/resolve/-/resolve-1.22.12.tgz",
-      "integrity": "sha512-TyeJ1zif53BPfHootBGwPRYT1RUt6oGWsaQr8UyZW/eAm9bKoijtvruSDEmZHm92CwS9nj7/fWttqPCgzep8CA==",
-      "license": "MIT",
-      "dependencies": {
-        "es-errors": "^1.3.0",
-        "is-core-module": "^2.16.1",
-        "path-parse": "^1.0.7",
-        "supports-preserve-symlinks-flag": "^1.0.0"
-      },
-      "bin": {
-        "resolve": "bin/resolve"
-      },
-      "engines": {
-        "node": ">= 0.4"
-      },
-      "funding": {
-        "url": "https://github.com/sponsors/ljharb"
-      }
-    },
-    "node_modules/rimraf": {
-      "version": "5.0.10",
-      "resolved": "https://registry.npmjs.org/rimraf/-/rimraf-5.0.10.tgz",
-      "integrity": "sha512-l0OE8wL34P4nJH/H2ffoaniAokM2qSmrtXHmlpvYr5AVVX8msAyW0l8NVJFDxlSK4u3Uh/f41cQheDVdnYijwQ==",
-      "license": "ISC",
-      "dependencies": {
-        "glob": "^10.3.7"
-      },
-      "bin": {
-        "rimraf": "dist/esm/bin.mjs"
-      },
-      "funding": {
-        "url": "https://github.com/sponsors/isaacs"
-      }
-    },
-    "node_modules/rolldown": {
-      "version": "1.2.7",
-      "resolved": "https://registry.npmjs.org/rolldown/-/rolldown-1.2.7.tgz",
-      "integrity": "sha512-g0EtLvBjTUB7jhyV0S/TCup3v/XSVl45vUIGbOGU4QPiyjTenCe4mKuFvW9fEgYmS2Fo42AUssRmNuMziXdrig==",
-      "dev": true,
-      "license": "MIT",
-      "dependencies": {
-        "@oxc-project/types": "=0.148.0",
-        "@rolldown/pluginutils": "^1.0.0"
-      },
-      "bin": {
-        "rolldown": "bin/cli.mjs"
-      },
-      "engines": {
-        "node": "^20.19.0 || >=22.12.0"
-      },
-      "optionalDependencies": {
-        "@rolldown/binding-android-arm-eabi": "1.2.7",
-        "@rolldown/binding-android-arm64": "1.2.7",
-        "@rolldown/binding-darwin-arm64": "1.2.7",
-        "@rolldown/binding-darwin-x64": "1.2.7",
-        "@rolldown/binding-freebsd-x64": "1.2.7",
-        "@rolldown/binding-linux-arm-gnueabihf": "1.2.7",
-        "@rolldown/binding-linux-arm64-gnu": "1.2.7",
-        "@rolldown/binding-linux-arm64-musl": "1.2.7",
-        "@rolldown/binding-linux-ppc64-gnu": "1.2.7",
-        "@rolldown/binding-linux-s390x-gnu": "1.2.7",
-        "@rolldown/binding-linux-x64-gnu": "1.2.7",
-        "@rolldown/binding-linux-x64-musl": "1.2.7",
-        "@rolldown/binding-openharmony-arm64": "1.2.7",
-        "@rolldown/binding-win32-arm64-msvc": "1.2.7",
-        "@rolldown/binding-win32-x64-msvc": "1.2.7"
-      }
-    },
-    "node_modules/scheduler": {
-      "version": "0.27.0",
-      "resolved": "https://registry.npmjs.org/scheduler/-/scheduler-0.27.0.tgz",
-      "integrity": "sha512-eNv+WrVbKu1f3vbYJT/xtiF5syA5HPIMtf9IgY/nKg0sWqzAUEvqY/xm7OcZc/qafLx/iO9FgOmeSAp4v5ti/Q==",
-      "license": "MIT"
-    },
-    "node_modules/semver": {
-      "version": "7.8.5",
-      "resolved": "https://registry.npmjs.org/semver/-/semver-7.8.5.tgz",
-      "integrity": "sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==",
-      "license": "ISC",
-      "optional": true,
-      "bin": {
-        "semver": "bin/semver.js"
-      },
-      "engines": {
-        "node": ">=10"
-      }
-    },
-    "node_modules/sharp": {
-      "version": "0.35.4",
-      "resolved": "https://registry.npmjs.org/sharp/-/sharp-0.35.4.tgz",
-      "integrity": "sha512-n++8XWcj+jCOr2IOl7h8LbKnGBDY4aPbmprMONBNFdn0ImXqpGVv5zliDs0V9HbmbCQLpbuo2ej9rAoOQTvMDA==",
-      "license": "Apache-2.0",
-      "optional": true,
-      "dependencies": {
-        "@img/colour": "^1.1.0",
-        "detect-libc": "^2.1.2",
-        "semver": "^7.8.5"
-      },
-      "engines": {
-        "node": ">=20.9.0"
-      },
-      "funding": {
-        "url": "https://opencollective.com/libvips"
-      },
-      "optionalDependencies": {
-        "@img/sharp-darwin-arm64": "0.35.4",
-        "@img/sharp-darwin-x64": "0.35.4",
-        "@img/sharp-freebsd-wasm32": "0.35.4",
-        "@img/sharp-libvips-darwin-arm64": "1.3.3",
-        "@img/sharp-libvips-darwin-x64": "1.3.3",
-        "@img/sharp-libvips-linux-arm": "1.3.3",
-        "@img/sharp-libvips-linux-arm64": "1.3.3",
-        "@img/sharp-libvips-linux-ppc64": "1.3.3",
-        "@img/sharp-libvips-linux-riscv64": "1.3.3",
-        "@img/sharp-libvips-linux-s390x": "1.3.3",
-        "@img/sharp-libvips-linux-x64": "1.3.3",
-        "@img/sharp-libvips-linuxmusl-arm64": "1.3.3",
-        "@img/sharp-libvips-linuxmusl-x64": "1.3.3",
-        "@img/sharp-linux-arm": "0.35.4",
-        "@img/sharp-linux-arm64": "0.35.4",
-        "@img/sharp-linux-ppc64": "0.35.4",
-        "@img/sharp-linux-riscv64": "0.35.4",
-        "@img/sharp-linux-s390x": "0.35.4",
-        "@img/sharp-linux-x64": "0.35.4",
-        "@img/sharp-linuxmusl-arm64": "0.35.4",
-        "@img/sharp-linuxmusl-x64": "0.35.4",
-        "@img/sharp-webcontainers-wasm32": "0.35.4",
-        "@img/sharp-win32-arm64": "0.35.4",
-        "@img/sharp-win32-ia32": "0.35.4",
-        "@img/sharp-win32-x64": "0.35.4"
-      },
-      "peerDependenciesMeta": {
-        "@types/node": {
-          "optional": true
+        if (
+          group.publicationAttemptSku &&
+          group.publicationAttemptSku !== group.sku
+        ) {
+          const response = await apiPost("/api/ebay/publication-status", {
+            action: "inspect",
+            sku: group.publicationAttemptSku,
+            publicationId: group.publicationId,
+          });
+          const previous = await readJson(response);
+          if (!previous.success)
+            throw new Error(previous.error || "Statusabgleich fehlgeschlagen.");
+          if (previous.status === "published") {
+            editGroup(groupId, {
+              sku: group.publicationAttemptSku,
+              postStatus: "posted",
+              listingId: previous.listingId,
+              verificationMessage:
+                "Dieses Angebot wurde bereits veröffentlicht. Die SKU bitte direkt bei eBay ändern.",
+            });
+            return;
+          }
+          if (previous.status !== "available") {
+            throw new Error(
+              "Der frühere Veröffentlichungsversuch ist noch nicht geklärt. Bitte Veröffentlichungsstatus abgleichen und gegebenenfalls den Entwurf reparieren. Deine eingegebene SKU bleibt gespeichert.",
+            );
+          }
         }
-      }
-    },
-    "node_modules/shebang-command": {
-      "version": "2.0.0",
-      "resolved": "https://registry.npmjs.org/shebang-command/-/shebang-command-2.0.0.tgz",
-      "integrity": "sha512-kHxr2zZpYtdmrN1qDjrrX/Z1rR1kG8Dx+gkpK1G4eXmvXswmcE1hTWBWYUzlraYw1/yZp6YuDY77YtvbN0dmDA==",
-      "license": "MIT",
-      "dependencies": {
-        "shebang-regex": "^3.0.0"
-      },
-      "engines": {
-        "node": ">=8"
-      }
-    },
-    "node_modules/shebang-regex": {
-      "version": "3.0.0",
-      "resolved": "https://registry.npmjs.org/shebang-regex/-/shebang-regex-3.0.0.tgz",
-      "integrity": "sha512-7++dFhtcx3353uBaq8DDR4NuxBetBzC7ZQOhmTQInHEd6bSrXdiEyzCvG07Z44UYdLShWUyXt5M/yhz8ekcb1A==",
-      "license": "MIT",
-      "engines": {
-        "node": ">=8"
-      }
-    },
-    "node_modules/siginfo": {
-      "version": "2.0.0",
-      "resolved": "https://registry.npmjs.org/siginfo/-/siginfo-2.0.0.tgz",
-      "integrity": "sha512-ybx0WO1/8bSBLEWXZvEd7gMW3Sn3JFlW3TvX1nREbDLRNQNaeNN8WK0meBwPdAaOI7TtRRRJn/Es1zhrrCHu7g==",
-      "dev": true,
-      "license": "ISC"
-    },
-    "node_modules/signal-exit": {
-      "version": "4.1.0",
-      "resolved": "https://registry.npmjs.org/signal-exit/-/signal-exit-4.1.0.tgz",
-      "integrity": "sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw==",
-      "license": "ISC",
-      "engines": {
-        "node": ">=14"
-      },
-      "funding": {
-        "url": "https://github.com/sponsors/isaacs"
-      }
-    },
-    "node_modules/source-map-js": {
-      "version": "1.2.1",
-      "resolved": "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.1.tgz",
-      "integrity": "sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==",
-      "license": "BSD-3-Clause",
-      "engines": {
-        "node": ">=0.10.0"
-      }
-    },
-    "node_modules/stackback": {
-      "version": "0.0.2",
-      "resolved": "https://registry.npmjs.org/stackback/-/stackback-0.0.2.tgz",
-      "integrity": "sha512-1XMJE5fQo1jGH6Y/7ebnwPOBEkIEnT4QF32d5R1+VXdXveM0IBMJt8zfaxX1P3QhVwrYe+576+jkANtSS2mBbw==",
-      "dev": true,
-      "license": "MIT"
-    },
-    "node_modules/standardwebhooks": {
-      "version": "1.1.1",
-      "resolved": "https://registry.npmjs.org/standardwebhooks/-/standardwebhooks-1.1.1.tgz",
-      "integrity": "sha512-bCbX9ZEyFkWPsRz7Bl3NuQUJohmwGSev/yhr7vhaGPlc4AfIrspIRa6cPTBuI1ItmrTDJ4d/S2hCsfe4+vQGnQ==",
-      "license": "MIT",
-      "dependencies": {
-        "@stablelib/base64": "^1.0.0",
-        "fast-sha256": "^1.3.0"
-      }
-    },
-    "node_modules/std-env": {
-      "version": "4.2.0",
-      "resolved": "https://registry.npmjs.org/std-env/-/std-env-4.2.0.tgz",
-      "integrity": "sha512-oCUKSupKTHX53EyjDtuZQ64pjLJ6yYCtpmEw0goYxtjG9KpbRe8KAsl2tBUGU9DyMcJ0RwJ8GqJAFzMXcXW1Rw==",
-      "dev": true,
-      "license": "MIT"
-    },
-    "node_modules/string-width": {
-      "version": "5.1.2",
-      "resolved": "https://registry.npmjs.org/string-width/-/string-width-5.1.2.tgz",
-      "integrity": "sha512-HnLOCR3vjcY8beoNLtcjZ5/nxn2afmME6lhrDrebokqMap+XbeW8n9TXpPDOqdGK5qcI3oT0GKTW6wC7EMiVqA==",
-      "license": "MIT",
-      "dependencies": {
-        "eastasianwidth": "^0.2.0",
-        "emoji-regex": "^9.2.2",
-        "strip-ansi": "^7.0.1"
-      },
-      "engines": {
-        "node": ">=12"
-      },
-      "funding": {
-        "url": "https://github.com/sponsors/sindresorhus"
-      }
-    },
-    "node_modules/string-width-cjs": {
-      "name": "string-width",
-      "version": "4.2.3",
-      "resolved": "https://registry.npmjs.org/string-width/-/string-width-4.2.3.tgz",
-      "integrity": "sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g==",
-      "license": "MIT",
-      "dependencies": {
-        "emoji-regex": "^8.0.0",
-        "is-fullwidth-code-point": "^3.0.0",
-        "strip-ansi": "^6.0.1"
-      },
-      "engines": {
-        "node": ">=8"
-      }
-    },
-    "node_modules/string-width-cjs/node_modules/ansi-regex": {
-      "version": "5.0.1",
-      "resolved": "https://registry.npmjs.org/ansi-regex/-/ansi-regex-5.0.1.tgz",
-      "integrity": "sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==",
-      "license": "MIT",
-      "engines": {
-        "node": ">=8"
-      }
-    },
-    "node_modules/string-width-cjs/node_modules/emoji-regex": {
-      "version": "8.0.0",
-      "resolved": "https://registry.npmjs.org/emoji-regex/-/emoji-regex-8.0.0.tgz",
-      "integrity": "sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A==",
-      "license": "MIT"
-    },
-    "node_modules/string-width-cjs/node_modules/strip-ansi": {
-      "version": "6.0.1",
-      "resolved": "https://registry.npmjs.org/strip-ansi/-/strip-ansi-6.0.1.tgz",
-      "integrity": "sha512-Y38VPSHcqkFrCpFnQ9vuSXmquuv5oXOKpGeT6aGrr3o3Gc9AlVa6JBfUSOCnbxGGZF+/0ooI7KrPuUSztUdU5A==",
-      "license": "MIT",
-      "dependencies": {
-        "ansi-regex": "^5.0.1"
-      },
-      "engines": {
-        "node": ">=8"
-      }
-    },
-    "node_modules/strip-ansi": {
-      "version": "7.2.0",
-      "resolved": "https://registry.npmjs.org/strip-ansi/-/strip-ansi-7.2.0.tgz",
-      "integrity": "sha512-yDPMNjp4WyfYBkHnjIRLfca1i6KMyGCtsVgoKe/z1+6vukgaENdgGBZt+ZmKPc4gavvEZ5OgHfHdrazhgNyG7w==",
-      "license": "MIT",
-      "dependencies": {
-        "ansi-regex": "^6.2.2"
-      },
-      "engines": {
-        "node": ">=12"
-      },
-      "funding": {
-        "url": "https://github.com/chalk/strip-ansi?sponsor=1"
-      }
-    },
-    "node_modules/strip-ansi-cjs": {
-      "name": "strip-ansi",
-      "version": "6.0.1",
-      "resolved": "https://registry.npmjs.org/strip-ansi/-/strip-ansi-6.0.1.tgz",
-      "integrity": "sha512-Y38VPSHcqkFrCpFnQ9vuSXmquuv5oXOKpGeT6aGrr3o3Gc9AlVa6JBfUSOCnbxGGZF+/0ooI7KrPuUSztUdU5A==",
-      "license": "MIT",
-      "dependencies": {
-        "ansi-regex": "^5.0.1"
-      },
-      "engines": {
-        "node": ">=8"
-      }
-    },
-    "node_modules/strip-ansi-cjs/node_modules/ansi-regex": {
-      "version": "5.0.1",
-      "resolved": "https://registry.npmjs.org/ansi-regex/-/ansi-regex-5.0.1.tgz",
-      "integrity": "sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==",
-      "license": "MIT",
-      "engines": {
-        "node": ">=8"
-      }
-    },
-    "node_modules/strnum": {
-      "version": "2.5.1",
-      "resolved": "https://registry.npmjs.org/strnum/-/strnum-2.5.1.tgz",
-      "integrity": "sha512-UM4nTLWzQiDBseVxUGxN0wJzIk0UU89Qi7pKXz9qISo+lhviJikTuikBsK/oFRlpvYHvSdz0TVoLyQ+sEpYwxA==",
-      "funding": [
-        {
-          "type": "github",
-          "url": "https://github.com/sponsors/NaturalIntelligence"
+        const images = await Promise.all(
+          group.photoIds.map(async (id) => {
+            const p = (await loadPhoto(id)) ?? photoMap.get(id);
+            if (!p)
+              throw new Error(
+                "A selected photo is missing from device storage. Add it again before posting.",
+              );
+            return { photoId:id, mediaType: p.mediaType, data: p.uploadData ?? p.data };
+          }),
+        );
+        // 1. Ship the photos to eBay first, in batches small enough that no
+        // single request can hit Vercel's 4.5 MB body limit — the old
+        // all-in-one publish request 413-failed on photo-heavy listings.
+        const alreadyUploaded =
+          group.uploadedPhotoIds?.join(",") === group.photoIds.join(",")
+            ? group.imageUrls
+            : undefined;
+        const uploadedPhotos={...group.photoUploadUrls};
+        if(alreadyUploaded) group.photoIds.forEach((id,i)=>{uploadedPhotos[id]=alreadyUploaded[i];});
+        const pendingImages=images.filter(image=>!uploadedPhotos[image.photoId]);
+        let uploadedCount=images.length-pendingImages.length;
+        for (const batch of chunkImagesForUpload(pendingImages)) {
+          for (let attempt = 0; ; attempt++) {
+            const res = await apiPost("/api/ebay/upload-photos", {sku:group.sku,images:batch,startIndex:uploadedCount});
+            if (attempt < 2 && TRANSIENT_STATUSES.has(res.status)) {
+              await sleep(res.status === 429 ? 65_000 : 8_000);continue;
+            }
+            const d = (await readJson(res)) as {ok?:boolean;error?:string;urls?:string[];results?:{url:string|null;error?:string}[]};
+            if(!d.ok)throw new Error(d.error || "Fotos konnten nicht zu eBay hochgeladen werden.");
+            const results:{url:string|null;error?:string}[]=Array.isArray(d.results) && d.results.length===batch.length ? d.results : batch.map((_,i)=>({url:d.urls?.length===batch.length ? d.urls[i] : null}));
+            results.forEach((result,i)=>{if(result.url)uploadedPhotos[batch[i].photoId]=result.url;});
+            const saved={...groupsRef.current.find(g=>g.id===groupId)!,photoUploadUrls:{...uploadedPhotos}};
+            editGroup(groupId,{photoUploadUrls:{...uploadedPhotos}});
+            await saveDraft({version:1,sortUsage,photos:[...photoMap.values()],groups:groupsRef.current.map(g=>g.id===groupId ? saved : g),orphanIds,binPrefix,skuStart,step:"listings",updatedAt:Date.now()});
+            const failed=results.map((r,i)=>!r.url ? {index:group.photoIds.indexOf(batch[i].photoId)+1,error:r.error} : null).filter(Boolean);
+            if(failed.length)throw new Error(`Foto ${failed.map(f=>f!.index).join(", ")}: ${failed.find(f=>f!.error)?.error || "Upload fehlgeschlagen."} Erfolgreiche Fotos sind gespeichert. Nichts veröffentlicht; bitte erneut versuchen.`);
+            break;
+          }
+          uploadedCount+=batch.length;
         }
-      ],
-      "license": "MIT",
-      "dependencies": {
-        "anynum": "^1.0.1"
-      }
-    },
-    "node_modules/styled-jsx": {
-      "version": "5.1.6",
-      "resolved": "https://registry.npmjs.org/styled-jsx/-/styled-jsx-5.1.6.tgz",
-      "integrity": "sha512-qSVyDTeMotdvQYoHWLNGwRFJHC+i+ZvdBRYosOFgC+Wg1vx4frN2/RG/NA7SYqqvKNLf39P2LSRA2pu6n0XYZA==",
-      "license": "MIT",
-      "dependencies": {
-        "client-only": "0.0.1"
-      },
-      "engines": {
-        "node": ">= 12.0.0"
-      },
-      "peerDependencies": {
-        "react": ">= 16.8.0 || 17.x.x || ^18.0.0-0 || ^19.0.0-0"
-      },
-      "peerDependenciesMeta": {
-        "@babel/core": {
-          "optional": true
-        },
-        "babel-plugin-macros": {
-          "optional": true
+        const imageUrls=group.photoIds.map(id=>uploadedPhotos[id]).filter(Boolean);
+        if (imageUrls.length === 0) {
+          throw new Error("Could not upload any photos to eBay.");
         }
-      }
-    },
-    "node_modules/supports-preserve-symlinks-flag": {
-      "version": "1.0.0",
-      "resolved": "https://registry.npmjs.org/supports-preserve-symlinks-flag/-/supports-preserve-symlinks-flag-1.0.0.tgz",
-      "integrity": "sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 0.4"
-      },
-      "funding": {
-        "url": "https://github.com/sponsors/ljharb"
-      }
-    },
-    "node_modules/systeminformation": {
-      "version": "5.33.8",
-      "resolved": "https://registry.npmjs.org/systeminformation/-/systeminformation-5.33.8.tgz",
-      "integrity": "sha512-v4F6OGYGh7wDvV68YmjOmZwGixV9A/GQ7d2b84t0UF4CaOy9jipNWIJDkHqYDYiTPuiojqlwVQd0hfUKOUN7tQ==",
-      "license": "MIT",
-      "os": [
-        "darwin",
-        "linux",
-        "win32",
-        "freebsd",
-        "openbsd",
-        "netbsd",
-        "sunos",
-        "android"
-      ],
-      "bin": {
-        "systeminformation": "lib/cli.js"
-      },
-      "engines": {
-        "node": ">=10.0.0"
-      },
-      "funding": {
-        "type": "Buy me a coffee",
-        "url": "https://www.buymeacoffee.com/systeminfo"
-      }
-    },
-    "node_modules/temporal-polyfill": {
-      "version": "0.2.5",
-      "resolved": "https://registry.npmjs.org/temporal-polyfill/-/temporal-polyfill-0.2.5.tgz",
-      "integrity": "sha512-ye47xp8Cb0nDguAhrrDS1JT1SzwEV9e26sSsrWzVu+yPZ7LzceEcH0i2gci9jWfOfSCCgM3Qv5nOYShVUUFUXA==",
-      "license": "MIT",
-      "dependencies": {
-        "temporal-spec": "^0.2.4"
-      }
-    },
-    "node_modules/temporal-spec": {
-      "version": "0.2.4",
-      "resolved": "https://registry.npmjs.org/temporal-spec/-/temporal-spec-0.2.4.tgz",
-      "integrity": "sha512-lDMFv4nKQrSjlkHKAlHVqKrBG4DyFfa9F74cmBZ3Iy3ed8yvWnlWSIdi4IKfSqwmazAohBNwiN64qGx4y5Q3IQ==",
-      "license": "ISC"
-    },
-    "node_modules/tinybench": {
-      "version": "2.9.0",
-      "resolved": "https://registry.npmjs.org/tinybench/-/tinybench-2.9.0.tgz",
-      "integrity": "sha512-0+DUvqWMValLmha6lr4kD8iAMK1HzV0/aKnCtWb9v9641TnP/MFb7Pc2bxoxQjTXAErryXVgUOfv2YqNllqGeg==",
-      "dev": true,
-      "license": "MIT"
-    },
-    "node_modules/tinyexec": {
-      "version": "1.3.1",
-      "resolved": "https://registry.npmjs.org/tinyexec/-/tinyexec-1.3.1.tgz",
-      "integrity": "sha512-GCvB3aoys96IuDFBMcTB46JOR6mdMtAToqwiW8JlWhsoh1mhHi/xn9ss/Dg7N555GiJyEt2qzoG/NHCwM6h1EA==",
-      "dev": true,
-      "license": "MIT",
-      "engines": {
-        "node": ">=18"
-      }
-    },
-    "node_modules/tinyglobby": {
-      "version": "0.2.17",
-      "resolved": "https://registry.npmjs.org/tinyglobby/-/tinyglobby-0.2.17.tgz",
-      "integrity": "sha512-wXR/dYpcqKmfWpEdZjiKJOwCNFndD0DMnrW/cYjVGttEkBfVgcLFHoNrlj47mjOVic9yyNu65alsgF4NQyTa2g==",
-      "dev": true,
-      "license": "MIT",
-      "dependencies": {
-        "fdir": "^6.5.0",
-        "picomatch": "^4.0.4"
-      },
-      "engines": {
-        "node": ">=12.0.0"
-      },
-      "funding": {
-        "url": "https://github.com/sponsors/SuperchupuDev"
-      }
-    },
-    "node_modules/tinyrainbow": {
-      "version": "3.1.1",
-      "resolved": "https://registry.npmjs.org/tinyrainbow/-/tinyrainbow-3.1.1.tgz",
-      "integrity": "sha512-yau8yJdTt989Mm0Bd/236QnzEiPf2xLLTqUZRUJOo/3CB078LSwzei343DgtJVmfJKJE3TMINY1u42SQsP6mXw==",
-      "dev": true,
-      "license": "MIT",
-      "engines": {
-        "node": ">=14.0.0"
-      }
-    },
-    "node_modules/tr46": {
-      "version": "0.0.3",
-      "resolved": "https://registry.npmjs.org/tr46/-/tr46-0.0.3.tgz",
-      "integrity": "sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw==",
-      "license": "MIT"
-    },
-    "node_modules/ts-algebra": {
-      "version": "2.0.0",
-      "resolved": "https://registry.npmjs.org/ts-algebra/-/ts-algebra-2.0.0.tgz",
-      "integrity": "sha512-FPAhNPFMrkwz76P7cdjdmiShwMynZYN6SgOujD1urY4oNm80Ou9oMdmbR45LotcKOXoy7wSmHkRFE6Mxbrhefw==",
-      "license": "MIT"
-    },
-    "node_modules/tslib": {
-      "version": "2.8.1",
-      "resolved": "https://registry.npmjs.org/tslib/-/tslib-2.8.1.tgz",
-      "integrity": "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==",
-      "license": "0BSD"
-    },
-    "node_modules/typescript": {
-      "version": "5.9.3",
-      "resolved": "https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz",
-      "integrity": "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==",
-      "devOptional": true,
-      "license": "Apache-2.0",
-      "bin": {
-        "tsc": "bin/tsc",
-        "tsserver": "bin/tsserver"
-      },
-      "engines": {
-        "node": ">=14.17"
-      }
-    },
-    "node_modules/ulid": {
-      "version": "2.4.0",
-      "resolved": "https://registry.npmjs.org/ulid/-/ulid-2.4.0.tgz",
-      "integrity": "sha512-fIRiVTJNcSRmXKPZtGzFQv9WRrZ3M9eoptl/teFJvjOzmpU+/K/JH6HZ8deBfb5vMEpicJcLn7JmvdknlMq7Zg==",
-      "license": "MIT",
-      "bin": {
-        "ulid": "bin/cli.js"
-      }
-    },
-    "node_modules/undici-types": {
-      "version": "6.21.0",
-      "resolved": "https://registry.npmjs.org/undici-types/-/undici-types-6.21.0.tgz",
-      "integrity": "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==",
-      "license": "MIT"
-    },
-    "node_modules/vite": {
-      "version": "8.2.2",
-      "resolved": "https://registry.npmjs.org/vite/-/vite-8.2.2.tgz",
-      "integrity": "sha512-cFKLV/PRgAUlIRm5WjMjJ86jrftzpqcgH+Us+DS8mI3CDNiH30Whrz8uHL3+MOLPAgqbMBAqWdAHAphOAM+z/Q==",
-      "dev": true,
-      "license": "MIT",
-      "dependencies": {
-        "lightningcss": "^1.33.0",
-        "picomatch": "^4.0.5",
-        "postcss": "^8.5.26",
-        "rolldown": "~1.2.4",
-        "tinyglobby": "^0.2.17"
-      },
-      "bin": {
-        "vite": "bin/vite.js"
-      },
-      "engines": {
-        "node": "^20.19.0 || >=22.12.0"
-      },
-      "funding": {
-        "url": "https://github.com/vitejs/vite?sponsor=1"
-      },
-      "optionalDependencies": {
-        "fsevents": "~2.3.3"
-      },
-      "peerDependencies": {
-        "@types/node": "^20.19.0 || >=22.12.0",
-        "@vitejs/devtools": "^0.4.0 || ^0.5.0",
-        "esbuild": "^0.27.0 || ^0.28.0",
-        "jiti": ">=1.21.0",
-        "less": "^4.0.0",
-        "sass": "^1.70.0",
-        "sass-embedded": "^1.70.0",
-        "stylus": ">=0.54.8",
-        "sugarss": "^5.0.0",
-        "terser": "^5.16.0",
-        "tsx": "^4.8.1",
-        "yaml": "^2.4.2"
-      },
-      "peerDependenciesMeta": {
-        "@types/node": {
-          "optional": true
-        },
-        "@vitejs/devtools": {
-          "optional": true
-        },
-        "esbuild": {
-          "optional": true
-        },
-        "jiti": {
-          "optional": true
-        },
-        "less": {
-          "optional": true
-        },
-        "sass": {
-          "optional": true
-        },
-        "sass-embedded": {
-          "optional": true
-        },
-        "stylus": {
-          "optional": true
-        },
-        "sugarss": {
-          "optional": true
-        },
-        "terser": {
-          "optional": true
-        },
-        "tsx": {
-          "optional": true
-        },
-        "yaml": {
-          "optional": true
+        if (imageUrls.length !== images.length)
+          throw new Error("All selected photos must upload before posting.");
+        const uploadWarnings: string[] = [];
+        const uploaded = {
+          ...group,
+          photoUploadUrls:{...uploadedPhotos},
+          imageUrls,
+          uploadedPhotoIds: [...group.photoIds],
+          postStatus: "posting" as const,
+          publicationAttemptSku:
+            mode === "publish" ? group.sku : group.publicationAttemptSku,
+        };
+        editGroup(groupId, uploaded);
+        await saveDraft({
+          version: 1,
+          sortUsage,
+          photos: [...photoMap.values()],
+          groups: groupsRef.current.map((g) =>
+            g.id === groupId ? uploaded : g,
+          ),
+          orphanIds,
+          binPrefix,
+          skuStart,
+          step: "listings",
+          updatedAt: Date.now(),
+        });
+        // 2. Publish with the eBay-hosted URLs (a few KB instead of megabytes).
+        let data: {
+          success: boolean;
+          listingId?: string;
+          error?: string;
+          alreadyListed?: boolean;
+          warnings?: string[];
+          fees?: { name: string; amount: string; currency: string }[];
+        } | null = null;
+        let hadTransientRetry = false;
+        for (let attempt = 0; ; attempt++) {
+          const res = await apiPost(
+            mode === "verify" ? "/api/ebay/verify" : "/api/ebay/publish",
+            {
+              confirmed: mode === "publish",
+              publicationId: group.publicationId,
+              sku: group.sku,
+              listing: group.listing,
+              imageUrls,
+              shipping: group.shipping,
+              review: group.preparation,
+              expectedPhotoCount: group.photoIds.length,
+            },
+          );
+          // Wait out rate limits / transient platform errors instead of dying
+          // mid-batch with "try again later".
+          if (
+            mode === "verify" &&
+            attempt < 2 &&
+            TRANSIENT_STATUSES.has(res.status)
+          ) {
+            hadTransientRetry = true;
+            await sleep(res.status === 429 ? 65_000 : 8_000);
+            continue;
+          }
+          data = await readJson(res);
+          break;
         }
-      }
-    },
-    "node_modules/vitest": {
-      "version": "4.1.11",
-      "resolved": "https://registry.npmjs.org/vitest/-/vitest-4.1.11.tgz",
-      "integrity": "sha512-fhACrNXUidIbGSBr5FlbuBkO7VWC1ZyLl0DO4CU2DrQoAPxX84Ysxs+HeGQpii5lZWV1Q4gBZTTu49mF+A6Edw==",
-      "dev": true,
-      "license": "MIT",
-      "dependencies": {
-        "@vitest/expect": "4.1.11",
-        "@vitest/mocker": "4.1.11",
-        "@vitest/pretty-format": "4.1.11",
-        "@vitest/runner": "4.1.11",
-        "@vitest/snapshot": "4.1.11",
-        "@vitest/spy": "4.1.11",
-        "@vitest/utils": "4.1.11",
-        "es-module-lexer": "^2.0.0",
-        "expect-type": "^1.3.0",
-        "magic-string": "^0.30.21",
-        "obug": "^2.1.1",
-        "pathe": "^2.0.3",
-        "picomatch": "^4.0.3",
-        "std-env": "^4.0.0-rc.1",
-        "tinybench": "^2.9.0",
-        "tinyexec": "^1.0.2",
-        "tinyglobby": "^0.2.15",
-        "tinyrainbow": "^3.1.0",
-        "vite": "^6.0.0 || ^7.0.0 || ^8.0.0",
-        "why-is-node-running": "^2.3.0"
-      },
-      "bin": {
-        "vitest": "vitest.mjs"
-      },
-      "engines": {
-        "node": "^20.0.0 || ^22.0.0 || >=24.0.0"
-      },
-      "funding": {
-        "url": "https://opencollective.com/vitest"
-      },
-      "peerDependencies": {
-        "@edge-runtime/vm": "*",
-        "@opentelemetry/api": "^1.9.0",
-        "@types/node": "^20.0.0 || ^22.0.0 || >=24.0.0",
-        "@vitest/browser-playwright": "4.1.11",
-        "@vitest/browser-preview": "4.1.11",
-        "@vitest/browser-webdriverio": "4.1.11",
-        "@vitest/coverage-istanbul": "4.1.11",
-        "@vitest/coverage-v8": "4.1.11",
-        "@vitest/ui": "4.1.11",
-        "happy-dom": "*",
-        "jsdom": "*",
-        "vite": "^6.0.0 || ^7.0.0 || ^8.0.0"
-      },
-      "peerDependenciesMeta": {
-        "@edge-runtime/vm": {
-          "optional": true
-        },
-        "@opentelemetry/api": {
-          "optional": true
-        },
-        "@types/node": {
-          "optional": true
-        },
-        "@vitest/browser-playwright": {
-          "optional": true
-        },
-        "@vitest/browser-preview": {
-          "optional": true
-        },
-        "@vitest/browser-webdriverio": {
-          "optional": true
-        },
-        "@vitest/coverage-istanbul": {
-          "optional": true
-        },
-        "@vitest/coverage-v8": {
-          "optional": true
-        },
-        "@vitest/ui": {
-          "optional": true
-        },
-        "happy-dom": {
-          "optional": true
-        },
-        "jsdom": {
-          "optional": true
-        },
-        "vite": {
-          "optional": false
+        // A retried publish that finds the SKU already live means the earlier
+        // attempt actually landed before the timeout — that's a success.
+        if (
+          data &&
+          !data.success &&
+          data.alreadyListed &&
+          (hadTransientRetry || group.publicationAttemptSku === group.sku) &&
+          data.listingId
+        ) {
+          data = { success: true, listingId: data.listingId };
         }
-      }
-    },
-    "node_modules/web-streams-polyfill": {
-      "version": "3.3.3",
-      "resolved": "https://registry.npmjs.org/web-streams-polyfill/-/web-streams-polyfill-3.3.3.tgz",
-      "integrity": "sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 8"
-      }
-    },
-    "node_modules/webidl-conversions": {
-      "version": "3.0.1",
-      "resolved": "https://registry.npmjs.org/webidl-conversions/-/webidl-conversions-3.0.1.tgz",
-      "integrity": "sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==",
-      "license": "BSD-2-Clause"
-    },
-    "node_modules/whatwg-url": {
-      "version": "5.0.0",
-      "resolved": "https://registry.npmjs.org/whatwg-url/-/whatwg-url-5.0.0.tgz",
-      "integrity": "sha512-saE57nupxk6v3HY35+jzBwYa0rKSy0XR8JSxZPwgLr7ys0IBzhGviA1/TUGJLmSVqs8pb9AnvICXEuOHLprYTw==",
-      "license": "MIT",
-      "dependencies": {
-        "tr46": "~0.0.3",
-        "webidl-conversions": "^3.0.0"
-      }
-    },
-    "node_modules/which": {
-      "version": "2.0.2",
-      "resolved": "https://registry.npmjs.org/which/-/which-2.0.2.tgz",
-      "integrity": "sha512-BLI3Tl1TW3Pvl70l3yq3Y64i+awpwXqsGBYWkkqMtnbXgrMD+yj7rhW0kuEDxzJaYXGjEW5ogapKNMEKNMjibA==",
-      "license": "ISC",
-      "dependencies": {
-        "isexe": "^2.0.0"
-      },
-      "bin": {
-        "node-which": "bin/node-which"
-      },
-      "engines": {
-        "node": ">= 8"
-      }
-    },
-    "node_modules/why-is-node-running": {
-      "version": "2.3.0",
-      "resolved": "https://registry.npmjs.org/why-is-node-running/-/why-is-node-running-2.3.0.tgz",
-      "integrity": "sha512-hUrmaWBdVDcxvYqnyh09zunKzROWjbZTiNy8dBEjkS7ehEDQibXJ7XvlmtbwuTclUiIyN+CyXQD4Vmko8fNm8w==",
-      "dev": true,
-      "license": "MIT",
-      "dependencies": {
-        "siginfo": "^2.0.0",
-        "stackback": "0.0.2"
-      },
-      "bin": {
-        "why-is-node-running": "cli.js"
-      },
-      "engines": {
-        "node": ">=8"
-      }
-    },
-    "node_modules/wrap-ansi": {
-      "version": "8.1.0",
-      "resolved": "https://registry.npmjs.org/wrap-ansi/-/wrap-ansi-8.1.0.tgz",
-      "integrity": "sha512-si7QWI6zUMq56bESFvagtmzMdGOtoxfR+Sez11Mobfc7tm+VkUckk9bW2UeffTGVUbOksxmSw0AA2gs8g71NCQ==",
-      "license": "MIT",
-      "dependencies": {
-        "ansi-styles": "^6.1.0",
-        "string-width": "^5.0.1",
-        "strip-ansi": "^7.0.1"
-      },
-      "engines": {
-        "node": ">=12"
-      },
-      "funding": {
-        "url": "https://github.com/chalk/wrap-ansi?sponsor=1"
-      }
-    },
-    "node_modules/wrap-ansi-cjs": {
-      "name": "wrap-ansi",
-      "version": "7.0.0",
-      "resolved": "https://registry.npmjs.org/wrap-ansi/-/wrap-ansi-7.0.0.tgz",
-      "integrity": "sha512-YVGIj2kamLSTxw6NsZjoBxfSwsn0ycdesmc4p+Q21c5zPuZ1pl+NfxVdxPtdHvmNVOQ6XSYG4AUtyt/Fi7D16Q==",
-      "license": "MIT",
-      "dependencies": {
-        "ansi-styles": "^4.0.0",
-        "string-width": "^4.1.0",
-        "strip-ansi": "^6.0.0"
-      },
-      "engines": {
-        "node": ">=10"
-      },
-      "funding": {
-        "url": "https://github.com/chalk/wrap-ansi?sponsor=1"
-      }
-    },
-    "node_modules/wrap-ansi-cjs/node_modules/ansi-regex": {
-      "version": "5.0.1",
-      "resolved": "https://registry.npmjs.org/ansi-regex/-/ansi-regex-5.0.1.tgz",
-      "integrity": "sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==",
-      "license": "MIT",
-      "engines": {
-        "node": ">=8"
-      }
-    },
-    "node_modules/wrap-ansi-cjs/node_modules/ansi-styles": {
-      "version": "4.3.0",
-      "resolved": "https://registry.npmjs.org/ansi-styles/-/ansi-styles-4.3.0.tgz",
-      "integrity": "sha512-zbB9rCJAT1rbjiVDb2hqKFHNYLxgtk8NURxZ3IZwD3F6NtxbXZQCnnSi1Lkx+IDohdPlFp222wVALIheZJQSEg==",
-      "license": "MIT",
-      "dependencies": {
-        "color-convert": "^2.0.1"
-      },
-      "engines": {
-        "node": ">=8"
-      },
-      "funding": {
-        "url": "https://github.com/chalk/ansi-styles?sponsor=1"
-      }
-    },
-    "node_modules/wrap-ansi-cjs/node_modules/emoji-regex": {
-      "version": "8.0.0",
-      "resolved": "https://registry.npmjs.org/emoji-regex/-/emoji-regex-8.0.0.tgz",
-      "integrity": "sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A==",
-      "license": "MIT"
-    },
-    "node_modules/wrap-ansi-cjs/node_modules/string-width": {
-      "version": "4.2.3",
-      "resolved": "https://registry.npmjs.org/string-width/-/string-width-4.2.3.tgz",
-      "integrity": "sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g==",
-      "license": "MIT",
-      "dependencies": {
-        "emoji-regex": "^8.0.0",
-        "is-fullwidth-code-point": "^3.0.0",
-        "strip-ansi": "^6.0.1"
-      },
-      "engines": {
-        "node": ">=8"
-      }
-    },
-    "node_modules/wrap-ansi-cjs/node_modules/strip-ansi": {
-      "version": "6.0.1",
-      "resolved": "https://registry.npmjs.org/strip-ansi/-/strip-ansi-6.0.1.tgz",
-      "integrity": "sha512-Y38VPSHcqkFrCpFnQ9vuSXmquuv5oXOKpGeT6aGrr3o3Gc9AlVa6JBfUSOCnbxGGZF+/0ooI7KrPuUSztUdU5A==",
-      "license": "MIT",
-      "dependencies": {
-        "ansi-regex": "^5.0.1"
-      },
-      "engines": {
-        "node": ">=8"
-      }
-    },
-    "node_modules/xml-naming": {
-      "version": "0.3.0",
-      "resolved": "https://registry.npmjs.org/xml-naming/-/xml-naming-0.3.0.tgz",
-      "integrity": "sha512-ghig2TBE/H11aOVgmahA3MhimvkBr6JIYknH/Dhdk10nXwdbIqBJsbfMxpvFPG8bAw77gN29aQWvKpmVoPlvPQ==",
-      "funding": [
-        {
-          "type": "github",
-          "url": "https://github.com/sponsors/NaturalIntelligence"
+        if (!data?.success)
+          throw new Error(data?.error || "eBay rejected the listing.");
+        if (mode === "verify" && !data.listingId) {
+          const fees = (data.fees ?? [])
+            .filter((f) => Number(f.amount) > 0)
+            .map((f) => `${f.name}: ${f.amount} ${f.currency}`)
+            .join("; ");
+          editGroup(groupId, {
+            postStatus: undefined,
+            verificationMessage: `eBay-Prüfung erfolgreich. Nicht veröffentlicht.${fees ? ` Geschätzte Gebühren: ${fees}.` : ""}${data.warnings?.length ? ` Hinweise: ${data.warnings.join("; ")}` : ""}`,
+          });
+          return;
         }
-      ],
-      "license": "MIT",
-      "engines": {
-        "node": ">=16.0.0"
+        const allWarnings = [...uploadWarnings, ...(data.warnings ?? [])];
+        setGroups((prev) =>
+          prev.map((g) =>
+            g.id === groupId
+              ? {
+                  ...g,
+                  postStatus: "posted",
+                  listingId: data!.listingId,
+                  postWarnings: allWarnings.length ? allWarnings : undefined,
+                }
+              : g,
+          ),
+        );
+      } catch (e) {
+        setGroups((prev) =>
+          prev.map((g) =>
+            g.id === groupId
+              ? { ...g, postStatus: "error", postError: (e as Error).message }
+              : g,
+          ),
+        );
+      } finally {
+        inFlight.current.delete(groupId);
       }
     },
-    "node_modules/xtend": {
-      "version": "4.0.2",
-      "resolved": "https://registry.npmjs.org/xtend/-/xtend-4.0.2.tgz",
-      "integrity": "sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==",
-      "license": "MIT",
-      "engines": {
-        "node": ">=0.4"
-      }
-    },
-    "node_modules/y18n": {
-      "version": "5.0.8",
-      "resolved": "https://registry.npmjs.org/y18n/-/y18n-5.0.8.tgz",
-      "integrity": "sha512-0pfFzegeDWJHJIAmTLRP2DwHjdF5s7jo9tuztdQxAhINCdvS+3nGINqPd00AphqJR/0LhANUS6/+7SCb98YOfA==",
-      "license": "ISC",
-      "engines": {
-        "node": ">=10"
-      }
-    },
-    "node_modules/yaml": {
-      "version": "2.9.0",
-      "resolved": "https://registry.npmjs.org/yaml/-/yaml-2.9.0.tgz",
-      "integrity": "sha512-2AvhNX3mb8zd6Zy7INTtSpl1F15HW6Wnqj0srWlkKLcpYl/gMIMJiyuGq2KeI2YFxUPjdlB+3Lc10seMLtL4cA==",
-      "license": "ISC",
-      "bin": {
-        "yaml": "bin.mjs"
-      },
-      "engines": {
-        "node": ">= 14.6"
-      },
-      "funding": {
-        "url": "https://github.com/sponsors/eemeli"
-      }
-    },
-    "node_modules/yargs": {
-      "version": "17.7.3",
-      "resolved": "https://registry.npmjs.org/yargs/-/yargs-17.7.3.tgz",
-      "integrity": "sha512-GZtjxm/J/4TSxuL3FNYjCmLktBTnIw/rVmKSIyKeYAZpmJB2ig9VauCC5xsa82GNKVKDAqpOn3KVzNt0zmrU0g==",
-      "license": "MIT",
-      "dependencies": {
-        "cliui": "^8.0.1",
-        "escalade": "^3.1.1",
-        "get-caller-file": "^2.0.5",
-        "require-directory": "^2.1.1",
-        "string-width": "^4.2.3",
-        "y18n": "^5.0.5",
-        "yargs-parser": "^21.1.1"
-      },
-      "engines": {
-        "node": ">=12"
-      }
-    },
-    "node_modules/yargs-parser": {
-      "version": "21.1.1",
-      "resolved": "https://registry.npmjs.org/yargs-parser/-/yargs-parser-21.1.1.tgz",
-      "integrity": "sha512-tVpsJW7DdjecAiFpbIB1e3qxIQsE6NoPc5/eTdrbbIC4h0LVsWhnoa3g+m2HclBIujHzsxZ4VJVA+GUuc2/LBw==",
-      "license": "ISC",
-      "engines": {
-        "node": ">=12"
-      }
-    },
-    "node_modules/yargs/node_modules/ansi-regex": {
-      "version": "5.0.1",
-      "resolved": "https://registry.npmjs.org/ansi-regex/-/ansi-regex-5.0.1.tgz",
-      "integrity": "sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==",
-      "license": "MIT",
-      "engines": {
-        "node": ">=8"
-      }
-    },
-    "node_modules/yargs/node_modules/emoji-regex": {
-      "version": "8.0.0",
-      "resolved": "https://registry.npmjs.org/emoji-regex/-/emoji-regex-8.0.0.tgz",
-      "integrity": "sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A==",
-      "license": "MIT"
-    },
-    "node_modules/yargs/node_modules/string-width": {
-      "version": "4.2.3",
-      "resolved": "https://registry.npmjs.org/string-width/-/string-width-4.2.3.tgz",
-      "integrity": "sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g==",
-      "license": "MIT",
-      "dependencies": {
-        "emoji-regex": "^8.0.0",
-        "is-fullwidth-code-point": "^3.0.0",
-        "strip-ansi": "^6.0.1"
-      },
-      "engines": {
-        "node": ">=8"
-      }
-    },
-    "node_modules/yargs/node_modules/strip-ansi": {
-      "version": "6.0.1",
-      "resolved": "https://registry.npmjs.org/strip-ansi/-/strip-ansi-6.0.1.tgz",
-      "integrity": "sha512-Y38VPSHcqkFrCpFnQ9vuSXmquuv5oXOKpGeT6aGrr3o3Gc9AlVa6JBfUSOCnbxGGZF+/0ooI7KrPuUSztUdU5A==",
-      "license": "MIT",
-      "dependencies": {
-        "ansi-regex": "^5.0.1"
-      },
-      "engines": {
-        "node": ">=8"
-      }
-    },
-    "node_modules/zod": {
-      "version": "4.5.4",
-      "resolved": "https://registry.npmjs.org/zod/-/zod-4.5.4.tgz",
-      "integrity": "sha512-sC95tT5iHHH9gtpj6A81kh+NEaRAUFN+qlUPDUbRfOMvNf5QCBqsb3WgvnpVtK5Y+4UfA6KqufotuTvMGiTlsA==",
-      "license": "MIT",
-      "funding": {
-        "url": "https://github.com/sponsors/colinhacks"
-      }
-    },
-    "node_modules/@techstark/opencv-js": {
-      "version": "4.12.0-release.1",
-      "resolved": "https://registry.npmjs.org/@techstark/opencv-js/-/opencv-js-4.12.0-release.1.tgz",
-      "integrity": "sha512-LtTaph9v/HqLPXEg3m1xs2h7QJh10pUpuDT0nj8g77lelWnTwwQrehtd+fXElLOdrkqc4Fea6Z/sJBvEJLYPfw==",
-      "license": "Apache-2.0"
+    [photoMap, orphanIds, binPrefix, skuStart],
+  );
+
+  const saveCurrentDraft = async () => {
+    if (readOnly || !restored)
+      throw new Error(
+        "Dieser Arbeitsbereich ist noch nicht zum Speichern bereit.",
+      );
+    await saveDraft({
+      version: 1,
+      sortUsage,
+      photos,
+      groups: groupsRef.current,
+      orphanIds,
+      binPrefix,
+      skuStart,
+      step,
+      updatedAt: Date.now(),
+    });
+  };
+
+  const postAll = async (_selected?: string[]) => {
+    setError(
+      "Für den ersten Test bitte genau eine Brille in der Detailansicht prüfen und einzeln veröffentlichen.",
+    );
+  };
+
+  const hasWork = photos.length > 0 || groups.length > 0;
+  const busy =
+    sorting ||
+    Boolean(queue?.running) ||
+    groups.some((g) => g.status === "writing" || g.postStatus === "posting");
+  async function startNewBatch() {
+    const unposted = groups.filter(
+      (g) => g.listing && g.postStatus !== "posted",
+    ).length;
+    const warning = unposted
+      ? `${unposted} written listing${unposted === 1 ? " has" : "s have"} not been posted to eBay and will be deleted.\n\n`
+      : "";
+    if (
+      !window.confirm(
+        `${warning}Start a new batch? This clears every photo and draft saved on this device.`,
+      )
+    )
+      return;
+    try {
+      await clearDraft();
+      setPhotos([]);
+      setGroups([]);
+      setSortUsage([]);
+      setOrphanIds([]);
+      setBinPrefix("");
+      setSkuStart(0);
+      setStep("upload");
+      setQueue(null);
+      setSortProgress(null);
+      setError(null);
+    } catch {
+      setError(
+        "Could not clear saved work. Close other lister tabs and try again.",
+      );
     }
   }
+
+  const usableGroups = useMemo(
+    () => groups.filter((g) => g.photoIds.length > 0),
+    [groups],
+  );
+
+  if (!restored)
+    return <main className="wrap">Gespeicherte Arbeit wird geladen…</main>;
+  if (readOnly)
+    return (
+      <main className="wrap">
+        This workspace is already open in another tab. Close that tab and reload
+        here to avoid conflicting edits.
+      </main>
+    );
+  const settingsPanel=<>
+      <ShopSettings
+        groups={groups}
+        disabled={
+          readOnly ||
+          !restored ||
+          queueBusy.current ||
+          inFlight.current.size > 0
+        }
+        onApply={(settings, options) => {
+          if (readOnly || queueBusy.current || inFlight.current.size)
+            throw new Error("Bitte laufende Verarbeitung abwarten.");
+          const current = groupsRef.current;
+          const next = current.map((g) => applyShopGroup(g, settings, options));
+          setGroups(next);
+          return next.filter((g, i) => g !== current[i]).length;
+        }}
+      />
+      <AiUsageSummary
+        rows={[
+          ...sortUsage,
+          ...groups.flatMap((g) => [
+            ...(g.usage ?? []),
+            ...(g.comparisons ?? []).flatMap((c) => c.usage),
+          ]),
+        ]}
+        label="Fotoserie insgesamt · alle Modelle und Vergleiche"
+      />
+      <AiUsageSummary
+        rows={sortUsage}
+        label="Fotosortierung · gemeinsame Kosten"
+      />
+      {groups.length > 0 &&
+        (sortUsage.length > 0 || groups.some((g) => g.usage?.length)) && (
+          <p className="note">
+            Durchschnitt je Brille inklusive gemeinsamer Sortierung, ohne
+            Vergleiche: $
+            {(
+              usageTotals([
+                ...sortUsage,
+                ...groups.flatMap((g) => g.usage ?? []),
+              ]).usd / groups.length
+            ).toFixed(4)}
+            . Die Zuordnung zur einzelnen Brille ist geschätzt; fehlende
+            Nutzungsdaten sind nicht enthalten. USD, kein Eurobetrag.
+          </p>
+        )}
+  </>;
+  return (
+    <main className="wrap">
+      <div className="save-bar">
+        <p role="status">{saveStatus}</p>
+        {hasWork && (
+          <button
+            type="button"
+            className="btn btn-ghost danger"
+            onClick={startNewBatch}
+            disabled={busy}
+            title={
+              busy ? "Bitte die laufende Verarbeitung abwarten" : undefined
+            }
+          >
+            Neuen Stapel beginnen
+          </button>
+        )}
+      </div>
+      <header className="masthead">
+        <span className="logo-mark" aria-hidden="true">
+          🪄
+        </span>
+        <div>
+          <h1>SNAPLIST</h1>
+          <p>
+            Fotos hochladen · Artikel sortieren · eBay-Angebote vorbereiten.
+          </p>
+        </div>
+      </header>
+
+      <AccountSettings />
+      <EbayConnect />
+      {automaticPreparing && (
+        <p role="status">
+          Deutsche Merkmale und Kategorien werden vorbereitet:{" "}
+          {automaticPreparing}…
+        </p>
+      )}
+
+
+      {step === "upload" && (
+        <>
+          <section className="panel quote-panel" aria-label="Spruch"><UploadQuote revision={quoteRevision}/></section>
+          <section className="panel" aria-labelledby="upload-heading">
+            <h2 id="upload-heading" className="section-label">
+              1 · Fotos hinzufügen
+            </h2>
+
+            <div
+              className={`dropzone${dragging ? " dragging" : ""}`}
+              role="button"
+              tabIndex={0}
+              onClick={() => inputRef.current?.click()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ")
+                  inputRef.current?.click();
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragging(true);
+              }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={onDrop}
+            >
+              <span className="icon" aria-hidden="true">
+                📸
+              </span>
+              <strong>Fotos auswählen oder hierher ziehen</strong>
+              <span>
+                Alle Artikel im Stapel · bis zu {MAX_PHOTOS} Fotos · JPG, PNG,
+                WebP
+              </span>
+              <input
+                ref={inputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                hidden
+                onChange={(e) => void addFiles(e.target.files)}
+              />
+            </div>
+
+            <CameraCapture
+              remaining={MAX_PHOTOS - photos.length}
+              disabled={sorting || Boolean(importProgress)}
+              onCapture={async (file) => (await addFiles([file])) === 1}
+            />
+            {photos.some(photo=>photo.separator) && <p className="separator-note">Trennbilder markiert: direkt aufteilen oder die KI innerhalb der Abschnitte sortieren lassen. Die KI behält Fotos mit Brille.</p>}
+            {importProgress && <p aria-live="polite">{importProgress}</p>}
+            {photos.length > 0 && (
+              <div className="thumbs" aria-label="Ausgewählte Fotos">
+                {photos.map((p) => (
+                  <div className={`thumb${p.separator ? " separator-photo" : ""}`} key={p.id}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <button type="button" className="photo-separator-target" aria-pressed={Boolean(p.separator)}
+                      aria-label={`Foto ${photos.indexOf(p)+1} ${p.separator ? "als normales Foto verwenden" : "als Trennbild markieren"}`}
+                      disabled={sorting || Boolean(importProgress)}
+                      onClick={()=>setPhotos(prev=>prev.map(photo=>photo.id===p.id ? {...photo,separator:!photo.separator,separatorManual:true,skuMarker:undefined} : photo))}>
+                      <img src={p.previewUrl} alt={p.separator ? "Trennbild" : ""} />
+                    </button>
+                    <button type="button" className="separator-toggle" aria-pressed={Boolean(p.separator)} disabled={sorting || Boolean(importProgress)}
+                      aria-label={p.separator ? "Trennbild als normales Foto verwenden" : "Als Trennbild markieren"}
+                      onClick={()=>setPhotos(prev=>prev.map(photo=>photo.id===p.id ? {...photo,separator:!photo.separator,separatorManual:true,skuMarker:undefined} : photo))}>
+                      {p.skuMarker ? `SKU ${p.skuMarker}` : p.separator ? "Trennbild" : "Trennen"}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Foto entfernen"
+                      onClick={() => removePhoto(p.id)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div
+              className="result-actions"
+              style={{ borderTop: "none", paddingTop: 0 }}
+            >
+              <ModelSelector />
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={
+                  !photos.length ||
+                  sorting ||
+                  Boolean(importProgress)
+                }
+                onClick={() => {
+                  if(photos.some(photo=>photo.separator)) {
+                    const parts=splitAtSeparators(photos);
+                    if(!parts.length) {setError("Nur Trennbilder vorhanden.");return;}
+                    setGroups(assignPhotoSkus(parts.map((photoIds,index)=>({id:newId(),sku:"",name:`Brille ${index+1}`,photoIds,status:"idle" as const})),photos));
+                    setOrphanIds([]);setStep("review");return;
+                  }
+                  const id = newId();
+                  setGroups([
+                    {
+                      id,
+                      sku: "",
+                      name: "Einzelner Artikel",
+                      photoIds: photos.map((p) => p.id),
+                      status: "idle",
+                    },
+                  ]);
+                  setOrphanIds([]);
+                  setStep("review");
+                }}
+              >
+                {photos.some(photo=>photo.separator) ? "Fotos an Trennbildern aufteilen" : "Diese Fotos gehören zu einem Artikel"}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={sort}
+                disabled={
+                  photos.length === 0 || sorting || Boolean(importProgress)
+                }
+              >
+                {sorting ? (
+                  <>
+                    <span className="spinner" aria-hidden="true" /> Sorting{" "}
+                    {photos.length} photos…
+                  </>
+                ) : (
+                  <>🔀 {photos.length || ""} Fotos mit KI sortieren</>
+                )}
+              </button>
+            </div>
+
+            {error && (
+              <p className="note note-error" role="alert">
+                {error}
+              </p>
+            )}
+          </section>
+
+          {sorting && (
+            <section className="panel">
+              <div className="loading-card">
+                <span className="spinner" aria-hidden="true" />
+                <span>
+                  {sortProgress ??
+                    "Grouping photos by item, then double-checking for mixed-up or split items. This takes a little while for big batches."}
+                </span>
+              </div>
+            </section>
+          )}
+        </>
+      )}
+
+      {step!=="listings" && settingsPanel}
+
+      {(step === "review" || step === "listings") && (
+        <CloudBatch
+          groups={usableGroups}
+          photos={photos}
+          onResult={(id, patch) => {
+            if (!patch.listing) {
+              editGroup(id, patch);
+              return;
+            }
+            void (async () => {
+              try {
+                const options = await loadAccountOptions();
+                const current = groupsRef.current.find((g) => g.id === id);
+                if (
+                  !current ||
+                  current.postStatus === "posted" ||
+                  current.postStatus === "posting"
+                )
+                  return;
+                editGroup(
+                  id,
+                  applyShopGroup(
+                    {
+                      ...current,
+                      ...patch,
+                      shopBaseDescription: patch.listing!.description,
+                    },
+                    readShopPreferences(options.sellerKey),
+                    options,
+                  ),
+                );
+              } catch (e) {
+                editGroup(id, {
+                  ...patch,
+                  preparationError: `Vorgaben nicht übernommen: ${(e as Error).message}`,
+                });
+              }
+            })();
+          }}
+          onOpen={() => setStep("listings")}
+        />
+      )}
+      {step === "review" && (
+        <ReviewBoard
+          groups={groups}
+          orphanIds={orphanIds}
+          photoById={photoById}
+          onRename={rename}
+          onMovePhoto={movePhoto}
+          onReorderPhoto={reorderPhoto}
+          onDeleteGroup={deleteGroup}
+          onAddGroup={addGroup}
+          onWriteAll={writeAll}
+          onBack={() => setStep("upload")}
+        />
+      )}
+
+      {step === "listings" && (
+        <ListingsView
+          groups={usableGroups}
+          photoById={photoById}
+          ebayConnected={ebayConnected}
+          onEdit={editListing}
+          onGroupEdit={(id, patch) => {
+            const current = groupsRef.current.find((g) => g.id === id);
+            if (
+              current &&
+              !inFlight.current.has(id) &&
+              current.postStatus !== "posted"
+            )
+              editGroup(id, patch);
+          }}
+          onRenameSku={renameSku}
+          onNumberSkus={(first) => {
+            if (readOnly || groupsRef.current.some(g=>g.postStatus==="posting"))
+              throw new Error("Bitte die laufende Veröffentlichung abwarten.");
+            const current = groupsRef.current;
+            const next = applyBatchSkus(current, first);
+            groupsRef.current = next;
+            setGroups(next);
+            return next.filter((g, i) => g !== current[i]).length;
+          }}
+          onRetry={(id, hint) => void writeGroup(id, false, hint)}
+          onPost={postGroup}
+          onSaveDraft={saveCurrentDraft}
+          onPostAll={postAll}
+          onWriteAll={writeAll}
+          onReanalyzeAll={reanalyzeAll}
+          onResume={() =>
+            queue?.kind === "post"
+              ? void postAll(queueIds.current)
+              : void writeAll()
+          }
+          queue={queue}
+          onPause={() => {
+            queuePause.current = true;
+            setQueue((q) => q && { ...q, paused: true });
+          }}
+          onBack={() => setStep("review")}
+        />
+      )}
+
+      {step==="listings" && <details className="panel listing-settings-footer"><summary>Vorgaben und Kosten</summary>{settingsPanel}</details>}
+
+      <dialog
+        ref={publicationDialog}
+        aria-labelledby="publication-heading"
+        onCancel={backToListing}
+        className="publication-confirmation"
+        style={{ maxWidth: "36rem", padding: "1rem", borderRadius: "1rem" }}
+      >
+        {publicationConfirmation && (
+          <>
+            <h2 id="publication-heading">Veröffentlichung bestätigen</h2>
+            <p>{publicationConfirmation.listing?.title}</p>
+            <p>SKU: {publicationConfirmation.sku}</p>
+            <p>
+              Hauptkategorie:{" "}
+              {publicationConfirmation.preparation?.categoryName ||
+                publicationConfirmation.listing?.category_id}
+            </p>
+            {publicationConfirmation.listing?.secondary_category_id && (
+              <p>
+                Zweitkategorie:{" "}
+                {publicationConfirmation.preparation?.secondaryCategoryName ||
+                  publicationConfirmation.listing.secondary_category_id}
+
+              </p>
+            )}
+            <p>
+              <strong>
+                Preis:{" "}
+                {Number(
+                  publicationConfirmation.listing?.suggested_price,
+                ).toFixed(2)}{" "}
+                EUR
+              </strong>{" "}
+              · Menge: 1
+            </p>
+            {materialTitleIssues(publicationConfirmation.listing!).map(warning => <p className="material-warning" key={warning}>{warning}</p>)}
+            <dl className="publication-specifics">
+              <dt>Zustand</dt><dd>{publicationConfirmation.preparation?.conditions.find(c => c.value === publicationConfirmation.listing?.ebay_condition)?.label || publicationConfirmation.listing?.ebay_condition}</dd>
+              {publicationSpecifics(publicationConfirmation.listing!).map(([name,value]) => (
+                <div key={name}><dt>{name}</dt><dd>{value}</dd></div>
+              ))}
+              <dt>Zustandshinweis</dt><dd>{publicationConfirmation.listing?.condition_notes}</dd>
+            </dl>
+            <p>
+              Das Angebot ist danach öffentlich und kann gekauft werden, auch
+              bei hohem Preis. Es ist kein Entwurf.
+            </p>
+            <button
+              type="button"
+              autoFocus
+              onClick={backToListing}
+            >
+              Zurück zum Bearbeiten
+            </button>{" "}
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() =>
+                void postGroup(
+                  publicationConfirmation.id,
+                  "publish",
+                  JSON.stringify(publicationConfirmation),
+                )
+              }
+            >
+              Jetzt verbindlich auf eBay veröffentlichen
+            </button>
+          </>
+        )}
+      </dialog>
+
+      <p className="footnote">
+        Drafts and photos are saved on this device. Keep this tab open while a
+        batch is processing.
+      </p>
+    </main>
+  );
 }
