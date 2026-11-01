@@ -1,4 +1,6 @@
 "use client";
+import {measureLocal} from "@/lib/cv-client";
+import {cvKey} from "@/lib/cv-measurement";
 import { useEffect, useRef, useState } from "react";
 import type { ItemGroup, Photo } from "@/lib/types";
 import { isGlasses } from "@/lib/glasses-rules";
@@ -33,6 +35,18 @@ export function FrontMeasurementControls({
     group.analysisModel ??
     group.usage?.find((u) => u.stage === "analysis")?.requestedModel ??
     preferredModel;
+  async function localMeasure() {
+    const snapshot=latest.current;
+    setBusy(true);setError("");
+    try {
+      const measurement=await measureLocal(snapshot,photoId,photoById(photoId));
+      const current=latest.current;
+      if(current.listing!==snapshot.listing || current.postStatus==='posted' || current.postStatus==='posting' || current.publicationAttemptSku || cvKey(current,current.listing!)!==measurement.cv?.key)throw Error('Entwurf wurde verändert. Messung bitte erneut starten.');
+      const listing={...current.listing!,frontMeasurement:measurement};
+      onEdit(group.id,{listing:{...listing,...frontMeasurementFields(listing,current.preparation?.aspects??[])},verificationMessage:undefined});
+      if(measurement.status==='unavailable')setError(measurement.reasons.join(' '));
+    }catch(e){setError(e instanceof Error?e.message:'Lokale Messung fehlgeschlagen.')}finally{setBusy(false)}
+  }
   async function measure(previewOnly = false) {
     if (
       !window.confirm(
@@ -103,6 +117,7 @@ export function FrontMeasurementControls({
   return (
     <details className="measurement-controls">
       <summary>Maße berechnen</summary>
+      <button type="button" disabled={busy || group.postStatus === "posted" || group.postStatus === "posting" || Boolean(group.publicationAttemptSku)} onClick={localMeasure}>Glashöhe und Gesamtbreite lokal messen (ohne KI-Kosten)</button>
       <p>
         Front- oder Messfoto auswählen. Die aufgedruckte Scheibenbreite dient als
         Referenz. Berechnete Werte füllen leere Maßfelder als Schätzung;

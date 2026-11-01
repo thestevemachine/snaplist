@@ -11,7 +11,9 @@
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "test:browser": "playwright test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prebuild": "node scripts/copy-opencv.cjs",
+    "predev": "node scripts/copy-opencv.cjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",
@@ -21,7 +23,8 @@
     "next": "^15.5.25",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "zod": "^4.5.4"
+    "zod": "^4.5.4",
+    "@techstark/opencv-js": "4.12.0-release.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
