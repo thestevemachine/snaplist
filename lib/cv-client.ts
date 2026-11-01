@@ -5,8 +5,9 @@ export async function measureLocal(group:ItemGroup,photoId:string,fallback?:Phot
  const listing=group.listing!;const key=cvKey(group,listing);
  if(!key)throw Error('Belegte oder manuell bestätigte Glasbreite fehlt.');
  const photo=await loadPhoto(photoId)??fallback;
- if(!photo?.data)throw Error('Originalfoto ist nicht verfügbar.');
- const blob=await (await fetch(`data:${photo.mediaType};base64,${photo.data}`)).blob();
+ if(!photo?.data && !photo?.original)throw Error('Originalfoto ist nicht verfügbar.');
+ // Decode locally: fetch(data:) is blocked by the application's connect-src policy.
+ const blob=photo.original??new Blob([Uint8Array.from(atob(photo.data),character=>character.charCodeAt(0))],{type:photo.mediaType});
  const bitmap=await createImageBitmap(blob);const canvas=document.createElement('canvas');
  const scale=Math.min(1,1800/Math.max(bitmap.width,bitmap.height));
  canvas.width=Math.round(bitmap.width*scale);canvas.height=Math.round(bitmap.height*scale);

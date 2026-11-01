@@ -305,16 +305,18 @@ export default function Home() {
     if(!group)return;
     const candidate=cvCandidate(group)!;
     const account=workspaceStorageKey('cv');
-    const snapshot=group.listing;
     cvAttempts.current.add(group.id+candidate.key);cvRunning.current=true;
     void measureLocal(group,candidate.photoId,photoMap.get(candidate.photoId)).then(measurement=>{
       if(!cvMounted.current||workspaceStorageKey('cv')!==account)return;
       setGroups(prev=>prev.map(current=>{
-        if(current.id!==group.id||current.listing!==snapshot||!cvCandidate(current)||cvKey(current,current.listing!)!==candidate.key)return current;
+        if(current.id!==group.id||!cvCandidate(current)||cvKey(current,current.listing!)!==candidate.key)return current;
         const listing={...current.listing!,frontMeasurement:measurement};
         return {...current,listing:{...listing,...frontMeasurementFields(listing,current.preparation?.aspects??[])}};
       }));
-    }).catch(()=>{/* Measurement failure must never fail listing creation. */}).finally(()=>{
+    }).catch(error=>{
+      if(!cvMounted.current||workspaceStorageKey('cv')!==account)return;
+      setGroups(prev=>prev.map(current=>current.id===group.id&&cvCandidate(current)?.key===candidate.key ? {...current,listing:{...current.listing!,frontMeasurement:{method:'opencv-boxing-v1',status:'unavailable',photoIndex:current.photoIds.indexOf(candidate.photoId)+1,reasons:['Lokale Messung fehlgeschlagen: '+(error instanceof Error?error.message:'Unbekannter Fehler.')]}}} : current));
+    }).finally(()=>{
       cvRunning.current=false;
       if(cvMounted.current)setGroups(prev=>[...prev]);
     });
