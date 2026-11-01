@@ -71,6 +71,7 @@ export function ListingsView(props: ListingsViewProps) {
     }
   }
   const [table, setTable] = useState(false);
+  const [allDetails,setAllDetails]=useState<{open:boolean;revision:number}>({open:true,revision:0});
   const [filter, setFilter] = useState("all");
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -154,6 +155,7 @@ export function ListingsView(props: ListingsViewProps) {
   const card = (group: ItemGroup) => (
     <ListingCard
       key={group.id}
+      detailCommand={allDetails}
       group={group}
       photoById={photoById}
       ebayConnected={ebayConnected}
@@ -396,7 +398,7 @@ export function ListingsView(props: ListingsViewProps) {
         >
           SKU fortlaufend übernehmen
         </button>
-        <button type="button" className="btn btn-ghost sku-details-button" aria-pressed={!table} onClick={() => setTable(false)}>Detailkarten</button>
+        <button type="button" className="btn btn-ghost sku-details-button" aria-pressed={allDetails.open} onClick={() => {setTable(false);setAllDetails(previous=>({open:!previous.open,revision:previous.revision+1}));}}>{allDetails.open ? "Stapelansicht" : "Detailansicht"}</button>
         </div>
         {skuMessage && <p role="status">{skuMessage}</p>}
       </fieldset>
