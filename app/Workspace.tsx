@@ -1,4 +1,8 @@
 "use client";
+import {measureLocal} from "@/lib/cv-client";
+import {cvCandidate} from "@/lib/cv-queue";
+import {cvKey,keepCvMeasurement} from "@/lib/cv-measurement";
+import {frontMeasurementFields} from "@/lib/front-measurement-fields";
 import {workspaceStorageKey} from "@/lib/workspace-scope";
 import {assignPhotoSkus} from "@/lib/sku-photo-markers";
 import {publicationSpecifics} from "@/lib/publication-specifics";
@@ -291,6 +295,33 @@ export default function Home() {
   useEffect(() => {
     groupsRef.current = groups;
   }, [groups]);
+  const cvMounted=useRef(false);
+  useEffect(()=>{cvMounted.current=true;return ()=>{cvMounted.current=false}},[]);
+  const cvRunning=useRef(false);
+  const cvAttempts=useRef(new Set<string>());
+  useEffect(()=>{
+    if(!restored||readOnly||cvRunning.current)return;
+    const group=groups.find(g=>{const c=cvCandidate(g);return c&&!cvAttempts.current.has(g.id+c.key)});
+    if(!group)return;
+    const candidate=cvCandidate(group)!;
+    const account=workspaceStorageKey('cv');
+    cvAttempts.current.add(group.id+candidate.key);cvRunning.current=true;
+    void measureLocal(group,candidate.photoId,photoMap.get(candidate.photoId)).then(measurement=>{
+      if(!cvMounted.current||workspaceStorageKey('cv')!==account)return;
+      setGroups(prev=>prev.map(current=>{
+        if(current.id!==group.id||!cvCandidate(current)||cvKey(current,current.listing!)!==candidate.key)return current;
+        const listing={...current.listing!,frontMeasurement:measurement};
+        return {...current,listing:{...listing,...frontMeasurementFields(listing,current.preparation?.aspects??[])}};
+      }));
+    }).catch(error=>{
+      if(!cvMounted.current||workspaceStorageKey('cv')!==account)return;
+      setGroups(prev=>prev.map(current=>current.id===group.id&&cvCandidate(current)?.key===candidate.key ? {...current,listing:{...current.listing!,frontMeasurement:{method:'opencv-boxing-v1',status:'unavailable',photoIndex:current.photoIds.indexOf(candidate.photoId)+1,reasons:['Lokale Messung fehlgeschlagen: '+(error instanceof Error?error.message:'Unbekannter Fehler.')]}}} : current));
+    }).finally(()=>{
+      cvRunning.current=false;
+      if(cvMounted.current)setGroups(prev=>[...prev]);
+    });
+    // Completion checks the current draft and account before applying results.
+  },[groups,restored,readOnly,photoMap]);
 
   useEffect(() => {
     if (!restored || readOnly) return;
@@ -730,6 +761,8 @@ export default function Home() {
         const shop = readShopPreferences(shopOptions?.sellerKey);
         const baseDescription = data.listing.description;
         data.listing = withSunglassesWidth(applyShopListing(data.listing, shop));
+        const preservedCv=keepCvMeasurement(group.listing,data.listing,{...group,evidencePhotoIds:selectedPhotos.map(p=>p.id)});
+        if(preservedCv)data.listing={...data.listing,frontMeasurement:preservedCv};
         setGroups((prev) =>
           prev.map((g) =>
             g.id === groupId

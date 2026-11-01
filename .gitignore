@@ -31,3 +31,5 @@ public/test-photos.json
 /test-results/
 
 /supabase/.temp/
+
+/public/cv/opencv.js

@@ -65,6 +65,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 }
 
 interface ListingCardProps {
+  detailCommand?: {open:boolean;revision:number};
   group: ItemGroup;
   photoById: (id: string) => Photo | undefined;
   ebayConnected: boolean;
@@ -80,6 +81,7 @@ interface ListingCardProps {
 }
 
 export function ListingCard({
+  detailCommand,
   group,
   photoById,
   ebayConnected,
@@ -90,7 +92,8 @@ export function ListingCard({
   onPost,
   onSaveDraft,
 }: ListingCardProps) {
-  const [open, setOpen] = useState(group.postStatus!=="posted");
+  const [open, setOpen] = useState(detailCommand?.revision ? detailCommand.open : group.postStatus!=="posted");
+  useEffect(()=>{if(detailCommand?.revision)setOpen(detailCommand.open)},[detailCommand?.revision,detailCommand?.open]);
   useEffect(() => { if (group.postStatus === "posted") setOpen(false); }, [group.id, group.postStatus]);
   const [analysisHint, setAnalysisHint] = useState("");
   const [savingDraft, setSavingDraft] = useState(false);
