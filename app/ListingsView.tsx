@@ -382,7 +382,7 @@ export function ListingsView(props: ListingsViewProps) {
         {skuPreview && <p>{skuPreview}</p>}
         <div className="sku-actions">
         <button
-          className="btn btn-ghost"
+          className="btn btn-ghost sku-apply-button"
           type="button"
           disabled={!firstSku.trim()}
           onClick={() => {
@@ -396,8 +396,7 @@ export function ListingsView(props: ListingsViewProps) {
         >
           SKU fortlaufend übernehmen
         </button>
-        <button type="button" className="detail-view-button" aria-pressed={!table} onClick={() => setTable(false)}>Detailkarten</button>
-        <button type="button" className="btn-ghost" aria-pressed={table} onClick={() => setTable(true)}>Stapeltabelle</button>
+        <button type="button" className="btn btn-ghost sku-details-button" aria-pressed={!table} onClick={() => setTable(false)}>Detailkarten</button>
         </div>
         {skuMessage && <p role="status">{skuMessage}</p>}
       </fieldset>

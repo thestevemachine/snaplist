@@ -1649,3 +1649,8 @@ textarea.title-input { min-height: 5rem; resize: vertical; line-height: 1.4; }
 .measurement-grid label {grid-template-columns:minmax(0,1fr) minmax(90px,140px);align-items:center;column-gap:.65rem}
 .measurement-grid label small {grid-column:1 / -1}
 .measurement-grid input {min-height:32px}
+
+.sku-sequence .sku-actions {display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);}
+.sku-sequence .sku-actions>button:last-child {grid-column:auto;}
+.sku-sequence .sku-actions .sku-apply-button {border:2px solid #2563eb;color:#1d4ed8;}
+.sku-sequence .sku-actions .sku-details-button {border-color:transparent;box-shadow:none;}
