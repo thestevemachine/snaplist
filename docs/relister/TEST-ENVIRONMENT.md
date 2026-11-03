@@ -22,3 +22,15 @@ Supabase security advisors returned only INFO `rls_enabled_no_policy` for the fo
 Real object upload/readback, application account login on this project, Inngest cron execution and application-to-database integration still need server runtime configuration. No service-role secret has been retrieved or printed. The MCP connection can administer SQL but does not itself configure the Next.js server's SUPABASE_EU_SECRET_KEY or Inngest credentials.
 
 The dedicated test project is created and its SQL foundation verified; this is not a claim of a completed live Re-Lister or a Webinterpret pilot.
+
+## Hosted application integration test (subsequent run)
+
+Server credentials were entered by the user into the ignored local `.env.local`; the key was neither printed nor committed. The guarded hosted Vitest test passed against this exact test-project URL. It:
+- Uploaded an actual PNG into the private Storage bucket and read back matching SHA256 bytes.
+- Persisted and read back the full snapshot JSON, then restored the ordered image bytes.
+- Persisted two confirmed simulation rows in PostgreSQL.
+- Simulated a lost response after creation, persisted `create_requested` with the known new ID, discarded adapter state, and resumed using processJob reconstructed from PostgreSQL.
+- Completed both rows at immutable 46.99 EUR target from 49.99 EUR minus 6%, with no second reduction.
+- Removed only this run's UUID-namespaced fixture objects/rows afterward.
+
+eBay calls remained simulated. The worker function ran directly from the test process; remote Inngest scheduling, real eBay mutations and Webinterpret behavior are NOT verified by this test.
