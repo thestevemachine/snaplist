@@ -270,7 +270,7 @@ it("prioritizes printed identifiers and origin over filler words", () => {
   ).not.toContain("Dänemark");
 });
 
-it("uses two frame colors as separate title words and more than two as Mehrfarbig", () => {
+it("keeps the two main frame colors instead of collapsing accent colors to Mehrfarbig", () => {
   const colors = [
     aspect("Rahmenfarbe", ["Grün", "Gold", "Schwarz", "Mehrfarbig"]),
   ];
@@ -285,13 +285,13 @@ it("uses two frame colors as separate title words and more than two as Mehrfarbi
   expect(germanGlassesTitle(l, colors)).toContain("Grün Gold");
   const a = { Rahmenfarbe: ["Grün", "Gold", "Schwarz"] };
   germanAspects(l, a, colors);
-  expect(a.Rahmenfarbe).toEqual(["Mehrfarbig"]);
+  expect(a.Rahmenfarbe).toEqual(["Grün", "Gold"]);
   expect(
     germanGlassesTitle(
       { ...l, item_specifics: { Rahmenfarbe: "Mehrfarbig" } },
       colors,
     ),
-  ).toContain("Mehrfarbig");
+  ).toContain("Grün Gold");
 });
 
 it("uses Pilot Oval for supported oval or pilot outlines without adding it to round frames", () => {
@@ -312,4 +312,17 @@ it("adds only listed manufacturing origins, translates Nordic origins and never 
 it("does not use a failed boxing-consistency estimate for large-frame title keywords",async()=>{
  const {totalWidthForTitle}=await import("@/lib/glasses-rules");
  expect(totalWidthForTitle({title:"Brille",description:"",frontMeasurement:{method:"front-photo-ratio-v1",status:"uncertain",photoIndex:1,reasons:["Referenzprüfung: Gläser unsymmetrisch"],totalWidthMm:178}})).toBeNaN();
+});
+
+it("uses Rot for a dominant red frame and Gold Schwarz despite a minor blue accent", () => {
+  const colors = [aspect("Rahmenfarbe", ["Rot","Gold","Schwarz","Blau","Mehrfarbig"])];
+  const red = germanGlassesTitle({title:"Sonnenbrille",description:"",brand:"TOM TAILOR",
+    color:["Rot"],item_specifics:{Rahmenfarbe:"Rot",Hauptfarbe:"Rot"}},colors);
+  expect(red).toContain("Rot");
+  expect(red).not.toMatch(/Mehrfarbig|Braun/);
+  const gold = germanGlassesTitle({title:"Brille",description:"",brand:"Parasite",
+    color:["Gold","Schwarz","Blau"],
+    item_specifics:{Rahmenfarbe:"Mehrfarbig",Hauptfarbe:"Gold"}},colors);
+  expect(gold).toContain("Gold Schwarz");
+  expect(gold).not.toMatch(/Mehrfarbig|Blau/);
 });
