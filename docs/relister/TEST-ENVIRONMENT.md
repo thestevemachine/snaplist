@@ -34,3 +34,7 @@ Server credentials were entered by the user into the ignored local `.env.local`;
 - Removed only this run's UUID-namespaced fixture objects/rows afterward.
 
 eBay calls remained simulated. The worker function ran directly from the test process; remote Inngest scheduling, real eBay mutations and Webinterpret behavior are NOT verified by this test.
+
+## Final recovery checks
+
+All three migrations are installed only on the isolated test project. Transactional assertions passed for pre-end lock recovery, retaining locks after an end request, and rejecting saves by expired workers. Test rows were rolled back. The latest focused run passes 67 tests (hosted opt-in skipped); the production build passes. Hosted Storage/database and Chrome completion were separately exercised with synthetic data. No real seller account or eBay mutation was tested.

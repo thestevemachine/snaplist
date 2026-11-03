@@ -36,3 +36,5 @@ public/test-photos.json
 
 # Local Re-Lister browser verification
 /.relister-playwright.config.ts
+
+/.relister-hosted-playwright.config.ts

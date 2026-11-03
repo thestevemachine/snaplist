@@ -1,0 +1,201 @@
+import { createHash } from "node:crypto";
+import { XMLParser } from "fast-xml-parser";
+import { it, expect, vi } from "vitest";
+import {
+  TradingAdapter,
+  payloadXml,
+  type TradingCall,
+} from "../../lib/relister/trading-adapter";
+import {
+  samplePayload,
+  sampleListing,
+  Simulation,
+  fixtureImage,
+} from "../../lib/relister/simulation";
+import { preview } from "../../lib/relister/jobs";
+import { advance, type Repository } from "../../lib/relister/engine";
+const id = "100000000001";
+function fixture() {
+  const payload = samplePayload(id);
+  payload.PictureDetails.PictureURL = [
+    "https://i.ebayimg.com/images/front",
+    "https://i.ebayimg.com/images/back",
+  ];
+  const state = {
+    active: true,
+    sold: 0,
+    created: 0,
+    source: structuredClone(payload),
+    newItem: structuredClone(payload),
+  };
+  const call: TradingCall = vi.fn(async (name, body) => {
+    if (name === "GetItem") {
+      const isNew = body.includes("100000000002");
+      return {
+        Ack: "Success",
+        Item: {
+          ...(isNew ? state.newItem : state.source),
+          ItemID: isNew ? "100000000002" : id,
+          Seller: { UserID: "SIMULATION" },
+          Quantity: 1,
+          ListingDetails: { StartTime: "2020-01-01T00:00:00Z" },
+          SellingStatus: {
+            CurrentPrice: {
+              "#text": (isNew ? state.newItem : state.source).StartPrice,
+              "@_currencyID": "EUR",
+            },
+            QuantitySold: state.sold,
+            ListingStatus: isNew || state.active ? "Active" : "Ended",
+          },
+        },
+      };
+    }
+    if (name === "VerifyAddFixedPriceItem")
+      return {
+        Ack: "Success",
+        Fees: {
+          Fee: [
+            {
+              Name: "InsertionFee",
+              Fee: { "#text": "0.00", "@_currencyID": "EUR" },
+            },
+          ],
+        },
+      };
+    if (name === "EndFixedPriceItem") {
+      state.active = false;
+      return { Ack: "Success" };
+    }
+    if (name === "AddFixedPriceItem") {
+      state.created++;
+      state.newItem = new XMLParser({ parseTagValue: false }).parse(body).Item;
+      return { Ack: "Success", ItemID: "100000000002" };
+    }
+    return {
+      Ack: "Success",
+      ActiveList: { PaginationResult: { TotalNumberOfPages: 0 } },
+    };
+  });
+  const adapter = new TradingAdapter(
+    "account",
+    "SIMULATION",
+    call,
+    { put: async () => {}, get: async () => fixtureImage },
+    async () => ({
+      management: "trading",
+      offers: "clear",
+      promotion: "clear",
+    }),
+    async (_image, name) => `https://i.ebayimg.com/images/${name}`,
+  );
+  return { payload, state, call, adapter };
+}
+it("builds explicit Add payload with stable UUID and no old item ID", () => {
+  const p = payloadXml(samplePayload(id), "A".repeat(32));
+  expect(p).toContain("<UUID>");
+  expect(p).not.toContain("<ItemID>");
+  expect(p).not.toContain("QuantitySold");
+});
+it("end/create transport is real code but only executes after engine authorization", async () => {
+  const { adapter, call } = fixture(),
+    job = preview("account", "SIMULATION", [sampleListing(id)], "6");
+  job.confirmed = true;
+  job.mode = "live";
+  const repo: Repository = { save: async () => {}, lock: async () => true };
+  await expect(advance(job, job.rows[0], adapter, repo)).rejects.toThrow(
+    "nicht freigegeben",
+  );
+  expect(call).not.toHaveBeenCalled();
+});
+it("gets exact price, owner and marketplace and verifies fees without publishing", async () => {
+  const { adapter, payload, call } = fixture();
+  expect((await adapter.read(id)).priceCents).toBe(4999);
+  const backup = await new Simulation(
+    preview("account", "SIMULATION", [sampleListing(id)], 0).rows,
+  ).backup(
+    preview("account", "SIMULATION", [sampleListing(id)], 0).rows[0],
+    "account",
+  );
+  expect(await adapter.verify(backup, 4999, payload)).toEqual({ feeCents: 0 });
+  expect(
+    (call as any).mock.calls.some(
+      (c: any) => c[0] === "EndFixedPriceItem" || c[0] === "AddFixedPriceItem",
+    ),
+  ).toBe(false);
+});
+it("rejects wrong owner before mutation", async () => {
+  const { call } = fixture();
+  const adapter = new TradingAdapter(
+    "account",
+    "different",
+    call,
+    { put: async () => {}, get: async () => fixtureImage },
+    async () => ({
+      management: "trading",
+      offers: "clear",
+      promotion: "clear",
+    }),
+    async () => "",
+  );
+  await expect(adapter.end(id)).rejects.toThrow("Verkäufer");
+  expect(
+    (call as any).mock.calls.some((c: any) => c[0] === "EndFixedPriceItem"),
+  ).toBe(false);
+});
+it("does not treat missing reconciliation result as permission to duplicate", async () => {
+  const { adapter } = fixture();
+  expect(await adapter.reconcile("A".repeat(32))).toBe("unknown");
+});
+it("postcheck preserves image order", async () => {
+  const { adapter, payload, state } = fixture();
+  const b = await new Simulation(
+    preview("account", "SIMULATION", [sampleListing(id)], 0).rows,
+  ).backup(
+    preview("account", "SIMULATION", [sampleListing(id)], 0).rows[0],
+    "account",
+  );
+  expect(await adapter.compare("100000000002", b, 4999, payload)).toBe(true);
+  state.newItem.PictureDetails.PictureURL.reverse();
+  expect(await adapter.compare("100000000002", b, 4999, payload)).toBe(false);
+});
+
+it("full real-adapter code path backs bytes, restores EPS, verifies, ends once, creates once and compares", async () => {
+  const f = fixture(),
+    files = new Map<string, Buffer>();
+  const adapter = new TradingAdapter(
+    "account",
+    "SIMULATION",
+    f.call,
+    {
+      put: async (p, b) => {
+        files.set(p, b);
+      },
+      get: async (p) => files.get(p)!,
+    },
+    async () => ({
+      management: "trading",
+      offers: "clear",
+      promotion: "clear",
+    }),
+    async (_image, name) => `https://i.ebayimg.com/images/${name}`,
+    async () => ({
+      data: fixtureImage,
+      mime: "image/png",
+      sha256: createHash("sha256").update(fixtureImage).digest("hex"),
+    }),
+  );
+  const job = preview("account", "SIMULATION", [sampleListing(id)], "6");
+  job.mode = "live";
+  job.confirmed = true;
+  const repo: Repository = {
+    save: async () => {},
+    lock: async () => true,
+    authorized: async () => true,
+  };
+  await advance(job, job.rows[0], adapter, repo);
+  expect(job.rows[0].phase).toBe("completed");
+  expect(f.state.created).toBe(1);
+  expect(f.state.active).toBe(false);
+  expect(job.rows[0].outgoing!.StartPrice).toBe("46.99");
+  expect(files.has(`account/${job.rows[0].id}/backup.json`)).toBe(true);
+});

@@ -1,49 +1,56 @@
-# Re-Lister — implementation and release status
+# Re-Lister
 
-Base: production commit `93dc20e10e7c8ac5074c6bdab1fbd5a973b239bb`, PR #45. Feature branch: `codex/re-lister`. Existing dirty project mirror is untouched. No PR merged, production deployment/migration, eBay mutation, paid service or OAuth scope change performed.
+Separate feature branch `codex/re-lister`, Draft PR #46. Base is current production's `93dc20e` / PR #45, not outdated main. Existing Snaplist listing/measurement work remains separate. No production deployment, production database migration, eBay end/add/price change, credential rotation, new OAuth scope, paid service or PR merge performed.
 
-## Implemented
+## Implemented application
 
-- Separate `/relister` area, second application navigation tab; full-result search/sort/quick-selection of 1–200 items, oldest first; missing views sorted last.
-- Presets 0/2/4/6/8/10%, custom decimal comma percentages below 100, integer/BigInt cent rounding, immutable per-job original and target prices; explicit preview and simulation confirmation.
-- Authenticated account API using existing account scope, guards and seller token provider; Trading seller enumeration with complete pagination. Marketplace is the actual `Site`, never inferred from language, currency or location. Unknown quantities, sales and offer/promotion/management states are ineligible.
-- Durable job documents, service-role-only tables/RLS, per seller/item locks, worker claims, pause/resume, persisted transition-before-side-effect, bounded retries and manual-review states; separate Inngest cron reuses existing client without enabling legacy shared-account jobs.
-- Protected bucket migration and fixture image upload/readback. Restricted external-image downloader allows only HTTPS eBay image CDN, no redirects/credentials/queries, bounded streaming and image signature checks.
-- Explicit, restricted publication DTO; full GetItem response is never passed to Add. Unsupported regulatory, storefront, additional category or paid-option settings block DTO generation.
-- Executable simulated end-to-end rehearsal including lost create response and restart from durable local disk.
+- Second navigation tab **Re-Lister**, seller inventory overview with checkbox/image/title/SKU/current start date/price/status/item link. Date sorting oldest first; search and first 1/5/20/25/50/100/200 selection over the entire cached result set. Missing views are unavailable, not zero; view sorts are disabled until real data exists.
+- Restartable background sync: paginated GetMyeBaySelling, then GetItem details in bounded chunks; the previous complete catalog remains visible until the new one completes. Real marketplace is Item.Site=Germany, not EUR/language/location. Seller is checked against GetUser and again on every GetItem.
+- Risk checks use full GetItem, the documented GetBestOffers arrays and explicit empty-result evidence, and Inventory API ownership checks. Missing permissions/data stay unknown/ineligible. Active discounts/strike prices are excluded; no marketing/analytics scope is silently added.
+- Cent-exact whole-selection percentage presets and custom decimal comma values below 100%; immutable original price/percentage/target. Target compatibility with Best Offer thresholds is checked and visible. 49.99 EUR minus 6% is 46.99 EUR, not a second compounded discount on retry.
+- Protected actual byte backups, snapshot JSON, readback checksums and ordered restore. Existing media uploader restores saved bytes to new eBay picture URLs before nonpublishing verification. Snapshot JSON/byte hashes are validated before reuse; original URL lists alone are not backups.
+- Explicit publication DTO preserving supported title/description, SKU, specifics, identifiers, category, condition, seller policy IDs, dispatch time, VAT, payment flag, store categories, Best Offer thresholds and photo order. Catalog auto-fill/stock-photo substitution is disabled so the saved content is authoritative. Foreign response-only fields/old item IDs/sales counts are not passed to Add.
+- Real Trading adapter implements VerifyAddFixedPriceItem, EndFixedPriceItem, AddFixedPriceItem and GetItem postcheck. Fresh original owner/site/price/quantity/sales/risk checks run before ending; current publication/shipping/return settings must match the saved snapshot. End is confirmed and the old item is rechecked for a sale before creation. Stale verification is refreshed; nonzero fees block for separate review.
+- Durable state transition before each side effect, per-seller/item locks, expiring/fenced worker leases, bounded retries, pause/resume, authentication pause and manual-review states. Already-ended rows remain resumable while paused. A new preview can replace a pre-end failed job; locks after a requested end are retained. Stable 32-hex UUID plus ApplicationData identifies a creation. Ambiguous create responses scan the entire authenticated seller's active inventory for that marker; absence is unknown, never permission to create blindly.
+- Live mode requires BOTH RELISTER_LIVE_ENABLED=true and an unexpired service-only approval matching job/account/seller/item/final backup+outgoing-payload digest/target. The browser cannot write approvals or activate a mismatched job. No such real grant has been created.
+- Postcheck compares active German ownership, price/currency/stock, explicit content/condition/specifics, ordered pictures and expanded shipping/return settings. Persistent old→new lineage keeps first capture, latest renewal and predecessors separate from the current eBay start date.
 
-## Important limitations — not a finished live relisting implementation
+## Operating modes
 
-Real seller inventory is read-only. Management, pending offers and promotions are currently `unknown`, and therefore real listings are intentionally excluded from job preparation. The current worker supports simulation only; a SQL constraint and server guard reject live jobs. There is no operational EndFixedPriceItem/AddFixedPriceItem live adapter, real-image publication pipeline, live VerifyAddFixedPriceItem integration, complete settings round-trip comparison, or live-pilot approval mechanism yet. The simulation comparer checks fixture identity/price, not real eBay fields. The current GetMyeBaySelling sync is request-bound, not yet a resumable sync for very large accounts. Background SQL/Storage/Inngest integration has not been run against Supabase; no PostgreSQL sandbox was available in this task. Accounts-mode integration is required; legacy cookie-only mode is rejected.
+**Simulation:** synthetic listings, real protected fixture backups, simulated eBay operations. Explicit simulation confirmation starts the worker.
 
-This branch is a reviewable first implementation with a complete simulated rehearsal, not fulfillment of all live requirements. Do not approve or run a live pilot based on these fixtures.
+**Dry-run:** real read/snapshot/image restoration/nonpublishing verification; stops at ready. It never ends or creates an offer or changes an existing price. Images may be uploaded for verification. Final snapshot/fee details are visible in row history. Confirmation cannot activate live mode without the separate server grant.
 
-## Configuration (review, no production application)
+**Live:** implemented, but disabled for this task. A separately approved one-item pilot is the next account-affecting gate. Production migration and deployment also need explicit approval under the user's request.
 
-1. Review `supabase/migrations/20261103000000_relister.sql`; apply only to an approved isolated test Supabase project.
-2. Existing `SUPABASE_EU_URL`, `SUPABASE_EU_SECRET_KEY`, account auth and Inngest configuration are reused. Set `SNAPLIST_ACCOUNTS_ENABLED=true`, `RELISTER_ENABLED=true` in that isolated environment. Do not add OAuth scopes silently.
-3. Register existing `/api/inngest` with Inngest. `relister-durable-tick` polls every minute, up to one article per job/invocation. Closing the browser does not own execution.
-4. Open Re-Lister, load explicitly labelled test data, filter/sort, select and set discount; prepare preview, then confirm the simulation. Inspect row history and backups. Pause stops new simulated ends; already-ended rows remain resumable.
-5. Disabling the feature prevents new API operations. Do not disable a future live worker while ended items need recovery.
+## Supported first-version subset and exclusions
 
-No database policy grants a browser access to backup files. No foreign description HTML is rendered in this UI. Credentials are never serialized in jobs or reports.
+Only active German fixed-price GTC listings, one available piece, zero sold, no variants, positively supported Trading management and clear offer/price checks. Seller shipping/return/payment profiles are required. Auctions, quantities/variants, Inventory-managed records, unknown management, uncertain offers/promotions and missing required fields/images are excluded.
 
-## History and Webinterpret
+Regulatory/GPSR structures, custom compliance policies, category-specific condition descriptors, compatibility lists, charitable contributions, video/pickup programs, additional listing categories, paid subtitle/enhancement options and shipping-cost overrides are not silently dropped: such listings are blocked pending dedicated support. Fees above zero are shown and blocked rather than approved automatically. This conservative subset can mean no eligible item in a particular seller's stock; the UI must show why.
 
-Catalog records distinguish listing start time and first Snaplist capture. Job mappings retain old/new IDs; a production history successor update remains to implement. Never infer original inventory age. Watchers and listing history do not transfer automatically. A new item number does not guarantee ranking or a 24-hour boost. Listing fees, quotas, paid enhancements and ads need explicit handling. According to the seller's experience Webinterpret ends foreign counterparts when a German original ends; international recreation and price propagation remain unverified and require a separately approved one-item pilot. No international mutation is implemented.
+Views/Analytics are intentionally unavailable until existing permissions and a common reporting period can be verified; no substitute impressions/watchers are presented as page views. Webinterpret restart/price propagation, listing ranking and real eBay mutations have not been production-verified. A new item ID does not prove a boost.
 
-## Official API evidence checked 2026-11-03
+## Configuration and migrations
 
-- [GetMyeBaySelling](https://developer.ebay.com/devzone/xml/docs/reference/ebay/GetMyeBaySelling.html): authenticated seller inventory, pagination; fixed-price current price is SellingStatus.CurrentPrice.
-- [GetItem](https://developer.ebay.com/devzone/xml/docs/reference/ebay/GetItem.html): details and item specifics. InventoryTrackingMethod=SKU is not proof of Inventory API ownership; missing fields do not prove absence of risk.
-- [AddFixedPriceItem](https://developer.ebay.com/devzone/xml/docs/reference/ebay/AddFixedPriceItem.html): new listing, estimated fees, 32-hex UUID for repeat protection, duplicate UUID error can contain prior item ID.
-- [EndFixedPriceItem](https://developer.ebay.com/devzone/xml/docs/reference/ebay/EndFixedPriceItem.html) and [GetBestOffers](https://developer.ebay.com/devzone/xml/docs/reference/ebay/GetBestOffers.html) reviewed for future live adapter.
-- [Analytics overview](https://developer.ebay.com/api-docs/sell/analytics/static/overview.html): Germany supported, traffic metrics include listing page views. Views are distinct from impressions/watchers; Analytics integration and existing-scope verification are not implemented. UI says unavailable, not zero.
+Isolated free Supabase project: `snaplist-relister-test` / `xfprtvwsjlvwcaywgwyw`, Frankfurt. Only this test database received the three reviewable Re-Lister migrations. Private bucket and service-only tables/RPCs verified. No production migration applied. The ignored `.env.local` contains the user-entered test secret; no key is in this repository.
 
-## Verification results
+Use existing account auth/vault and Inngest integration. Set RELISTER_ENABLED=true only in the approved environment; leave RELISTER_LIVE_ENABLED unset until a separately reviewed pilot. The worker revalidates account membership and obtains only that account's credentials; owner fallback is restricted to the actual configured owner. Never copy owner credentials to a member.
 
-- 53 focused tests passed: cents/percent validation, marketplace/ownership safety, incomplete fields, variants/stock/sales/discount/offer exclusions, global quick selection with 205 rows, both views sorts with missing values last, three-page seller pagination, image URL safety, mutation state machine, price races, creation/end timeouts, serialized restart, locks, authorization pause, retry bounds and simulated postcheck.
-- Chrome browser test passed: Re-Lister page, 205 rows, select first 200 across pagination, custom `3,5` discount and explicit confirmation preview (API mocked; not Supabase).
-- Next production build passed locally. Package ranges were installed via pnpm without changing package.json/package-lock; installed versions may differ from npm lock. Clean lockfile-based CI remains required before release.
-- Complete simulated disk-backed rehearsal report: `REHEARSAL.json`. Uses two synthetic items, 49.99 EUR → 46.99 EUR. Real fixture PNG bytes saved to local disk; simulated eBay APIs, simulated fees and postcheck. No Sandbox, live eBay, Webinterpret or production storage behavior was verified.
-- Full suite: 659/660 passed. One pre-existing failure in `prepare-sunglasses.test.ts:107` expects glasses rules version 4 while production base has version 5. Reproduced independently from `git archive` of untouched base `93dc20e`; not changed by this feature.
+The existing `/api/inngest` conditionally registers `relister-durable-tick`. The minute cron drives pending syncs and jobs; browser lifetime does not own the work. Remote Inngest registration requires its existing event/signing configuration. Local/hosted tests invoke the same worker directly; remote cron delivery has not yet been observed.
+
+See TEST-ENVIRONMENT.md, REHEARSAL.json, PILOT.md and CONFLICTS.md.
+
+## Evidence
+
+- 67 focused unit/fixture tests pass (plus one explicit-opt-in hosted test skipped by default).
+- Hosted Supabase test passes: actual private Storage upload/readback/restore; two durable PostgreSQL rows; lost simulated create response; fresh-worker reconstruction/reconciliation; immutable 46.99 EUR target; fixture-only cleanup.
+- Chrome test with a real temporary Supabase user passes: real application login → 205-item catalog → selection → discount preview → confirmation → worker → persisted completion/history. Traces/screenshots/video disabled; test account removed afterward.
+- Real Trading adapter code is exercised with fixture transports through backup/restore/verify/end/create/postcheck; no real eBay request is made by that rehearsal. Dedicated tests check image order, wrong seller, missing release and ambiguous creation.
+- PostgreSQL assertions pass for lease exclusion, pause preservation, tenant separation, service-only RPCs, exact approval matching and immutable target prices. No actual live approval remains (tests rolled back).
+- Supabase security advisor reports only INFO rls_enabled_no_policy on intentionally server-only tables with browser grants revoked: https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy.
+- Full baseline suite has a pre-existing failure at prepare-sunglasses.test.ts:107 (expects rules version 4; base has 5), reproduced from untouched base. See the latest test report for counts. Application production build passes; repository-wide tsc also includes pre-existing fixture type errors.
+
+## Official sources checked
+
+[GetMyeBaySelling](https://developer.ebay.com/devzone/xml/docs/reference/ebay/GetMyeBaySelling.html), [GetItem](https://developer.ebay.com/devzone/xml/docs/reference/ebay/GetItem.html), [GetBestOffers](https://developer.ebay.com/devzone/xml/docs/reference/ebay/GetBestOffers.html), [AddFixedPriceItem including UUID/fees/VAT/catalog behavior](https://developer.ebay.com/devzone/xml/docs/reference/ebay/AddFixedPriceItem.html), [EndFixedPriceItem](https://developer.ebay.com/devzone/xml/docs/reference/ebay/EndFixedPriceItem.html), [Inventory record error 25710](https://developer.ebay.com/support/knowledge-base/5210), [Analytics overview](https://developer.ebay.com/api-docs/sell/analytics/static/overview.html).
