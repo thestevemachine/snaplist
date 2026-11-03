@@ -1,0 +1,33 @@
+import {tradingCall,list,xml} from '../ebay/trading';
+import {sellerAccessToken} from '../ebay/session';
+import {type Listing,type Payload} from './domain';
+type Data=Record<string,any>;
+const money=(x:any)=>{const s=String(x?.['#text']??x??'');if(!/^\d+(\.\d{1,2})?$/.test(s))return NaN;const [a,b='']=s.split('.');return Number(a)*100+Number(b.padEnd(2,'0'))};
+export async function reader(){
+ const token=await sellerAccessToken(undefined);if(!token)throw Error('eBay-Anmeldung erforderlich.');
+ const call=async(name:'GetItem'|'GetUser'|'GetMyeBaySelling'|'GetBestOffers',body:string)=>(await tradingCall(token,name,body)) as unknown as Data;
+ const user=await call('GetUser','');const seller=String(user.User?.UserID??'');if(!seller)throw Error('Verkäuferkonto nicht bestätigt.');
+ return {seller,async item(id:string){if(!/^\d{6,20}$/.test(id))throw Error('Ungültige Artikelnummer.');return (await call('GetItem',`<ItemID>${xml(id)}</ItemID><DetailLevel>ReturnAll</DetailLevel><IncludeItemSpecifics>true</IncludeItemSpecifics>`)).Item as Data},
+ async all(){
+ const found=new Map<string,Listing>();let page=1,pages=1;
+ do{
+ const r=await call('GetMyeBaySelling',`<ActiveList><Include>true</Include><Pagination><EntriesPerPage>200</EntriesPerPage><PageNumber>${page}</PageNumber></Pagination></ActiveList>`);
+ if(!r.ActiveList?.PaginationResult)throw Error('Unvollständige Pagination; bisheriger Bestand bleibt erhalten.');
+ pages=Number(r.ActiveList.PaginationResult.TotalNumberOfPages);if(!Number.isSafeInteger(pages)||pages<0||pages>1000)throw Error('Ungültige Pagination.');
+ for(const i of list<Data>(r.ActiveList.ItemArray?.Item)){const l=normalize(i,seller);found.set(l.id,l)}
+ page++;
+ }while(page<=pages);
+ return [...found.values()];
+ }};
+}
+export function normalize(i:Data,seller:string):Listing {
+ const price=money(i.SellingStatus?.CurrentPrice??i.StartPrice);
+ return {id:String(i.ItemID??''),seller:String(i.Seller?.UserID??seller),site:String(i.Site??'unknown'),title:String(i.Title??''),sku:String(i.SKU??''),started:String(i.ListingDetails?.StartTime??''),priceCents:Number.isSafeInteger(price)?price:0,currency:String(i.SellingStatus?.CurrentPrice?.['@_currencyID']??i.Currency??''),quantity:i.QuantityAvailable===undefined?null:Number(i.QuantityAvailable),sold:i.SellingStatus?.QuantitySold===undefined?null:Number(i.SellingStatus.QuantitySold),type:String(i.ListingType??''),active:i.SellingStatus?.ListingStatus==='Active',variations:Boolean(i.Variations),management:'unknown',offers:'unknown',promotion:'unknown',views:null,thumbnail:list<string>(i.PictureDetails?.PictureURL)[0],firstSeen:new Date().toISOString(),predecessors:[]};
+}
+export function publicationPayload(i:Data):Payload {
+ // First supported contract: single-item GTC listings using seller policies.
+ const required=['Title','Description','SKU','ConditionID','Country','Location','PostalCode','DispatchTimeMax'];
+ if(required.some(k=>!String(i[k]??'').trim())||!i.PrimaryCategory?.CategoryID||!i.ItemSpecifics?.NameValueList||!i.SellerProfiles?.SellerShippingProfile?.ShippingProfileID||!i.SellerProfiles?.SellerReturnProfile?.ReturnProfileID||!i.SellerProfiles?.SellerPaymentProfile?.PaymentProfileID)throw Error('Pflichtdaten/Verkaufsrichtlinien fehlen.');
+ if(i.ListingDuration!=='GTC'||i.Regulatory||i.ProductSafety||i.Variations||i.DiscountPriceInfo||i.ListingEnhancement||i.SubTitle||i.SecondaryCategory||i.Storefront||i.ShippingDetails?.ShippingDiscountProfileID)throw Error('Wesentliche Zusatz-/Regulierungs-/Shop-Einstellungen benötigen erweiterten geprüften Payload.');
+ return {Title:i.Title,Description:i.Description,SKU:i.SKU,Site:'Germany',Currency:'EUR',ListingType:'FixedPriceItem',ListingDuration:'GTC',Quantity:1,StartPrice:String(i.StartPrice?.['#text']??i.StartPrice),PrimaryCategory:{CategoryID:String(i.PrimaryCategory.CategoryID)},ConditionID:String(i.ConditionID),...(i.ConditionDescription?{ConditionDescription:String(i.ConditionDescription)}:{}),ItemSpecifics:{NameValueList:list<Data>(i.ItemSpecifics.NameValueList).map(v=>({Name:String(v.Name),Value:list<string>(v.Value).map(String)}))},PictureDetails:{PictureURL:list<string>(i.PictureDetails?.PictureURL)},Country:String(i.Country),Location:String(i.Location),PostalCode:String(i.PostalCode),DispatchTimeMax:String(i.DispatchTimeMax),SellerProfiles:{SellerShippingProfile:{ShippingProfileID:String(i.SellerProfiles.SellerShippingProfile.ShippingProfileID)},SellerReturnProfile:{ReturnProfileID:String(i.SellerProfiles.SellerReturnProfile.ReturnProfileID)},SellerPaymentProfile:{PaymentProfileID:String(i.SellerProfiles.SellerPaymentProfile.PaymentProfileID)}}};
+}

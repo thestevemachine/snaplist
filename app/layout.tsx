@@ -24,7 +24,7 @@ export default async function RootLayout({
   const account=await pageAccount();
   return (
     <html lang="de">
-      <body data-account={account?.id} data-account-owner={account?.owner ? "true" : undefined}>{children}</body>
+      <body data-account={account?.id} data-account-owner={account?.owner ? "true" : undefined}><nav aria-label="Anwendungsbereiche" style={{display:"flex",gap:"1rem",padding:"1rem"}}><a href="/">Snaplist</a><a href="/relister">Re-Lister</a></nav>{children}</body>
     </html>
   );
 }

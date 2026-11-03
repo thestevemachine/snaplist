@@ -69,7 +69,7 @@ export interface TradingResponse {
 
 export async function tradingCall(
   token: string,
-  call: "GetItem" | "GetUser" | "VerifyAddFixedPriceItem" | "AddFixedPriceItem",
+  call: "GetItem" | "GetUser" | "GetMyeBaySelling" | "GetBestOffers" | "VerifyAddFixedPriceItem" | "AddFixedPriceItem",
   content: string,
 ): Promise<TradingResponse> {
   requireGermanMarketplace();

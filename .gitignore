@@ -33,3 +33,6 @@ public/test-photos.json
 /supabase/.temp/
 
 /public/cv/opencv.js
+
+# Local Re-Lister browser verification
+/.relister-playwright.config.ts
