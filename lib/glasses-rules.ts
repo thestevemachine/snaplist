@@ -10,7 +10,7 @@ export function componentFrameColors(l: ListingResult): string[] {
     .filter(([name]) => /^(Frontfarbe|Bügelfarbe|Farbe der Bügel|Farbe der Front|Front Color|Temple Color)$/i.test(name))
     .flatMap(([,value]) => value.split(/\s*[|;,]\s*/)).filter(Boolean);
 }
-export const GLASSES_RULES_VERSION = 4;
+export const GLASSES_RULES_VERSION = 5;
 export function isGlasses(l: ListingResult) {
   return (
     (l.eyewear_kind !== undefined && l.eyewear_kind !== "not_eyewear") ||
@@ -190,10 +190,10 @@ export function germanAspects(
   for (const m of meta.filter((m) =>
     /^(Rahmenfarbe|Fassungsfarbe|Farbe)$/i.test(m.name),
   )) {
-    if (new Set(aspects[m.name] ?? []).size > 2) {
-      const multi = m.values.find((v) => /^mehrfarbig$/i.test(v));
-      if (multi) aspects[m.name] = [multi];
-    }
+    // Keep the two main colors; a small third accent is not Mehrfarbig.
+    const colors = [...new Set(aspects[m.name] ?? [])];
+    const concrete = colors.filter((v) => !/^mehrfarbig$/i.test(v));
+    aspects[m.name] = (concrete.length ? concrete : colors).slice(0, 2);
   }
   for (const [german, english] of Object.entries(aliases)) {
     if (
@@ -401,19 +401,17 @@ export function germanGlassesTitle(l: ListingResult, meta: AspectMeta[]) {
   const selectedColors = colorField
     ? (l.item_specifics?.[colorField.name] ?? "").split(" | ").filter(Boolean)
     : [];
-  if (
-    selectedColors.length > 2 ||
-    selectedColors.some((v) => /^mehrfarbig$/i.test(v))
-  )
-    color = "Mehrfarbig";
-  else if (knownColors.length === 2) color = knownColors.join(" ");
-  else if (knownColors.length > 2) color = "Mehrfarbig";
+  // Main colors precede small accents; never collapse known colors to Mehrfarbig.
   const dominant=fact(l,["Hauptfarbe","Dominante Fassungsfarbe","Primary Frame Color"]);
-  if(dominant) {
-    const primary=translations[dominant.value.toLowerCase()] ?? dominant.value;
-    const ordered=[...new Set([primary,...color.split(" ").filter(Boolean)])];
-    color=ordered.join(" ");
-  }
+  const primary=dominant ? translations[dominant.value.toLowerCase()] ?? dominant.value : "";
+  const candidates = [
+    primary,
+    ...selectedColors,
+    ...knownColors,
+    ...color.split(" "),
+  ].filter((v): v is string => typeof v === "string" && v.length > 0);
+  const concrete = [...new Set(candidates)].filter(v=>!/^mehrfarbig$/i.test(v));
+  color = concrete.length ? concrete.slice(0,2).join(" ") : color;
   const shapeRaw =
     fact(l, [
       "Brillenform",
@@ -494,7 +492,7 @@ export function germanGlassesTitle(l: ListingResult, meta: AspectMeta[]) {
   }
   return cleanListingText(parts.join(" ").replace(/\s+/g, " ")).slice(0, 80);
 }
-export const GERMAN_LISTING_PROMPT = `\n For eyewear: MPN/Herstellernummer is not the model number; leave it empty unless explicitly identified as a manufacturer part number. Default Abteilung to Unisex Erwachsene when unclear; Vintage to Nein when uncertain. Sonnenbrillen have Produktart Sonnenbrille. Determine shape from the LENS outline: round lenses mean Rund even in a rectangular outer frame. Temple length includes mm. For eBay.de write title, description, condition_notes, search terms, keywords, and item-specific names and values in German. Keep JSON keys and enum values unchanged. For eyewear use Marke, Modellnummer, Fassungsfarbe, Fassungsmaterial, Form, Abteilung, Glasbreite, Gesamtbreite. Brand/model identifiers and dimensions must be read from a label with an exact quote, never inferred. A lens width is not total frame width. Use Herren, Damen or Herren Damen in the title, never unisex, never xy. Title order: Marke Brille (or Sonnenbrille) Geschlecht Farbe Form Material (if supported) Modellnummer/model name keywords; round frames use Rund Panto before Farbe. Maximum 80 characters, prioritize brand and model. Prioritize exact model number, model name and manufacturer color code/name over generic adjectives. Read country of manufacture from inscriptions; never infer it from brand nationality. Include a proven Japan, Frankreich, Deutschland, Italien or Nordic country (Dänemark, Schweden, Norwegen, Finnland, Island) in the title before generic style keywords when space permits. Prefer concise useful search terms shared across German and English when accurate (Pilot, Oval, Panto); no invented translations or arbitrary extra shapes. Avoid filler adjectives; use leicht only as a last-priority replacement for Leichtgewicht. For Besonderheiten supply every matching visible feature and at least one when supported. Randlos is not Halbrand: Nylor means nylon-mounted semi-rimless construction and MUST use Halbrand/Halbrahmen, never Randlos or Vollrand; do not label rimless frames Vollrand or Halbrand. Rectangular frames may also be Eckig. For Thema AND Charakter suggest five relevant style associations each when the category allows multiple values and free text; derive original descriptive associations from visible shape, color and design, e.g. Retro, Panto, Minimalistisch, Y2K, 80er-Stil, 90er-Stil, 2000er-Stil or 2010er-Stil only when visually compatible; decade themes (70er, 80er, 90er) describe style only, never the production year. Do not add incompatible themes just to reach five. Extract visible rim construction (Randlos, Halbrand, Vollrand) and all genuinely matching style/character values. Use multiple relevant values when supported; never invent licensed fictional characters, brand affiliations or actual production years; Charakter may describe a style persona, not a claimed affiliation. Standard colors (Tortoise becomes Braun, Lilac becomes Lila). Report Hauptfarbe as the visibly dominant frame color and list it FIRST in color and Fassungsfarbe; minor gold accents never displace a dominant purple/lilac front. Keep model identifiers unchanged, but translate color names in the title to German. Prefer Eckig or Rechteckig for visibly angular/rectangular lens outlines; use Geometrisch only if a more precise shape genuinely cannot be determined. Inspect the colors of both front and temples, even when one is metal and another acetate: Emit Frontfarbe and Bügelfarbe separately when visibly different, and include both in Fassungsfarbe and color. Both colors must be included in the title. Two colors must be two separate standard words/values, e.g. Grün | Gold, not Grün-Gold. More than two distinct frame colors become Mehrfarbig. Do not count lens color as frame color. Only add kleine Gläser for a proven lens width below 47 mm. If total frame width is known and exceeds 139 mm, place groß L XL immediately after the shape, including when the width is a marked front-photo estimate. If rhinestones are visibly present, report Strass as a visible feature and put Strass immediately after the shape (before groß L XL if both apply). Gold is the primary color keyword for rose-gold frames; add Roségold only if room remains after useful identifiers. Never infer rhinestones from brand or style. Seller default: unworn without case, in German Ungetragen ohne Etui. Do not infer or describe condition from photos; use only the seller-provided condition. Do not add a generic sales template; that is supplied by the seller settings.`;
+export const GERMAN_LISTING_PROMPT = `\n For eyewear: MPN/Herstellernummer is not the model number; leave it empty unless explicitly identified as a manufacturer part number. Default Abteilung to Unisex Erwachsene when unclear; Vintage to Nein when uncertain. Sonnenbrillen have Produktart Sonnenbrille. Determine shape from the LENS outline: round lenses mean Rund even in a rectangular outer frame. Temple length includes mm. For eBay.de write title, description, condition_notes, search terms, keywords, and item-specific names and values in German. Keep JSON keys and enum values unchanged. For eyewear use Marke, Modellnummer, Fassungsfarbe, Fassungsmaterial, Form, Abteilung, Glasbreite, Gesamtbreite. Brand/model identifiers and dimensions must be read from a label with an exact quote, never inferred. A lens width is not total frame width. Use Herren, Damen or Herren Damen in the title, never unisex, never xy. Title order: Marke Brille (or Sonnenbrille) Geschlecht Farbe Form Material (if supported) Modellnummer/model name keywords; round frames use Rund Panto before Farbe. Maximum 80 characters, prioritize brand and model. Prioritize exact model number, model name and manufacturer color code/name over generic adjectives. Read country of manufacture from inscriptions; never infer it from brand nationality. Include a proven Japan, Frankreich, Deutschland, Italien or Nordic country (Dänemark, Schweden, Norwegen, Finnland, Island) in the title before generic style keywords when space permits. Prefer concise useful search terms shared across German and English when accurate (Pilot, Oval, Panto); no invented translations or arbitrary extra shapes. Avoid filler adjectives; use leicht only as a last-priority replacement for Leichtgewicht. For Besonderheiten supply every matching visible feature and at least one when supported. Randlos is not Halbrand: Nylor means nylon-mounted semi-rimless construction and MUST use Halbrand/Halbrahmen, never Randlos or Vollrand; do not label rimless frames Vollrand or Halbrand. Rectangular frames may also be Eckig. For Thema AND Charakter suggest five relevant style associations each when the category allows multiple values and free text; derive original descriptive associations from visible shape, color and design, e.g. Retro, Panto, Minimalistisch, Y2K, 80er-Stil, 90er-Stil, 2000er-Stil or 2010er-Stil only when visually compatible; decade themes (70er, 80er, 90er) describe style only, never the production year. Do not add incompatible themes just to reach five. Extract visible rim construction (Randlos, Halbrand, Vollrand) and all genuinely matching style/character values. Use multiple relevant values when supported; never invent licensed fictional characters, brand affiliations or actual production years; Charakter may describe a style persona, not a claimed affiliation. Standard colors (Tortoise becomes Braun, Lilac becomes Lila). Report Hauptfarbe as the visibly dominant frame color and list it FIRST in color and Fassungsfarbe; minor gold accents never displace a dominant purple/lilac front. Keep model identifiers unchanged, but translate color names in the title to German. Prefer Eckig or Rechteckig for visibly angular/rectangular lens outlines; use Geometrisch only if a more precise shape genuinely cannot be determined. Inspect the colors of both front and temples, even when one is metal and another acetate: Emit Frontfarbe and Bügelfarbe separately when visibly different, and include both in Fassungsfarbe and color. Both colors must be included in the title. Two colors must be two separate standard words/values, e.g. Grün | Gold, not Grün-Gold. Report only the one or two MAIN frame colors, dominant first. Ignore tiny decorative accents, reflections and darker shades of the same hue. A red/brown shaded frame whose main impression is red is Rot only. A gold/black frame with tiny blue accents is Gold | Schwarz, never Mehrfarbig. Do not use Mehrfarbig just because a third minor color is visible. Frontfarbe, Bügelfarbe, Fassungsfarbe and color must consistently contain main colors only. Do not count lens color as frame color. Only add kleine Gläser for a proven lens width below 47 mm. If total frame width is known and exceeds 139 mm, place groß L XL immediately after the shape, including when the width is a marked front-photo estimate. If rhinestones are visibly present, report Strass as a visible feature and put Strass immediately after the shape (before groß L XL if both apply). Gold is the primary color keyword for rose-gold frames; add Roségold only if room remains after useful identifiers. Never infer rhinestones from brand or style. Seller default: unworn without case, in German Ungetragen ohne Etui. Do not infer or describe condition from photos; use only the seller-provided condition. Do not add a generic sales template; that is supplied by the seller settings.`;
 
 function numericWidth(l:ListingResult,keys:string[]) {
  const f=fact(l,keys);if(!f) return;
