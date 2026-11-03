@@ -409,7 +409,7 @@ export function germanGlassesTitle(l: ListingResult, meta: AspectMeta[]) {
     ...selectedColors,
     ...knownColors,
     ...color.split(" "),
-  ].filter(Boolean);
+  ].filter((v): v is string => typeof v === "string" && v.length > 0);
   const concrete = [...new Set(candidates)].filter(v=>!/^mehrfarbig$/i.test(v));
   color = concrete.length ? concrete.slice(0,2).join(" ") : color;
   const shapeRaw =
