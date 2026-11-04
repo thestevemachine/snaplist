@@ -182,7 +182,9 @@ export function publicationPayload(i: Data): Payload {
       !Array.isArray(i[k]) &&
       Object.keys(i[k]).length === 1 &&
       Object.hasOwn(i[k], "AvailableForPickupInStore") &&
-      [false, "false"].includes(i[k].AvailableForPickupInStore)
+      // Availability returned by eBay is not copied as a fulfillment setting.
+      // The user requested checking the actual shipping policies instead.
+      [false, true, "false", "true"].includes(i[k].AvailableForPickupInStore)
     )
       return false;
     return Boolean(i[k]);

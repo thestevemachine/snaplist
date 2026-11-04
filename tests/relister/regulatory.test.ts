@@ -2,23 +2,22 @@ import { it, expect } from "vitest";
 import { regulatoryPayload } from "../../lib/relister/regulatory";
 import { publicationPayload } from "../../lib/relister/ebay";
 import { samplePayload } from "../../lib/relister/simulation";
-it.each([false, "false"])(
-  "accepts an explicitly disabled pickup response flag %s",
+it.each([false, true, "false", "true"])(
+  "omits pickup availability metadata %s from publication settings",
   (value) => {
-    expect(() =>
+    expect(
       publicationPayload({
         ...samplePayload("100000000001"),
         PickupInStoreDetails: { AvailableForPickupInStore: value },
       }),
-    ).not.toThrow();
+    ).not.toHaveProperty("PickupInStoreDetails");
   },
 );
 it.each([
-  { AvailableForPickupInStore: true },
-  { AvailableForPickupInStore: "true" },
+  { AvailableForPickupInStore: "unknown" },
   { AvailableForPickupInStore: "false", AdditionalSetting: "x" },
   {},
-])("blocks active or unknown pickup settings %j", (pickup) => {
+])("blocks unknown pickup settings %j", (pickup) => {
   expect(() =>
     publicationPayload({
       ...samplePayload("100000000001"),
