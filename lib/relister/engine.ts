@@ -11,6 +11,7 @@ export const digest = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 export interface Adapter {
   read(id: string): Promise<Listing>;
+  assertSkuAvailable?(sku: string, excludingItemId: string): Promise<void>;
   backup(row: Row, account: string): Promise<Backup>;
   assertSnapshot?(backup: Backup): Promise<void>;
   prepare?(backup: Backup, target: number): Promise<Payload>;
@@ -220,6 +221,14 @@ export async function advance(
       if (found === "unknown")
         throw Error("Erstellung unklar: keine automatische Wiederholung.");
       if (!found) {
+        if (job.mode === "live") {
+          if (!adapter.assertSkuAvailable)
+            throw Error("Aktueller SKU-Abgleich nicht verfügbar.");
+          await adapter.assertSkuAvailable(
+            row.backup!.listing.sku,
+            row.listing.id,
+          );
+        }
         if (!row.createAttempted && job.mode === "live") {
           const verification = await adapter.verify(
             row.backup!,

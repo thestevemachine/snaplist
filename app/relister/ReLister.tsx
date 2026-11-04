@@ -183,8 +183,9 @@ export default function ReLister() {
           Der Verkäuferbestand wird etwa alle 6 Stunden im Hintergrund
           aktualisiert. Vor dem Beenden prüft Snaplist jedes ausgewählte Angebot
           live bei eBay: aktiv, unverkauft, Einzelstück und unveränderter Preis.
-          Bei Abweichungen oder unklarem Status stoppt der Auftrag, bevor ein
-          neues Angebot erstellt wird.
+          Vor der Neuerstellung prüft Snaplist außerdem den gesamten aktiven
+          Bestand auf dieselbe SKU. Bei Abweichungen, Treffern oder unklarem
+          Status stoppt der Auftrag, bevor ein neues Angebot erstellt wird.
         </p>
         <p>
           Aufrufe: Nicht verfügbar. Seitenaufrufe, Suchimpressionen und

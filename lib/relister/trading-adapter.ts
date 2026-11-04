@@ -161,6 +161,38 @@ export class TradingAdapter implements Adapter {
       ...(blockingReason ? { blockingReason } : {}),
     };
   }
+  async assertSkuAvailable(sku: string, excludingItemId: string) {
+    const normalizedSku = sku.trim().toLocaleLowerCase("en-US");
+    if (!normalizedSku)
+      throw Error("SKU fehlt; Duplikatprüfung nicht möglich.");
+    let page = 1,
+      pages = 1;
+    do {
+      const response = await this.call(
+        "GetMyeBaySelling",
+        `<ActiveList><Include>true</Include><Pagination><EntriesPerPage>200</EntriesPerPage><PageNumber>${page}</PageNumber></Pagination></ActiveList>`,
+      );
+      assertTradingSuccess(response);
+      pages = Number(response.ActiveList?.PaginationResult?.TotalNumberOfPages);
+      if (!Number.isSafeInteger(pages) || pages < 0 || pages > 1000)
+        throw Error("Aktueller Bestand unvollständig; Neuerstellung gestoppt.");
+      for (const item of list<RawItem>(response.ActiveList?.ItemArray?.Item)) {
+        const itemId = String(item.ItemID ?? "");
+        const activeSku = String(item.SKU ?? "")
+          .trim()
+          .toLocaleLowerCase("en-US");
+        if (
+          itemId !== excludingItemId &&
+          activeSku !== "" &&
+          activeSku === normalizedSku
+        )
+          throw Error(
+            `Ein anderes aktives Angebot mit SKU ${sku} wurde gefunden (${itemId}); Neuerstellung gestoppt.`,
+          );
+      }
+      page++;
+    } while (page <= pages);
+  }
   async backup(row: Row, account: string) {
     if (account !== this.account) throw Error("Kontokonflikt.");
     const raw = await this.raw(row.listing.id),
