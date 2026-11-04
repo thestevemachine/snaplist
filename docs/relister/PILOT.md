@@ -1,27 +1,23 @@
-# Single-item pilot — preparation approved, live mutations locked
+# Single-item pilot
 
-The implementation and isolated tests are reviewable in PR #46. No real eBay item has yet been backed up or approved through this feature. This is not a request to end an offer.
+A preview does not authorize real eBay changes. Keep operational account, item and rollout records outside repository documentation.
 
-## Gate 1: read-only rollout / real preparation
+## Read-only preparation
 
-On 2026-11-04 the user explicitly approved production migrations/deployment for preparing exactly one real item. This supersedes the earlier prohibition only for this read-only preparation stage. RELISTER_PREPARATION_ONLY=true restricts the API to the owner and atomically binds one source item per account. Browser polling advances persisted preparation while the page remains open because production has no Inngest credentials. RELISTER_LIVE_ENABLED=false remains enforced.
+Production migrations and deployments need explicit permission. With RELISTER_PREPARATION_ONLY=true, the API restricts preparation to the owner and atomically binds one source item per account. Keep RELISTER_LIVE_ENABLED=false until the separate live permission is received. Inngest processes saved work when configured; browser polling is only a fallback without its credentials.
 
-Originally the user explicitly prohibited production deployment/migrations. The isolated Supabase test account has no seller grant; existing production eBay/account secrets have not been copied. To obtain a real, owned, current listing and complete snapshot through the established login, approve a strictly read-only deployment/migration stage separately, or configure an approved isolated environment with its own user-completed eBay consent. Do not invent a seller/item or use a public search result as ownership proof. Do not switch RuNames or activate a second keyset as a workaround.
+Prepare exactly one owned, active German original from the oldest-first inventory. Record privately: seller, item/link/SKU, current price, discount, fixed target, fee estimate and remaining uncertainty. Verify the complete snapshot, ordered image files and hashes, outgoing payload, shop categories, shipping/return settings and final preview digest. Do not copy seller credentials into test environments or change keysets or consent destinations.
 
-RELISTER_LIVE_ENABLED remains absent; no relister_approvals rows may be created during this stage. Select exactly one eligible German item and run dry-run. Record:
-- authenticated account UUID, GetUser seller and original item ID/link/SKU;
-- actual current price, percentage and target; zero/nonzero fee estimate, quotas and remaining fees uncertainty;
-- full private snapshot and ordered image hashes/readback;
-- exact unsupported/risk exclusions, expanded shipping/return settings, outgoing DTO and final previewDigest.
+## Separate live approval
 
-## Gate 2: explicit single-item live approval
+Present those concrete values and the consequences before requesting approval. Existing shop coupons and advertising are managed by eBay and can apply again through the preserved shop category. Explain the existing advertising charges. Webinterpret may end associated foreign offers; takeover of the new German ID and its price remains to be checked. Watchers and previous offer history do not transfer automatically. A ranking benefit is not established.
 
-Only after the user reviews those concrete values: create one service-only approval bound to the exact job/account/seller/item/digest/target, with short expiry; enable live processing only in the approved environment; have the user explicitly confirm the prepared job. This task has NOT authorized this gate. Never create a blanket approval from a browser checkbox. Nonzero fees remain blocked in the first version.
+After explicit approval, create one service-only grant bound to the exact job/account/seller/item/digest/target with a short expiry, enable the live gate in the approved environment, and explicitly activate that job. The owner-only preparation restriction can remain enabled for this single-item pilot. No blanket approvals; nonzero estimated listing fees remain blocked.
 
-Before End: re-read current listing/risk/price/stock and saved setting fingerprint. After End: verify ended and no sale; before Add repeat the old-item check. Create once with immutable UUID; timeout means reconcile, and unknown means human review. Original item IDs cannot be restored. Pause starts no new ends; ended rows remain visible and resumable. Expired authorization stops the account's work.
+Before End, re-read ownership, marketplace, price, stock and the saved settings fingerprint. After End, verify that the source ended without a sale. Check it again before Add. Use the stable request UUID; after an ambiguous response reconcile before retrying. Unknown results require review. An original item ID cannot be restored. Pause starts no additional ends; already ended rows remain visible for recovery.
 
-After Add: compare all supported fields, ordered picture URLs and expanded policy settings; store old→new history. Deviations require review and must not trigger another Add.
+After Add, compare supported fields, ordered pictures, price and expanded policies, and persist old-to-new lineage. Deviations require review and must not trigger another Add.
 
-## Gate 3: user checks Webinterpret
+## Webinterpret observation
 
-Observe whether old foreign counterparts end, whether the new German ID is taken over, price propagation, timing and duplicates. Snaplist sends no foreign-marketplace mutations. Fixture/Sandbox tests cannot prove this behavior or any ranking effect.
+Check whether old foreign counterparts end, whether the new German ID is taken over, and whether prices, timing and duplicate prevention behave as expected. Snaplist never sends foreign-marketplace mutations. Simulated tests do not establish Webinterpret behavior or any ranking effect.
