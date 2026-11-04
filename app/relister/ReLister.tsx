@@ -503,7 +503,7 @@ export default function ReLister() {
                   </ol>
                 </details>
               </article>
-            ))}}
+            ))}
           </article>
         ))}
       </section>
