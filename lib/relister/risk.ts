@@ -18,12 +18,38 @@ export function riskProbe(token: string, call: TradingCall) {
       const b = await r.json().catch(() => null);
       if (r.ok) management = "inventory";
       else if (
-        r.status === 404 &&
+        [400, 404].includes(r.status) &&
         Array.isArray(b?.errors) &&
         b.errors.length &&
         b.errors.every((e: any) => Number(e.errorId) === 25710)
       )
         management = "trading";
+      if (
+        management === "unknown" &&
+        r.status === 400 &&
+        Array.isArray(b?.errors) &&
+        b.errors.length &&
+        b.errors.every((e: any) => Number(e.errorId) === 25709)
+      ) {
+        const inventory = await boundedFetch(
+          "https://api.ebay.com/sell/inventory/v1/inventory_item?limit=1",
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            redirect: "error",
+            cache: "no-store",
+          },
+        );
+        const summary = await inventory.json().catch(() => null);
+        if (
+          inventory.ok &&
+          summary?.total === 0 &&
+          !summary.errors &&
+          (summary.inventoryItems === undefined ||
+            (Array.isArray(summary.inventoryItems) &&
+              summary.inventoryItems.length === 0))
+        )
+          management = "trading";
+      }
       if (management === "unknown")
         console.warn("relister-management-check", {
           httpStatus: r.status,

@@ -1,6 +1,7 @@
 import { tradingCall, assertTradingSuccess, list, xml } from "../ebay/trading";
 import { sellerAccessToken } from "../ebay/session";
 import { type Listing, type Payload } from "./domain";
+import { regulatoryPayload } from "./regulatory";
 type Data = Record<string, any>;
 const money = (x: any) => {
   const s = String(x?.["#text"] ?? x ?? "");
@@ -145,7 +146,6 @@ export function publicationPayload(i: Data): Payload {
   const unsupported = [
     ...(i.ListingDuration !== "GTC" ? ["ListingDuration"] : []),
     ...[
-      "Regulatory",
       "ProductSafety",
       "Variations",
       "DiscountPriceInfo",
@@ -153,9 +153,14 @@ export function publicationPayload(i: Data): Payload {
       "SubTitle",
       "SecondaryCategory",
     ].filter((k) => Boolean(i[k])),
-    ...(i.ShippingDetails?.ShippingDiscountProfileID
-      ? ["ShippingDiscountProfileID"]
-      : []),
+    ...[
+      "ShippingDiscountProfileID",
+      "InternationalShippingDiscountProfileID",
+    ].filter(
+      (k) =>
+        i.ShippingDetails?.[k] !== undefined &&
+        String(i.ShippingDetails[k]) !== "0",
+    ),
   ];
   if (unsupported.length)
     throw Error(`Nicht unterstützte Einstellungen: ${unsupported.join(", ")}.`);
@@ -180,6 +185,8 @@ export function publicationPayload(i: Data): Payload {
   if (offer !== undefined && !["true", "false", true, false].includes(offer))
     throw Error("Preisvorschlagseinstellungen unklar.");
   const optional: Partial<Payload> = {};
+  const regulatory = regulatoryPayload(i.Regulatory);
+  if (regulatory !== undefined) optional.Regulatory = regulatory;
   if (i.InventoryTrackingMethod !== undefined) {
     if (!["SKU", "ItemID"].includes(i.InventoryTrackingMethod))
       throw Error("Bestandsverfolgung unklar.");

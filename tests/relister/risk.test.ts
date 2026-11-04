@@ -96,3 +96,46 @@ it("does not turn a conflicting returned offer into a clear result", async () =>
     ),
   ).rejects.toThrow();
 });
+
+async function inventoryFallback(summary: any, ok = true) {
+  fetch.mockReset();
+  fetch.mockResolvedValueOnce({
+    ok: false,
+    status: 400,
+    json: async () => ({ errors: [{ errorId: 25709 }] }),
+  });
+  fetch.mockResolvedValueOnce({
+    ok,
+    status: ok ? 200 : 403,
+    json: async () => summary,
+  });
+  return riskProbe("fixture-token", async () => ({ Ack: "Success" }))(id, {
+    SKU: "fixture-sku",
+  });
+}
+it("requires an explicit empty inventory before clearing an invalid-SKU response", async () => {
+  expect(
+    (await inventoryFallback({ total: 0, inventoryItems: [] })).management,
+  ).toBe("trading");
+  expect(fetch.mock.calls[1][0]).toBe(
+    "https://api.ebay.com/sell/inventory/v1/inventory_item?limit=1",
+  );
+});
+it.each([
+  { total: 1, inventoryItems: [{ sku: "fixture" }] },
+  { total: "0" },
+  {},
+  { total: 0, inventoryItems: [{ sku: "fixture" }] },
+])(
+  "does not infer inventory absence from incomplete or conflicting summaries",
+  async (summary) =>
+    expect((await inventoryFallback(summary)).management).toBe("unknown"),
+);
+it("keeps authorization failure unknown despite a misleading empty body", async () =>
+  expect((await inventoryFallback({ total: 0 }, false)).management).toBe(
+    "unknown",
+  ));
+it("accepts the documented 400/25710 absence response", async () =>
+  expect((await setup({}, 400)(id, { SKU: "fixture" })).management).toBe(
+    "trading",
+  ));

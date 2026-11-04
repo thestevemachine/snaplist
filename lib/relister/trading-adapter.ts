@@ -67,6 +67,7 @@ const settings = (raw: RawItem) =>
       "AutoPay",
       "ShipToLocations",
       "VATDetails",
+      "Regulatory",
     ]
       .filter((k) => raw[k] !== undefined)
       .map((k) => [k, raw[k]]),

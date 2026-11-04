@@ -25,7 +25,29 @@ export type Listing = {
   lastRenewed?: string;
   predecessors: string[];
 };
+export type RegulatoryContact = Partial<
+  Record<
+    | "CityName"
+    | "CompanyName"
+    | "ContactURL"
+    | "Country"
+    | "Email"
+    | "Phone"
+    | "PostalCode"
+    | "StateOrProvince"
+    | "Street1"
+    | "Street2",
+    string
+  >
+>;
+export type Regulatory = {
+  Manufacturer?: RegulatoryContact;
+  ResponsiblePersons?: {
+    ResponsiblePerson: (RegulatoryContact & { Types?: { Type: string[] } })[];
+  };
+};
 export type Payload = {
+  Regulatory?: Regulatory;
   Title: string;
   Description: string;
   SKU: string;
