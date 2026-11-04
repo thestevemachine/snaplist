@@ -2,6 +2,30 @@ import { it, expect } from "vitest";
 import { regulatoryPayload } from "../../lib/relister/regulatory";
 import { publicationPayload } from "../../lib/relister/ebay";
 import { samplePayload } from "../../lib/relister/simulation";
+it.each([false, "false"])(
+  "accepts an explicitly disabled pickup response flag %s",
+  (value) => {
+    expect(() =>
+      publicationPayload({
+        ...samplePayload("100000000001"),
+        PickupInStoreDetails: { AvailableForPickupInStore: value },
+      }),
+    ).not.toThrow();
+  },
+);
+it.each([
+  { AvailableForPickupInStore: true },
+  { AvailableForPickupInStore: "true" },
+  { AvailableForPickupInStore: "false", AdditionalSetting: "x" },
+  {},
+])("blocks active or unknown pickup settings %j", (pickup) => {
+  expect(() =>
+    publicationPayload({
+      ...samplePayload("100000000001"),
+      PickupInStoreDetails: pickup,
+    }),
+  ).toThrow("Sondereinstellung");
+});
 it("preserves documented manufacturer and responsible person fields", () => {
   const source = {
     Manufacturer: {

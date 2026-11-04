@@ -59,7 +59,15 @@ export async function advance(
     (row.nextAttemptAt && row.nextAttemptAt > Date.now())
   )
     return;
-  if (job.mode === "live" && !(await repo.authorized?.(job, row)))
+  const postcheckOnly =
+    row.phase === "created" &&
+    row.createAttempted === true &&
+    Boolean(row.newId);
+  if (
+    job.mode === "live" &&
+    !postcheckOnly &&
+    !(await repo.authorized?.(job, row))
+  )
     throw Error("Live-Pilot nicht freigegeben.");
   if (!(await repo.lock(job.seller, row.listing.id, job.id))) {
     transition(row, "skipped", "Bereits durch anderen Auftrag gesperrt");

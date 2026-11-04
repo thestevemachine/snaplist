@@ -26,6 +26,29 @@ function fixture() {
   return { job, saved, repo };
 }
 describe("durable re-list simulation", () => {
+  it("allows only read-only postcheck recovery after a live mutation grant expires", async () => {
+    const { job, repo, saved } = fixture();
+    const adapter = new Simulation(job.rows);
+    const row = job.rows[0];
+    row.backup = await adapter.backup(row, "account");
+    row.phase = "created";
+    row.newId = "SIM-confirmed";
+    row.createAttempted = true;
+    job.mode = "live";
+    repo.authorized = async () => false;
+    adapter.end = async () => {
+      throw Error("must not end");
+    };
+    adapter.create = async () => {
+      throw Error("must not create");
+    };
+    await advance(job, row, adapter, repo);
+    expect(saved.at(-1)?.rows[0].phase).toBe("completed");
+    row.phase = "ready";
+    await expect(advance(job, row, adapter, repo)).rejects.toThrow(
+      "nicht freigegeben",
+    );
+  });
   it("persists clearing an earlier error only after a successful postcheck", async () => {
     const { job, repo, saved } = fixture();
     const adapter = new Simulation(job.rows);

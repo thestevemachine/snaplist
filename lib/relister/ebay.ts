@@ -174,7 +174,19 @@ export function publicationPayload(i: Data): Payload {
     "ExtendedProducerResponsibility",
     "ConditionDescriptors",
     "VideoDetails",
-  ].filter((k) => i[k]);
+  ].filter((k) => {
+    if (
+      k === "PickupInStoreDetails" &&
+      i[k] &&
+      typeof i[k] === "object" &&
+      !Array.isArray(i[k]) &&
+      Object.keys(i[k]).length === 1 &&
+      Object.hasOwn(i[k], "AvailableForPickupInStore") &&
+      [false, "false"].includes(i[k].AvailableForPickupInStore)
+    )
+      return false;
+    return Boolean(i[k]);
+  });
   if (i.PrivateListing === "true") special.push("PrivateListing");
   if (special.length)
     throw Error(
