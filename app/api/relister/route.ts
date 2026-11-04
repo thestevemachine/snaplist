@@ -236,7 +236,9 @@ async function handle(req: NextRequest) {
         if (body.digest !== job.previewDigest)
           throw Error("Vorschau stimmt nicht überein.");
         if (job.mode === "dry-run") {
-          if (preparationOnly || process.env.RELISTER_LIVE_ENABLED !== "true")
+          // The owner-only single-source rollout remains in force for the pilot.
+          // A separate exact-job database approval is required even with this flag.
+          if (process.env.RELISTER_LIVE_ENABLED !== "true")
             throw Error("Live-Pilot nicht freigegeben.");
           const activated = await accountDb().rpc("relister_activate", {
             p_job: job.id,

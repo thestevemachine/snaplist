@@ -6,6 +6,8 @@ const m = vi.hoisted(() => ({
   save: vi.fn(),
   reader: vi.fn(),
   update: vi.fn(),
+  getJob: vi.fn(),
+  activate: vi.fn(),
 }));
 vi.mock("../../lib/accounts/context", () => ({
   currentAccount: () => m.account,
@@ -14,7 +16,7 @@ vi.mock("../../lib/accounts/context", () => ({
 vi.mock("../../lib/accounts/server", () => ({
   withAccount: (f: unknown) => f,
   sameOrigin: () => true,
-  accountDb: () => ({ from: () => ({ update: m.update }) }),
+  accountDb: () => ({ from: () => ({ update: m.update }), rpc: m.activate }),
 }));
 vi.mock("../../lib/api-guard", () => ({ guardApiRequest: () => null }));
 vi.mock("../../lib/relister/store", () => ({
@@ -23,7 +25,7 @@ vi.mock("../../lib/relister/store", () => ({
   saveCatalog: m.save,
   jobs: async () => [],
   insert: vi.fn(),
-  getJob: vi.fn(),
+  getJob: m.getJob,
   command: vi.fn(),
 }));
 vi.mock("../../lib/relister/ebay", () => ({ reader: m.reader }));
@@ -47,9 +49,38 @@ const request = (body: unknown) =>
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv("RELISTER_PREPARATION_ONLY", "true");
+  vi.stubEnv("RELISTER_LIVE_ENABLED", "false");
   m.account.owner = true;
   m.reader.mockResolvedValue({ seller: "owner-seller" });
   m.update.mockReturnValue({ eq: async () => ({ error: null }) });
+});
+it("keeps the owner pilot disabled before the separate live release", async () => {
+  m.getJob.mockResolvedValueOnce({
+    id: "job",
+    mode: "dry-run",
+    previewDigest: "digest",
+  });
+  expect(
+    (await request({ action: "confirm", id: "job", digest: "digest" })).status,
+  ).toBe(400);
+  expect(m.activate).not.toHaveBeenCalled();
+});
+it("requires exact database approval even for the owner-only live pilot", async () => {
+  vi.stubEnv("RELISTER_LIVE_ENABLED", "true");
+  m.getJob.mockResolvedValueOnce({
+    id: "job",
+    mode: "dry-run",
+    previewDigest: "digest",
+  });
+  m.activate.mockResolvedValueOnce({ error: { message: "missing approval" } });
+  expect(
+    (await request({ action: "confirm", id: "job", digest: "digest" })).status,
+  ).toBe(400);
+  expect(m.activate).toHaveBeenCalledWith("relister_activate", {
+    p_job: "job",
+    p_account: "account",
+    p_digest: "digest",
+  });
 });
 afterEach(() => vi.unstubAllEnvs());
 it("rejects non-owner before any seller access", async () => {
