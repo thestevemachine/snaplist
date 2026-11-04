@@ -4,6 +4,7 @@ import { it, expect, vi } from "vitest";
 import {
   TradingAdapter,
   payloadXml,
+  productionUpload,
   type TradingCall,
 } from "../../lib/relister/trading-adapter";
 import {
@@ -13,7 +14,16 @@ import {
   fixtureImage,
 } from "../../lib/relister/simulation";
 import { preview } from "../../lib/relister/jobs";
-import { advance, type Repository } from "../../lib/relister/engine";
+import {
+  advance,
+  AuthorizationError,
+  TemporaryError,
+  type Repository,
+} from "../../lib/relister/engine";
+const photo = vi.hoisted(() => ({ upload: vi.fn() }));
+vi.mock("../../lib/ebay/photo-upload", () => ({
+  uploadOnePhoto: photo.upload,
+}));
 const id = "100000000001";
 function fixture() {
   const payload = samplePayload(id);
@@ -198,4 +208,29 @@ it("full real-adapter code path backs bytes, restores EPS, verifies, ends once, 
   expect(f.state.active).toBe(false);
   expect(job.rows[0].outgoing!.StartPrice).toBe("46.99");
   expect(files.has(`account/${job.rows[0].id}/backup.json`)).toBe(true);
+});
+
+it("classifies sanitized image-upload failures without retrying authorization errors", async () => {
+  photo.upload.mockResolvedValueOnce({
+    url: null,
+    error: "Fixture upload denied (HTTP 403)",
+    retryable: false,
+  });
+  await expect(
+    productionUpload("fixture-token")(
+      { mediaType: "image/jpeg", data: "fixture" },
+      "fixture.jpg",
+    ),
+  ).rejects.toBeInstanceOf(AuthorizationError);
+  photo.upload.mockResolvedValueOnce({
+    url: null,
+    error: "Fixture temporary failure (HTTP 500)",
+    retryable: true,
+  });
+  await expect(
+    productionUpload("fixture-token")(
+      { mediaType: "image/jpeg", data: "fixture" },
+      "fixture.jpg",
+    ),
+  ).rejects.toBeInstanceOf(TemporaryError);
 });

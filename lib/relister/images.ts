@@ -2,14 +2,26 @@ import { createHash } from "node:crypto";
 import { boundedFetch } from "../network";
 export function checkedImageUrl(value: string) {
   const u = new URL(value);
+  const modern = /^\/images\/[a-zA-Z0-9_.$~\/-]+$/.test(u.pathname);
+  const legacy =
+    /^\/00\/s\/[a-zA-Z0-9_=+-]{1,80}\/z\/[a-zA-Z0-9_~\/-]{1,100}\/\$_\d+\.(?:jpe?g|png|webp)$/i.test(
+      u.pathname,
+    );
+  const keys = [...u.searchParams.keys()];
+  const queryAllowed =
+    keys.length === 0 ||
+    (keys.length === 1 &&
+      keys[0] === "set_id" &&
+      /^[0-9a-f]{1,32}$/i.test(u.searchParams.get("set_id") ?? ""));
   if (
     u.protocol !== "https:" ||
     u.hostname !== "i.ebayimg.com" ||
     u.port ||
     u.username ||
     u.password ||
-    u.search ||
-    !u.pathname.startsWith("/images/")
+    u.hash ||
+    !queryAllowed ||
+    (!modern && !legacy)
   )
     throw Error("Bild-URL nicht zugelassen.");
   return u;

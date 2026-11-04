@@ -303,10 +303,14 @@ export function productionTransport(token: string): TradingCall {
 export function productionUpload(token: string) {
   return async (image: { mediaType: string; data: string }, name: string) => {
     const r = await uploadOnePhoto(token, image, name);
-    if (!r.url)
-      throw new TemporaryError(
-        "Bild-Wiederherstellung bei eBay fehlgeschlagen.",
-      );
+    if (!r.url) {
+      const message =
+        r.error ?? "Bild-Wiederherstellung bei eBay fehlgeschlagen.";
+      if (/HTTP (401|403)\b/.test(message))
+        throw new AuthorizationError(message);
+      if (r.retryable) throw new TemporaryError(message);
+      throw Error(message);
+    }
     return r.url;
   };
 }

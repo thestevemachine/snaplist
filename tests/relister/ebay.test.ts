@@ -114,3 +114,18 @@ it("rejects another seller in oldest-item results", async () => {
   );
   await expect((await reader()).oldest()).rejects.toThrow("Verkäufer");
 });
+
+it("accepts legacy eBay image paths with their bounded set_id", () => {
+  const url =
+    "https://i.ebayimg.com/00/s/RklYVFVSRTYwMA/z/FixtureImageId/$_57.JPG?set_id=880000500F";
+  expect(checkedImageUrl(url).href).toBe(url);
+});
+it.each([
+  "https://i.ebayimg.com/00/s/RklYVFVSRTYwMA/z/FixtureImageId/$_57.JPG?redirect=https://example.invalid",
+  "https://i.ebayimg.com/00/s/RklYVFVSRTYwMA/z/FixtureImageId/$_57.JPG?set_id=880F&set_id=881F",
+  "https://i.ebayimg.com/00/s/RklYVFVSRTYwMA/z/FixtureImageId/$_57.JPG?set_id=../",
+  "https://i.ebayimg.com/00/s/RklYVFVSRTYwMA/z/FixtureImageId/file.php",
+  "https://i.ebayimg.com/images/g/fixture.jpg#fragment",
+])("rejects unsafe legacy-image variants %s", (url) =>
+  expect(() => checkedImageUrl(url)).toThrow(),
+);
