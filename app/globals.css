@@ -2360,7 +2360,135 @@ textarea.title-input {
   object-fit: cover;
 }
 
+
+.relister-job-date {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--color-ink-soft);
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.relister-history-row {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+}
+
+.relister-history-row.is-completed {
+  border-left: 4px solid #16856b;
+  background: oklch(98% 0.018 170);
+}
+
+.relister-history-preview {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.relister-history-preview > img,
+.relister-history-placeholder {
+  flex: 0 0 72px;
+  width: 72px;
+  height: 72px;
+  border-radius: 9px;
+  object-fit: cover;
+}
+
+.relister-history-placeholder {
+  display: grid;
+  place-items: center;
+  background: var(--color-surface-sunk);
+  color: var(--color-ink-soft);
+}
+
+.relister-history-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.relister-history-title-line {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.relister-history-title-line > strong {
+  overflow-wrap: anywhere;
+}
+
+.relister-phase-badge {
+  flex: 0 0 auto;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: var(--color-surface-sunk);
+  color: var(--color-ink-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.relister-phase-badge.is-completed {
+  background: #d8f2e9;
+  color: #08654f;
+}
+
+.relister-history-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  margin-top: 0.55rem;
+  color: var(--color-ink-soft);
+  font-size: 0.88rem;
+}
+
+.relister-history-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 1rem;
+  margin-top: 0.6rem;
+}
+
+.relister-history-result > strong {
+  color: #08654f;
+}
+
+.relister-history-status {
+  display: block;
+  margin-top: 0.6rem;
+  color: var(--color-ink-soft);
+}
+
+.relister-history-details {
+  margin-top: 0.75rem;
+  color: var(--color-ink-soft);
+  font-size: 0.9rem;
+}
+
+.relister-history-details summary {
+  width: fit-content;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.relister-history-details ol {
+  display: grid;
+  gap: 0.35rem;
+  padding-left: 1.25rem;
+}
+
 @media (max-width: 720px) {
+  .relister-history-preview {
+    gap: 0.7rem;
+  }
+
+  .relister-history-title-line {
+    flex-direction: column;
+  }
+
   .app-nav,
   .relister-page {
     width: calc(100% - 28px);
