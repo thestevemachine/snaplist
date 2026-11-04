@@ -123,8 +123,21 @@ it("continues probing eligibility for active sources", async () => {
 it("builds explicit Add payload with stable UUID and no old item ID", () => {
   const p = payloadXml(samplePayload(id), "A".repeat(32));
   expect(p).toContain("<UUID>");
+  expect(new XMLParser().parse(p).Item.ApplicationData).toBe("A".repeat(32));
   expect(p).not.toContain("<ItemID>");
   expect(p).not.toContain("QuantitySold");
+});
+it("verifies the publication request including the bounded stable identifier", async () => {
+  const { adapter, call } = fixture();
+  const uuid = "B".repeat(32);
+  await adapter.verify({} as any, 4999, samplePayload(id), uuid);
+  const verification = vi
+    .mocked(call)
+    .mock.calls.find(([name]) => name === "VerifyAddFixedPriceItem")!;
+  expect(new XMLParser().parse(verification[1]).Item).toMatchObject({
+    UUID: uuid,
+    ApplicationData: uuid,
+  });
 });
 it("end/create transport is real code but only executes after engine authorization", async () => {
   const { adapter, call } = fixture(),

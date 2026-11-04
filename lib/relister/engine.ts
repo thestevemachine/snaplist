@@ -18,6 +18,7 @@ export interface Adapter {
     backup: Backup,
     target: number,
     payload?: Payload,
+    uuid?: string,
   ): Promise<{ feeCents: number }>;
   end(id: string): Promise<void>;
   ended(id: string): Promise<boolean>;
@@ -99,6 +100,7 @@ export async function advance(
         row.backup!,
         row.targetCents,
         row.outgoing,
+        row.uuid,
       );
       row.feeCents = v.feeCents;
       row.verifiedAt = Date.now();
@@ -150,6 +152,7 @@ export async function advance(
           row.backup!,
           row.targetCents,
           row.outgoing,
+          row.uuid,
         );
         if (verification.feeCents !== 0)
           throw Error("Geänderte Gebühren: neue Freigabe erforderlich.");
@@ -208,6 +211,16 @@ export async function advance(
       if (found === "unknown")
         throw Error("Erstellung unklar: keine automatische Wiederholung.");
       if (!found) {
+        if (!row.createAttempted && job.mode === "live") {
+          const verification = await adapter.verify(
+            row.backup!,
+            row.targetCents,
+            row.outgoing,
+            row.uuid,
+          );
+          if (verification.feeCents !== 0)
+            throw Error("Geänderte Gebühren: neue Freigabe erforderlich.");
+        }
         row.createAttempted = true;
         await repo.save(job);
       }

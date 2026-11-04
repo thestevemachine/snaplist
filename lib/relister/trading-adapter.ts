@@ -38,9 +38,7 @@ export function payloadXml(payload: Payload, uuid?: string) {
   return new XMLBuilder({ ignoreAttributes: false }).build({
     Item: {
       ...payload,
-      ...(uuid
-        ? { UUID: uuid, ApplicationData: `snaplist-relister:${uuid}` }
-        : {}),
+      ...(uuid ? { UUID: uuid, ApplicationData: uuid } : {}),
     },
   });
 }
@@ -182,9 +180,17 @@ export class TradingAdapter implements Adapter {
       PictureDetails: { PictureURL: urls },
     };
   }
-  async verify(backup: Backup, target: number, payload?: Payload) {
+  async verify(
+    backup: Backup,
+    target: number,
+    payload?: Payload,
+    uuid?: string,
+  ) {
     if (!payload) throw Error("Wiederhergestellter Bildpayload fehlt.");
-    const r = await this.call("VerifyAddFixedPriceItem", payloadXml(payload));
+    const r = await this.call(
+      "VerifyAddFixedPriceItem",
+      payloadXml(payload, uuid),
+    );
     assertTradingSuccess(r);
     const fees = list<any>(r.Fees?.Fee);
     if (!fees.length) throw Error("Gebührenangabe fehlt.");
@@ -236,7 +242,10 @@ export class TradingAdapter implements Adapter {
           return "unknown";
         for (const item of list<any>(r.ActiveList.ItemArray?.Item)) {
           const raw = await this.raw(String(item.ItemID));
-          if (raw.ApplicationData === `snaplist-relister:${uuid}`)
+          if (
+            raw.ApplicationData === uuid ||
+            raw.ApplicationData === `snaplist-relister:${uuid}`
+          )
             matches.push(String(raw.ItemID));
         }
         page++;
