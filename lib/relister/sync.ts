@@ -39,7 +39,7 @@ export async function syncStep(account: string) {
       if (state.stage === "pages") {
         const r = await call(
           "GetMyeBaySelling",
-          `<ActiveList><Include>true</Include><Pagination><EntriesPerPage>200</EntriesPerPage><PageNumber>${state.page}</PageNumber></Pagination></ActiveList>`,
+          `<ActiveList><Include>true</Include><Sort>StartTime</Sort><Pagination><EntriesPerPage>200</EntriesPerPage><PageNumber>${state.page}</PageNumber></Pagination></ActiveList>`,
         );
         assertTradingSuccess(r);
         const pages = Number(

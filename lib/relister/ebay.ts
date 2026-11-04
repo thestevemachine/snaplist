@@ -33,6 +33,31 @@ export async function reader() {
         )
       ).Item as Data;
     },
+    async oldest(): Promise<string> {
+      let page = 1,
+        pages = 1;
+      do {
+        const r = await call(
+          "GetMyeBaySelling",
+          `<ActiveList><Include>true</Include><Sort>StartTime</Sort><Pagination><EntriesPerPage>200</EntriesPerPage><PageNumber>${page}</PageNumber></Pagination></ActiveList>`,
+        );
+        pages = Number(r.ActiveList?.PaginationResult?.TotalNumberOfPages);
+        if (!Number.isSafeInteger(pages) || pages < 0 || pages > 1000)
+          throw Error("Unvollständige Pagination.");
+        for (const summary of list<Data>(r.ActiveList?.ItemArray?.Item)) {
+          const raw = await this.item(String(summary.ItemID));
+          if (String(raw.Seller?.UserID ?? "") !== seller)
+            throw Error("Verkäufer stimmt nicht überein.");
+          if (
+            raw.Site === "Germany" &&
+            raw.SellingStatus?.ListingStatus === "Active"
+          )
+            return String(raw.ItemID);
+        }
+        page++;
+      } while (page <= pages);
+      throw Error("Kein aktives deutsches Angebot gefunden.");
+    },
     async all() {
       const found = new Map<string, Listing>();
       let page = 1,
@@ -40,7 +65,7 @@ export async function reader() {
       do {
         const r = await call(
           "GetMyeBaySelling",
-          `<ActiveList><Include>true</Include><Pagination><EntriesPerPage>200</EntriesPerPage><PageNumber>${page}</PageNumber></Pagination></ActiveList>`,
+          `<ActiveList><Include>true</Include><Sort>StartTime</Sort><Pagination><EntriesPerPage>200</EntriesPerPage><PageNumber>${page}</PageNumber></Pagination></ActiveList>`,
         );
         if (!r.ActiveList?.PaginationResult)
           throw Error(
@@ -117,20 +142,24 @@ export function publicationPayload(i: Data): Payload {
     !i.SellerProfiles?.SellerPaymentProfile?.PaymentProfileID
   )
     throw Error("Pflichtdaten/Verkaufsrichtlinien fehlen.");
-  if (
-    i.ListingDuration !== "GTC" ||
-    i.Regulatory ||
-    i.ProductSafety ||
-    i.Variations ||
-    i.DiscountPriceInfo ||
-    i.ListingEnhancement ||
-    i.SubTitle ||
-    i.SecondaryCategory ||
-    i.ShippingDetails?.ShippingDiscountProfileID
-  )
-    throw Error(
-      "Wesentliche Zusatz-/Regulierungs-/Shop-Einstellungen benötigen erweiterten geprüften Payload.",
-    );
+  const unsupported = [
+    ...(i.ListingDuration !== "GTC" ? ["ListingDuration"] : []),
+    ...[
+      "Regulatory",
+      "ProductSafety",
+      "Variations",
+      "DiscountPriceInfo",
+      "ListingEnhancement",
+      "SubTitle",
+      "SecondaryCategory",
+    ].filter((k) => Boolean(i[k])),
+    ...(i.ShippingDetails?.ShippingDiscountProfileID
+      ? ["ShippingDiscountProfileID"]
+      : []),
+  ];
+  if (unsupported.length)
+    throw Error(`Nicht unterstützte Einstellungen: ${unsupported.join(", ")}.`);
+
   if (
     [
       "ItemCompatibilityList",

@@ -24,6 +24,15 @@ export function riskProbe(token: string, call: TradingCall) {
         b.errors.every((e: any) => Number(e.errorId) === 25710)
       )
         management = "trading";
+      if (management === "unknown")
+        console.warn("relister-management-check", {
+          httpStatus: r.status,
+          errorCodes: Array.isArray(b?.errors)
+            ? b.errors
+                .map((e: any) => String(e.errorId))
+                .filter((id: string) => /^\d{1,12}$/.test(id))
+            : [],
+        });
     }
     const best = await call(
       "GetBestOffers",

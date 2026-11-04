@@ -66,8 +66,11 @@ async function handle(req: NextRequest) {
     if (!sameOrigin(req))
       return NextResponse.json({ ok: false }, { status: 403 });
     const body = await req.json();
-    if (body.action === "load-item" && preparationOnly) {
-      if (typeof body.item !== "string" || !/^\d{6,20}$/.test(body.item))
+    if (["load-item", "load-oldest"].includes(body.action) && preparationOnly) {
+      if (
+        body.action === "load-item" &&
+        (typeof body.item !== "string" || !/^\d{6,20}$/.test(body.item))
+      )
         return NextResponse.json(
           {
             ok: false,
@@ -78,10 +81,12 @@ async function handle(req: NextRequest) {
       let stage = "seller-access";
       try {
         const ebay = await reader();
+        const item =
+          body.action === "load-oldest" ? await ebay.oldest() : body.item;
         stage = "item-check";
         const listing = await (
           await realAdapter(account, ebay.seller)
-        ).read(body.item);
+        ).read(item);
         stage = "catalog-read";
         const old = await catalog(account.id);
         stage = "catalog-save";

@@ -100,3 +100,18 @@ it("reports only the stage and eBay code, never arbitrary upstream secrets", asy
   expect(body.error).toContain("12345");
   expect(body.error).not.toContain("secret-fixture-token");
 });
+
+it("loads the server-selected oldest active source rather than a caller supplied ID", async () => {
+  const oldest = vi.fn(async () => "100000000002");
+  m.reader.mockResolvedValueOnce({ seller: "owner-seller", oldest });
+  m.read.mockResolvedValueOnce({
+    id: "100000000002",
+    seller: "owner-seller",
+    site: "Germany",
+  });
+  expect(
+    (await request({ action: "load-oldest", item: "100000000099" })).status,
+  ).toBe(200);
+  expect(oldest).toHaveBeenCalledOnce();
+  expect(m.read).toHaveBeenCalledWith("100000000002");
+});

@@ -149,6 +149,9 @@ export default function ReLister() {
         </button>
         {preparationOnly && (
           <div>
+            <button disabled={busy} onClick={() => action("load-oldest")}>
+              Ältestes aktives deutsches Angebot laden
+            </button>
             <label>
               Artikelnummer für die Einzelprüfung{" "}
               <input
