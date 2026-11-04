@@ -165,20 +165,21 @@ export function publicationPayload(i: Data): Payload {
   if (unsupported.length)
     throw Error(`Nicht unterstützte Einstellungen: ${unsupported.join(", ")}.`);
 
-  if (
-    [
-      "ItemCompatibilityList",
-      "Charity",
-      "PickupInStoreDetails",
-      "ShippingServiceCostOverrideList",
-      "CustomPolicies",
-      "ExtendedProducerResponsibility",
-      "ConditionDescriptors",
-      "VideoDetails",
-    ].some((k) => i[k]) ||
-    i.PrivateListing === "true"
-  )
-    throw Error("Wesentliche Sondereinstellung noch nicht unterstützt.");
+  const special = [
+    "ItemCompatibilityList",
+    "Charity",
+    "PickupInStoreDetails",
+    "ShippingServiceCostOverrideList",
+    "CustomPolicies",
+    "ExtendedProducerResponsibility",
+    "ConditionDescriptors",
+    "VideoDetails",
+  ].filter((k) => i[k]);
+  if (i.PrivateListing === "true") special.push("PrivateListing");
+  if (special.length)
+    throw Error(
+      `Wesentliche Sondereinstellung noch nicht unterstützt: ${special.map((k) => `${k}[${typeof i[k] === "object" ? Object.keys(i[k]).join(",") : "value"}]`).join("; ")}.`,
+    );
   const minimum = money(i.ListingDetails?.MinimumBestOfferPrice),
     accept = money(i.ListingDetails?.BestOfferAutoAcceptPrice);
   const offer = i.BestOfferDetails?.BestOfferEnabled;
