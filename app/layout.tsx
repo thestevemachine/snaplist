@@ -1,4 +1,3 @@
-/opt/homebrew/Library/Homebrew/cmd/shellenv.sh: line 18: /bin/ps: Operation not permitted
 import { pageAccount } from "@/lib/accounts/server";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
