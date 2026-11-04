@@ -1,4 +1,5 @@
-import {pageAccount} from "@/lib/accounts/server";
+/opt/homebrew/Library/Homebrew/cmd/shellenv.sh: line 18: /bin/ps: Operation not permitted
+import { pageAccount } from "@/lib/accounts/server";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
@@ -21,10 +22,19 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const account=await pageAccount();
+  const account = await pageAccount();
   return (
     <html lang="de">
-      <body data-account={account?.id} data-account-owner={account?.owner ? "true" : undefined}><nav aria-label="Anwendungsbereiche" style={{display:"flex",gap:"1rem",padding:"1rem"}}><a href="/">Snaplist</a><a href="/relister">Re-Lister</a></nav>{children}</body>
+      <body
+        data-account={account?.id}
+        data-account-owner={account?.owner ? "true" : undefined}
+      >
+        <nav className="app-nav" aria-label="Anwendungsbereiche">
+          <a href="/">Snaplist</a>
+          <a href="/relister">Re-Lister</a>
+        </nav>
+        {children}
+      </body>
     </html>
   );
 }

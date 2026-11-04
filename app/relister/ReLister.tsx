@@ -1,3 +1,4 @@
+/opt/homebrew/Library/Homebrew/cmd/shellenv.sh: line 18: /bin/ps: Operation not permitted
 "use client";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { apiPost } from "@/lib/api-client";
@@ -32,6 +33,7 @@ export default function ReLister() {
     [items, query, sort],
   );
   const displayRows = rows.slice(0, 200);
+  const syncing = Boolean(sync?.pending);
   const selectedItems = selection
     .map((id) => items.find((item) => item.id === id))
     .filter((item): item is Listing => Boolean(item));
@@ -41,11 +43,12 @@ export default function ReLister() {
     const response = await fetch("/api/relister", { cache: "no-store" });
     const data = await response.json();
     if (!data.ok) throw Error(data.error);
-    setItems(data.catalog?.listings ?? []);
+    setItems(data.sync?.pending ? [] : (data.catalog?.listings ?? []));
     setSeller(data.catalog?.seller ?? "");
     setSynced(data.catalog?.synced_at ?? "");
     setJobs(data.jobs ?? []);
     setSync(data.sync);
+    if (data.sync?.pending) setSelection([]);
     const pending =
       data.sync?.pending ||
       (data.jobs ?? []).some(
@@ -131,10 +134,10 @@ export default function ReLister() {
     percentError = (e as Error).message;
   }
   return (
-    <main className="container">
+    <main className="container relister-page">
       <h1>Re-Lister</h1>
       <p>
-        <strong>
+        <strong className="relister-status">
           {jobs.some(
             (j) =>
               j.mode === "live" &&
@@ -146,29 +149,39 @@ export default function ReLister() {
             : "Jeder Auftrag wird zuerst vollständig gesichert und geprüft. Erst deine ausdrückliche Bestätigung startet die Änderung am eBay-Angebot."}
         </strong>
       </p>
-      <p>
+      <p className="relister-intro">
         Neue Artikelnummern garantieren keinen Rankingvorteil. Beobachter und
         Angebotsgeschichte werden nicht automatisch übertragen. Neue Angebote
         können Verkaufsgebühren und Kontingent verbrauchen. Snaplist ändert
         bestehende Gutscheine und Werbung nicht.
       </p>
-      <section className="panel">
+      <section className="panel relister-panel">
         <h2>Verkäuferbestand</h2>
         <p>
           Konto: {seller || "Noch nicht synchronisiert"} · Datenstand:{" "}
-          {synced
-            ? new Date(synced).toLocaleString("de-DE")
-            : "Nicht verfügbar"}
+          {syncing
+            ? "wird aktualisiert"
+            : synced
+              ? new Date(synced).toLocaleString("de-DE")
+              : "Nicht verfügbar"}
         </p>
-        <button disabled={busy} onClick={() => action("sync")}>
-          Aktive Angebote vollständig synchronisieren
-        </button>{" "}
-        <button disabled={busy} onClick={() => action("demo")}>
-          Generalprobe: Testdaten laden
-        </button>
+        <div className="relister-toolbar">
+          <button
+            className="relister-primary"
+            disabled={busy}
+            onClick={() => action("sync")}
+          >
+            Aktive Angebote vollständig synchronisieren
+          </button>
+          <button disabled={busy} onClick={() => action("demo")}>
+            Generalprobe: Testdaten laden
+          </button>
+        </div>
         <p>
-          {sync?.pending
-            ? `Synchronisierung läuft: ${sync.document.stage}, ${sync.document.cursor} Details geprüft.`
+          {syncing
+            ? sync.document.stage === "pages"
+              ? `Aktive Angebote werden geladen: ${Math.max(0, Number(sync.document.page) - 1)} Seiten gelesen, ${sync.document.items?.length ?? 0} gefunden. Die Liste erscheint nach dem vollständigen Abgleich.`
+              : `Sicherheitsprüfung läuft: ${sync.document.cursor} von ${sync.document.items?.length ?? 0} Angeboten geprüft. Die Liste erscheint nach dem vollständigen Abgleich.`
             : (sync?.document.error ?? "")}
         </p>
         <p>
@@ -211,12 +224,12 @@ export default function ReLister() {
             </option>
           </select>
         </label>
-        <p>
-          Ansicht: bis zu 200 von {rows.length} passenden Angeboten. Es werden
-          die 200 zuletzt eingestellten zuerst angezeigt; über „Sortierung“
-          kannst du stattdessen die ältesten 200 ansehen.
+        <p className="relister-view-summary">
+          {syncing
+            ? "Der Verkäuferbestand wird aktualisiert. Die alte Testliste ist währenddessen ausgeblendet."
+            : `Ansicht: bis zu 200 von ${rows.length} passenden Angeboten. Es werden die 200 zuletzt eingestellten zuerst angezeigt; über „Sortierung“ kannst du stattdessen die ältesten 200 ansehen.`}
         </p>
-        <div>
+        <div className="relister-selection-actions">
           {[1, 5, 20, 25, 50, 100, 200].map((n) => (
             <button
               key={n}
@@ -229,7 +242,7 @@ export default function ReLister() {
         </div>
         <p>{selection.length} Angebote ausgewählt.</p>
         {selectedItems.length > 0 && (
-          <details>
+          <details className="relister-selected">
             <summary>Auswahl ansehen ({selectedItems.length})</summary>
             <ul>
               {selectedItems.map((item) => (
@@ -253,7 +266,7 @@ export default function ReLister() {
             </ul>
           </details>
         )}
-        <fieldset>
+        <fieldset className="relister-price-options">
           <legend>Preis reduzieren um</legend>
           {[0, 2, 4, 6, 8, 10].map((n) => (
             <button
@@ -278,8 +291,8 @@ export default function ReLister() {
           </p>
           {percentError && <p role="alert">{percentError}</p>}
         </fieldset>
-        <div style={{ overflowX: "auto" }}>
-          <table>
+        <div className="relister-table-scroll">
+          <table className="relister-table">
             <thead>
               <tr>
                 <th>Auswahl</th>
@@ -358,6 +371,7 @@ export default function ReLister() {
         </button>
         <p>
           <button
+            className="relister-primary"
             disabled={busy || !selection.length || Boolean(percentError)}
             onClick={() => action("preview", { ids: selection, percent })}
           >
@@ -421,7 +435,11 @@ export default function ReLister() {
             </button>
             {j.mode === "dry-run" &&
               j.rows.every((r) => r.phase === "ready") && (
-                <button disabled={busy} onClick={() => void confirmJob(j)}>
+                <button
+                  className="relister-destructive"
+                  disabled={busy}
+                  onClick={() => void confirmJob(j)}
+                >
                   {`Jetzt ${j.rows.length} geprüfte Angebote als neue Listings einstellen`}
                 </button>
               )}

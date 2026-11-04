@@ -1,3 +1,4 @@
+/opt/homebrew/Library/Homebrew/cmd/shellenv.sh: line 18: /bin/ps: Operation not permitted
 :root {
   /* Warm, friendly "kitchen-table reseller" palette — not a generic SaaS template. */
   --color-bg: oklch(97.5% 0.012 95);
@@ -1654,3 +1655,272 @@ textarea.title-input { min-height: 5rem; resize: vertical; line-height: 1.4; }
 .sku-sequence .sku-actions>button:last-child {grid-column:auto;}
 .sku-sequence .sku-actions .sku-apply-button {border:2px solid #2563eb;color:#1d4ed8;}
 .sku-sequence .sku-actions .sku-details-button {border-color:transparent;box-shadow:none;}
+.app-nav {
+  width: min(1440px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 1rem 0;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.app-nav a {
+  color: var(--color-accent-deep);
+  font-weight: 650;
+  text-decoration: none;
+  text-underline-offset: 0.2em;
+}
+
+.app-nav a:hover,
+.app-nav a:focus-visible {
+  text-decoration: underline;
+}
+
+.relister-page {
+  width: min(1440px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: clamp(1.5rem, 3vw, 3rem) 0 4rem;
+}
+
+.relister-page > h1 {
+  margin: 0 0 1rem;
+  font-size: clamp(2rem, 1.5rem + 1vw, 2.75rem);
+  letter-spacing: -0.025em;
+}
+
+.relister-page > p {
+  max-width: 100ch;
+  margin: 0 0 1rem;
+  color: var(--color-ink-soft);
+}
+
+.relister-page .relister-status {
+  display: block;
+  padding: 0.9rem 1rem;
+  border-left: 4px solid var(--color-accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--color-accent-soft);
+  color: var(--color-ink);
+  line-height: 1.5;
+}
+
+.relister-panel {
+  margin-top: 1.5rem;
+  min-width: 0;
+}
+
+.relister-panel h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.5rem;
+}
+
+.relister-toolbar,
+.relister-selection-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.relister-page button {
+  min-height: 42px;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.25;
+  cursor: pointer;
+  transition:
+    background var(--duration) var(--ease),
+    border-color var(--duration) var(--ease),
+    color var(--duration) var(--ease),
+    box-shadow var(--duration) var(--ease);
+}
+
+.relister-page button:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.relister-page button:focus-visible,
+.relister-page input:focus-visible,
+.relister-page select:focus-visible {
+  outline: 3px solid oklch(72% 0.12 175 / 0.5);
+  outline-offset: 2px;
+}
+
+.relister-page button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.relister-page button.relister-primary {
+  border-color: var(--color-accent-deep);
+  background: var(--color-accent-deep);
+  color: white;
+}
+
+.relister-page button.relister-primary:hover:not(:disabled) {
+  background: var(--color-accent);
+  color: white;
+}
+
+.relister-page button.relister-destructive {
+  border-color: var(--color-danger);
+  background: var(--color-danger);
+  color: white;
+}
+
+.relister-page label {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.45rem 1rem 0.45rem 0;
+  font-weight: 550;
+}
+
+.relister-page input:not([type="checkbox"]),
+.relister-page select {
+  min-height: 42px;
+  max-width: 100%;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: white;
+  color: var(--color-ink);
+  font: inherit;
+}
+
+.relister-page input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--color-accent-deep);
+}
+
+.relister-price-options {
+  margin: 1.25rem 0;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface-sunk);
+}
+
+.relister-price-options legend {
+  padding: 0 0.35rem;
+  font-weight: 700;
+}
+
+.relister-view-summary {
+  padding: 0.75rem 0.9rem;
+  border-radius: 9px;
+  background: var(--color-surface-sunk);
+}
+
+.relister-selected {
+  margin: 0.75rem 0 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface-sunk);
+}
+
+.relister-selected summary {
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.relister-selected ul {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.9rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.relister-selected li {
+  padding: 0.45rem 0;
+  overflow-wrap: anywhere;
+}
+
+.relister-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+}
+
+.relister-table {
+  width: 100%;
+  min-width: 1040px;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.relister-table th,
+.relister-table td {
+  padding: 0.8rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.relister-table th {
+  background: var(--color-surface-sunk);
+  color: var(--color-ink-soft);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.relister-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.relister-table tbody tr:hover {
+  background: oklch(97% 0.02 175 / 0.45);
+}
+
+.relister-table td:nth-child(3) {
+  min-width: 280px;
+  max-width: 440px;
+  overflow-wrap: anywhere;
+}
+
+.relister-table td:nth-child(8) {
+  min-width: 190px;
+  color: var(--color-ink-soft);
+}
+
+.relister-table img {
+  display: block;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+@media (max-width: 720px) {
+  .app-nav,
+  .relister-page {
+    width: calc(100% - 28px);
+  }
+
+  .app-nav {
+    gap: 1rem;
+  }
+
+  .relister-price-options {
+    padding: 0.8rem;
+  }
+
+  .relister-table {
+    min-width: 900px;
+  }
+}

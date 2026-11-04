@@ -1,3 +1,4 @@
+/opt/homebrew/Library/Homebrew/cmd/shellenv.sh: line 18: /bin/ps: Operation not permitted
 import { accountDb } from "../accounts/server";
 import { accountScope } from "../accounts/context";
 import { sellerAccessToken } from "../ebay/session";
@@ -14,6 +15,19 @@ export type SyncState = {
   cursor: number;
   error?: string;
 };
+function selectionWindow(items: Listing[]) {
+  const newestFirst = [...items].sort(
+    (a, b) => Date.parse(b.started) - Date.parse(a.started),
+  );
+  return [
+    ...new Map(
+      [...newestFirst.slice(0, 200), ...newestFirst.slice(-200)].map((item) => [
+        item.id,
+        item,
+      ]),
+    ).values(),
+  ];
+}
 export async function syncStep(account: string) {
   const db = accountDb(),
     current = await db
@@ -54,8 +68,17 @@ export async function syncStep(account: string) {
         }
         state.items = [...unique.values()];
         state.page++;
-        if (state.page > pages) state.stage = "details";
+        if (state.page > pages) {
+          state.items = selectionWindow(state.items);
+          state.cursor = 0;
+          state.stage = "details";
+        }
       } else if (state.stage === "details") {
+        // Also narrow detail-stage jobs created by the earlier full-catalog sync.
+        if (state.items.length > 400) {
+          state.items = selectionWindow(state.items);
+          state.cursor = 0;
+        }
         const adapter = await realAdapter(ctx, record.seller);
         const end = Math.min(state.cursor + 10, state.items.length);
         while (state.cursor < end) {
