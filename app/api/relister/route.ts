@@ -110,7 +110,7 @@ async function handle(req: NextRequest) {
     if (body.action === "preview") {
       const c = await catalog(account.id);
       if (!c) throw Error("Zuerst synchronisieren.");
-      if (!Array.isArray(body.ids) || body.ids.length > 200)
+      if (!Array.isArray(body.ids) || body.ids.length > 100)
         throw Error("Ungültige Auswahl.");
       const selected = body.ids.map((id: string) =>
         c.listings.find((l) => l.id === id),
@@ -149,7 +149,7 @@ async function handle(req: NextRequest) {
             throw Error("Live-Erstellung ist derzeit nicht freigegeben.");
           if (
             job.rows.length < 1 ||
-            job.rows.length > 200 ||
+            job.rows.length > 100 ||
             job.rows.some(
               (row) =>
                 row.phase !== "ready" ||

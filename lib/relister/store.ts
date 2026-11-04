@@ -35,14 +35,19 @@ export async function saveCatalog(
 ) {
   const old = await catalog(account);
   const previous = new Map(old?.listings.map((l) => [l.id, l]));
-  const lineage = await accountDb()
-    .from("relister_lineage")
-    .select("*")
-    .eq("account_id", account)
-    .eq("seller", seller);
-  if (lineage.error) throw Error("Angebotshistorie nicht verfügbar.");
+  let lineageRows: { new_id: string; first_seen: string; renewed_at: string }[] = [];
+  if (listings.length) {
+    const lineage = await accountDb()
+      .from("relister_lineage")
+      .select("new_id,first_seen,renewed_at")
+      .eq("account_id", account)
+      .eq("seller", seller)
+      .in("new_id", listings.map((listing) => listing.id));
+    if (lineage.error) throw Error("Angebotshistorie nicht verfügbar.");
+    lineageRows = lineage.data ?? [];
+  }
   for (const l of listings) {
-    const ancestor = lineage.data?.find((a) => a.new_id === l.id);
+    const ancestor = lineageRows.find((a) => a.new_id === l.id);
     if (ancestor) {
       l.firstSeen = ancestor.first_seen;
       l.lastRenewed = ancestor.renewed_at;

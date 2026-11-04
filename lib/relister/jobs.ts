@@ -20,10 +20,10 @@ export function preview(
   percentUnits(percent);
   if (
     !listings.length ||
-    listings.length > 200 ||
+    listings.length > 100 ||
     new Set(listings.map((l) => l.id)).size !== listings.length
   )
-    throw Error("1 bis 200 verschiedene Angebote auswählen.");
+    throw Error("1 bis 100 verschiedene Angebote auswählen.");
   const rows = listings.map((listing) => {
     const target = reducedPrice(listing.priceCents, percent);
     const reasons = exclusions(listing, seller, target);
@@ -100,6 +100,49 @@ export async function processJob(id: string) {
           "Kontozugang nicht verfügbar. Auftrag pausiert; bereits beendete Artikel bleiben sichtbar.";
       await repo.save(job);
       return;
+    }
+    if (job.mode === "live") {
+      const skuRows = job.rows.filter(
+        (r) => !["completed", "review", "skipped"].includes(r.phase),
+      );
+      const lastCheck = Date.parse(job.skuPreflightAt ?? "");
+      if (
+        skuRows.length &&
+        (!Number.isFinite(lastCheck) || Date.now() - lastCheck > 5 * 60 * 1000)
+      ) {
+        try {
+          if (!adapter.assertSkusAvailable)
+            throw Error("Aktueller SKU-Abgleich nicht verfügbar.");
+          const conflicts = await adapter.assertSkusAvailable(
+            skuRows.map((r) => ({
+              id: r.listing.id,
+              sku: r.backup?.listing.sku ?? r.listing.sku,
+            })),
+          );
+          job.skuPreflightAt = new Date().toISOString();
+          for (const row of skuRows) {
+            const ids = conflicts[row.listing.id];
+            if (!ids?.length) continue;
+            row.phase = "review";
+            row.error = `Neuerstellung gestoppt: aktives Angebot mit derselben SKU gefunden (${ids.join(", ")}).`;
+            row.history.push({
+              at: job.skuPreflightAt,
+              phase: "review",
+              note: row.error,
+            });
+          }
+          await repo.save(job);
+        } catch {
+          await repo.pause?.(job);
+          job.paused = true;
+          const row = skuRows[0];
+          if (row)
+            row.error =
+              "Aktueller Gesamtbestand konnte nicht auf gleiche SKUs geprüft werden. Auftrag pausiert; es wird kein neues Angebot erstellt.";
+          await repo.save(job);
+          return;
+        }
+      }
     }
     // One article per invocation bounds runtime; the cron picks up remaining rows.
     const row = job.rows.find(

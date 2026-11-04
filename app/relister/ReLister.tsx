@@ -26,7 +26,7 @@ export default function ReLister() {
     [sync, setSync] = useState<any>();
   const advancing = useRef(false);
   const rows = useMemo(() => filtered(items, query, "oldest"), [items, query]);
-  const displayRows = rows.slice(0, 200);
+  const displayRows = rows.slice(0, 100);
   const syncing = Boolean(sync?.pending);
   const selectedItems = selection
     .map((id) => items.find((item) => item.id === id))
@@ -166,7 +166,7 @@ export default function ReLister() {
             disabled={busy || syncing}
             onClick={() => action("sync")}
           >
-            Aktive Angebote vollständig synchronisieren
+            Die 100 ältesten Angebote aktualisieren
           </button>
           <button disabled={busy || syncing} onClick={() => action("demo")}>
             Generalprobe: Testdaten laden
@@ -175,17 +175,17 @@ export default function ReLister() {
         <p>
           {syncing
             ? sync.document.stage === "pages"
-              ? `Live-Abgleich: ${Math.max(0, Number(sync.document.page) - 1)} Seiten gelesen, ${sync.document.items?.length ?? 0} Angebote erfasst. Die gespeicherte Liste bleibt sichtbar; ausgewählte Angebote werden vor jeder Änderung direkt bei eBay geprüft.`
-              : `Prüfung der 200 ältesten Angebote: ${sync.document.cursor} von ${sync.document.items?.length ?? 0} geprüft. Die gespeicherte Liste bleibt sichtbar.`
+              ? `Die ältesten Angebote werden geladen; ${sync.document.items?.length ?? 0} vorgemerkt. Die gespeicherte Liste bleibt sichtbar.`
+              : `Prüfung der 100 ältesten Angebote: ${sync.document.cursor} von ${sync.document.items?.length ?? 0} geprüft. Die gespeicherte Liste bleibt sichtbar.`
             : (sync?.document.error ?? "")}
         </p>
         <p className="relister-safety-note">
-          Der Verkäuferbestand wird etwa alle 6 Stunden im Hintergrund
-          aktualisiert. Vor dem Beenden prüft Snaplist jedes ausgewählte Angebot
-          live bei eBay: aktiv, unverkauft, Einzelstück und unveränderter Preis.
-          Vor der Neuerstellung prüft Snaplist außerdem den gesamten aktiven
-          Bestand auf dieselbe SKU. Bei Abweichungen, Treffern oder unklarem
-          Status stoppt der Auftrag, bevor ein neues Angebot erstellt wird.
+          Der Katalog enthält nur die 100 ältesten Angebote und wird etwa alle 6
+          Stunden im Hintergrund aktualisiert. Vor einem echten Auftrag prüft
+          Snaplist den Bestand einmal auf gleiche SKUs und wiederholt den
+          Abgleich bei längeren Aufträgen alle 5 Minuten. Jedes ausgewählte
+          Angebot wird außerdem unmittelbar bei eBay geprüft. Bei Treffern,
+          Abweichungen oder unklarem Status wird die Neuerstellung gestoppt.
         </p>
         <p>
           Aufrufe: Nicht verfügbar. Seitenaufrufe, Suchimpressionen und
@@ -205,10 +205,10 @@ export default function ReLister() {
         <p className="relister-view-summary">
           {syncing
             ? `Es bleiben die zuletzt gespeicherten ältesten Angebote sichtbar (${rows.length} passend). Der Live-Abgleich ersetzt sie nach Abschluss.`
-            : `Auswahl: die 200 ältesten aktiven Angebote aus dem Verkäuferbestand (${rows.length} passend).`}
+            : `Auswahl: die 100 ältesten aktiven Angebote (${rows.length} passend).`}
         </p>
         <div className="relister-selection-actions">
-          {[1, 5, 20, 25, 50, 100, 200].map((n) => (
+          {[1, 5, 20, 25, 50, 100].map((n) => (
             <button
               key={n}
               onClick={() => setSelection(quickSelect(displayRows, seller, n))}

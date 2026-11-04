@@ -22,7 +22,7 @@ function selectionWindow(items: Listing[]) {
         Date.parse(a.started) - Date.parse(b.started) ||
         a.id.localeCompare(b.id),
     )
-    .slice(0, 200);
+    .slice(0, 100);
 }
 export async function syncStep(account: string) {
   const db = accountDb(),
@@ -49,29 +49,23 @@ export async function syncStep(account: string) {
       if (state.stage === "pages") {
         const r = await call(
           "GetMyeBaySelling",
-          `<ActiveList><Include>true</Include><Sort>StartTime</Sort><Pagination><EntriesPerPage>200</EntriesPerPage><PageNumber>${state.page}</PageNumber></Pagination></ActiveList>`,
+          `<ActiveList><Include>true</Include><Sort>StartTime</Sort><Pagination><EntriesPerPage>100</EntriesPerPage><PageNumber>1</PageNumber></Pagination></ActiveList>`,
         );
         assertTradingSuccess(r);
-        const pages = Number(
-          r.ActiveList?.PaginationResult?.TotalNumberOfPages,
-        );
+        const pages = Number(r.ActiveList?.PaginationResult?.TotalNumberOfPages);
         if (!Number.isSafeInteger(pages) || pages < 0)
           throw Error("Pagination fehlt.");
-        const unique = new Map(state.items.map((i) => [i.id, i]));
-        for (const raw of list<any>(r.ActiveList?.ItemArray?.Item)) {
-          const l = normalize(raw, record.seller);
-          unique.set(l.id, l);
-        }
-        state.items = [...unique.values()];
-        state.page++;
-        if (state.page > pages) {
-          state.items = selectionWindow(state.items);
-          state.cursor = 0;
-          state.stage = "details";
-        }
+        state.items = selectionWindow(
+          list<any>(r.ActiveList?.ItemArray?.Item).map((raw) =>
+            normalize(raw, record.seller),
+          ),
+        );
+        state.page = 1;
+        state.cursor = 0;
+        state.stage = "details";
       } else if (state.stage === "details") {
-        // Also narrow detail-stage jobs created by the earlier full-catalog sync.
-        if (state.items.length > 200) {
+        // Narrow any older in-progress sync documents before continuing.
+        if (state.items.length > 100) {
           state.items = selectionWindow(state.items);
           state.cursor = 0;
         }
@@ -92,6 +86,8 @@ export async function syncStep(account: string) {
         }
         if (state.cursor >= state.items.length) {
           await saveCatalog(account, record.seller, state.items);
+          state.items = [];
+          state.cursor = 0;
           state.stage = "done";
         }
       }
@@ -111,7 +107,10 @@ export async function syncStep(account: string) {
       .from("relister_sync")
       .update({
         document: {
-          ...state,
+          stage: "done",
+          page: 0,
+          items: [],
+          cursor: 0,
           error:
             "Synchronisierung pausiert: eBay-Zugang oder API-Limit prüfen.",
         },

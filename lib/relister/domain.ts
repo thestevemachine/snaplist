@@ -146,6 +146,7 @@ export type Job = {
   rows: Row[];
   createdAt: string;
   previewDigest: string;
+  skuPreflightAt?: string;
 };
 export function percentUnits(input: unknown): number {
   if (typeof input !== "string" && typeof input !== "number")

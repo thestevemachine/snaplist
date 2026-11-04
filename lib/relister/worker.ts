@@ -2,6 +2,7 @@ import { syncStep } from "./sync";
 import { inngest } from "../cloud/inngest";
 import { accountDb } from "../accounts/server";
 import { processJob } from "./jobs";
+import { bucket } from "./store";
 export function backgroundReady() {
   return Boolean(
     process.env.INNGEST_EVENT_KEY && process.env.INNGEST_SIGNING_KEY,
@@ -68,6 +69,64 @@ async function scheduleStaleCatalogSyncs() {
     }
   }
 }
+async function cleanCompletedBackups() {
+  const db = accountDb();
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data: oldJobs, error } = await db
+    .from("relister_jobs")
+    .select("id,document,updated_at")
+    .eq("pending", false)
+    .lt("updated_at", cutoff)
+    .order("updated_at", { ascending: true })
+    .limit(20);
+  if (error) throw Error("Ablauf alter Sicherungen nicht verfügbar.");
+
+  for (const record of oldJobs ?? []) {
+    const document = record.document as {
+      rows?: { phase?: string; backup?: { images?: { path?: string }[] }; outgoing?: unknown }[];
+    };
+    const rows = document.rows ?? [];
+    // Keep complete recovery material for any task that still needs review.
+    if (!rows.length || rows.some((row) => row.phase !== "completed")) continue;
+    if (rows.every((row) => !row.backup && !row.outgoing)) continue;
+    const paths = [
+      ...new Set(
+        rows.flatMap((row) => {
+          const images = row.backup?.images ?? [];
+          const imagePaths = images
+            .map((image) => image.path)
+            .filter((path): path is string => Boolean(path));
+          const firstImagePath = images[0]?.path;
+          const manifest = firstImagePath?.match(/^(.*)\/image-\d+$/)?.[1];
+          return manifest
+            ? [...imagePaths, `${manifest}/backup.json`]
+            : imagePaths;
+        }),
+      ),
+    ];
+    for (let i = 0; i < paths.length; i += 500) {
+      const { error: removeError } = await db.storage
+        .from(bucket)
+        .remove(paths.slice(i, i + 500));
+      if (removeError) throw Error("Alte Bildsicherungen konnten nicht entfernt werden.");
+    }
+
+    const compact = {
+      ...document,
+      rows: rows.map(({ backup: _backup, outgoing: _outgoing, ...row }) => row),
+    };
+    const { data: updated, error: updateError } = await db
+      .from("relister_jobs")
+      .update({ document: compact, updated_at: new Date().toISOString() })
+      .eq("id", record.id)
+      .eq("pending", false)
+      .eq("updated_at", record.updated_at)
+      .select("id")
+      .maybeSingle();
+    if (updateError) throw Error("Abgelaufene Sicherungen konnten nicht bereinigt werden.");
+    if (!updated) console.warn("relister-retention-raced", record.id);
+  }
+}
 export const relisterTick = inngest.createFunction(
   {
     id: "relister-durable-tick",
@@ -77,6 +136,7 @@ export const relisterTick = inngest.createFunction(
   },
   async ({ step }) => {
     await step.run("schedule-stale-catalog-syncs", scheduleStaleCatalogSyncs);
+    await step.run("clean-completed-backups", cleanCompletedBackups);
     for (let round = 0; round < 20; round++) {
       const syncIds = await step.run(`pending-syncs-${round}`, async () => {
         const { data, error } = await accountDb()

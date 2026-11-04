@@ -161,10 +161,15 @@ export class TradingAdapter implements Adapter {
       ...(blockingReason ? { blockingReason } : {}),
     };
   }
-  async assertSkuAvailable(sku: string, excludingItemId: string) {
-    const normalizedSku = sku.trim().toLocaleLowerCase("en-US");
-    if (!normalizedSku)
-      throw Error("SKU fehlt; Duplikatprüfung nicht möglich.");
+  async assertSkusAvailable(selected: { id: string; sku: string }[]) {
+    const selectedSkus = new Map<string, string>();
+    for (const item of selected) {
+      const sku = item.sku.trim().toLocaleLowerCase("en-US");
+      if (!sku)
+        throw Error(`SKU fehlt für ${item.id}; Duplikatprüfung nicht möglich.`);
+      selectedSkus.set(item.id, sku);
+    }
+    const conflicts: Record<string, string[]> = {};
     let page = 1,
       pages = 1;
     do {
@@ -181,17 +186,15 @@ export class TradingAdapter implements Adapter {
         const activeSku = String(item.SKU ?? "")
           .trim()
           .toLocaleLowerCase("en-US");
-        if (
-          itemId !== excludingItemId &&
-          activeSku !== "" &&
-          activeSku === normalizedSku
-        )
-          throw Error(
-            `Ein anderes aktives Angebot mit SKU ${sku} wurde gefunden (${itemId}); Neuerstellung gestoppt.`,
-          );
+        if (!activeSku) continue;
+        for (const [selectedId, sku] of selectedSkus) {
+          if (itemId !== selectedId && activeSku === sku)
+            (conflicts[selectedId] ??= []).push(itemId);
+        }
       }
       page++;
     } while (page <= pages);
+    return conflicts;
   }
   async backup(row: Row, account: string) {
     if (account !== this.account) throw Error("Kontokonflikt.");
