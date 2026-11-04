@@ -117,6 +117,7 @@ export async function advance(
     }
     if (row.phase === "ready") {
       if (job.mode === "dry-run") {
+        await adapter.assertSnapshot?.(row.backup!);
         job.previewDigest = digest(
           job.rows.map((r) => ({
             id: r.listing.id,

@@ -51,3 +51,47 @@ it("refuses corrupted readback and foreign seller before any end is possible", a
     secureBackup({ ...input(), seller: "other" }, store, download),
   ).rejects.toThrow("Verkäuferkonto");
 });
+
+it("restores a persisted JSONB-style key order and rejects changed snapshot data", async () => {
+  const files = new Map<string, Buffer>();
+  const store: BackupStorage = {
+    put: async (p, b) => {
+      files.set(p, b);
+    },
+    get: async (p) => files.get(p)!,
+  };
+  const backup = await secureBackup(input(), store, download);
+  const reorder = (value: any): any =>
+    Array.isArray(value)
+      ? value.map(reorder)
+      : value && typeof value === "object"
+        ? Object.fromEntries(
+            Object.keys(value)
+              .sort()
+              .map((k) => [k, reorder(value[k])]),
+          )
+        : value;
+  const persisted = JSON.parse(JSON.stringify(reorder(backup)));
+  expect(JSON.stringify(persisted)).not.toBe(JSON.stringify(backup));
+  expect((await restoreImages(persisted, store))[0].data).toBe(
+    fixtureImage.toString("base64"),
+  );
+  persisted.payload.Title = "changed";
+  await expect(restoreImages(persisted, store)).rejects.toThrow("beschädigt");
+});
+it("rejects a missing or changed immutable backup manifest", async () => {
+  const files = new Map<string, Buffer>();
+  const store: BackupStorage = {
+    put: async (p, b) => {
+      files.set(p, b);
+    },
+    get: async (p) => files.get(p)!,
+  };
+  const backup = await secureBackup(input(), store, download);
+  const original = JSON.parse(files.get("account/row/backup.json")!.toString());
+  original.payload.Title = "changed";
+  files.set("account/row/backup.json", Buffer.from(JSON.stringify(original)));
+  await expect(restoreImages(backup, store)).rejects.toThrow("beschädigt");
+  files.delete("account/row/backup.json");
+  await expect(restoreImages(backup, store)).rejects.toThrow("nicht lesbar");
+});

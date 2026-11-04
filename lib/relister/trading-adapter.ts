@@ -148,6 +148,7 @@ export class TradingAdapter implements Adapter {
     );
   }
   async assertSnapshot(backup: Backup) {
+    await restoreImages(backup, this.storage);
     const raw = await this.raw(backup.listing.id);
     if (
       digest(canonical(publicationPayload(raw))) !==

@@ -63,8 +63,38 @@ export async function secureBackup(
     throw Error("Datensicherung nicht verifiziert.");
   return backup;
 }
+function canonical(value: any): any {
+  return Array.isArray(value)
+    ? value.map(canonical)
+    : value && typeof value === "object"
+      ? Object.fromEntries(
+          Object.keys(value)
+            .sort()
+            .map((k) => [k, canonical(value[k])]),
+        )
+      : value;
+}
 export async function restoreImages(backup: Backup, store: BackupStorage) {
-  if(digest({...backup,digest:""})!==backup.digest)throw Error("Datensicherung beschädigt oder verändert.");
+  const first = backup.images[0]?.path;
+  if (typeof first !== "string" || !first.endsWith("/image-0"))
+    throw Error("Datensicherung beschädigt oder unvollständig.");
+  let original: Backup;
+  try {
+    original = JSON.parse(
+      (
+        await store.get(first.slice(0, -"image-0".length) + "backup.json")
+      ).toString("utf8"),
+    );
+  } catch {
+    throw Error("Datensicherung nicht lesbar.");
+  }
+  // PostgreSQL JSONB reorders keys. Verify the immutable original manifest,
+  // then compare normalized values, retaining the exact image-array order.
+  if (
+    digest({ ...original, digest: "" }) !== original.digest ||
+    digest(canonical(original)) !== digest(canonical(backup))
+  )
+    throw Error("Datensicherung beschädigt oder verändert.");
   const images = [];
   for (const image of backup.images) {
     const bytes = await store.get(image.path);
