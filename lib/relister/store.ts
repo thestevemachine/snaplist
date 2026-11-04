@@ -35,11 +35,16 @@ export async function saveCatalog(
 ) {
   const old = await catalog(account);
   const previous = new Map(old?.listings.map((l) => [l.id, l]));
-  let lineageRows: { new_id: string; first_seen: string; renewed_at: string }[] = [];
+  let lineageRows: {
+    new_id: string;
+    old_id: string;
+    first_seen: string;
+    renewed_at: string;
+  }[] = [];
   if (listings.length) {
     const lineage = await accountDb()
       .from("relister_lineage")
-      .select("new_id,first_seen,renewed_at")
+      .select("new_id,old_id,first_seen,renewed_at")
       .eq("account_id", account)
       .eq("seller", seller)
       .in("new_id", listings.map((listing) => listing.id));
