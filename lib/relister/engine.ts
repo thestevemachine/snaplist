@@ -11,9 +11,6 @@ export const digest = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 export interface Adapter {
   read(id: string): Promise<Listing>;
-  assertSkusAvailable?(
-    selected: { id: string; sku: string }[],
-  ): Promise<Record<string, string[]>>;
   backup(row: Row, account: string): Promise<Backup>;
   assertSnapshot?(backup: Backup): Promise<void>;
   prepare?(backup: Backup, target: number): Promise<Payload>;

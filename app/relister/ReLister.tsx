@@ -181,10 +181,10 @@ export default function ReLister() {
         </p>
         <p className="relister-safety-note">
           Der Katalog enthält nur die 100 ältesten Angebote und wird etwa alle 6
-          Stunden im Hintergrund aktualisiert. Vor einem echten Auftrag prüft
-          Snaplist den Bestand einmal auf gleiche SKUs und wiederholt den
-          Abgleich bei längeren Aufträgen alle 5 Minuten. Jedes ausgewählte
-          Angebot wird außerdem unmittelbar bei eBay geprüft. Bei Treffern,
+          Stunden im Hintergrund aktualisiert. Vor jedem Eingriff prüft
+          Snaplist das ausgewählte Angebot direkt bei eBay: aktiv, unverkauft,
+          Einzelstück und unveränderter Preis. Nach dem Beenden bestätigt es
+          nochmals, dass das Original inaktiv und unverkauft ist. Bei
           Abweichungen oder unklarem Status wird die Neuerstellung gestoppt.
         </p>
         <p>
