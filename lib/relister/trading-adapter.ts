@@ -58,18 +58,36 @@ const canonical = (x: any): any =>
 const comparisonValue = (x: any, path = ""): any => {
   if (Array.isArray(x)) {
     const values = x.map((v, i) => comparisonValue(v, `${path}.${i}`));
-    return /(?:^|\.)(ShipToLocations|ShipToLocation)$/.test(path) &&
-      x.every((v) => typeof v === "string")
+    return /(?:^|\.)(ShipToLocations|ShipToLocation|ExcludeShipToLocation)$/.test(
+      path,
+    ) && x.every((v) => typeof v === "string")
       ? values.sort()
       : values;
   }
-  if (x && typeof x === "object")
-    return Object.fromEntries(
+  if (x && typeof x === "object") {
+    const value = Object.fromEntries(
       Object.entries(x).map(([key, value]) => [
         key,
         comparisonValue(value, path ? `${path}.${key}` : key),
       ]),
     );
+    // Weight does not determine pure flat-rate charges without rate tables.
+    // Handling charges and every other shipping condition remain checked.
+    if (
+      path === "ShippingDetails" &&
+      x.ShippingType === "Flat" &&
+      !x.RateTableDetails &&
+      value.CalculatedShippingRate
+    ) {
+      const calculated = { ...value.CalculatedShippingRate };
+      delete calculated.WeightMajor;
+      delete calculated.WeightMinor;
+      if (Object.keys(calculated).length)
+        value.CalculatedShippingRate = calculated;
+      else delete value.CalculatedShippingRate;
+    }
+    return value;
+  }
   if (
     /(?:^|\.)(WeightMinor|WeightMajor)\.#text$/.test(path) &&
     /^\d+(?:\.\d+)?$/.test(String(x))

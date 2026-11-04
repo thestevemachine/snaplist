@@ -245,6 +245,53 @@ it("compares destination membership and exact weight independently of formatting
   );
 });
 
+it("checks flat shipping costs and excluded-country membership while ignoring unused weight metadata", async () => {
+  const { adapter, payload, state } = fixture();
+  const shipping: any = {
+    ShippingType: "Flat",
+    CalculatedShippingRate: { WeightMinor: { "#text": "200", "@_unit": "gm" } },
+    ShippingServiceOptions: {
+      ShippingService: "DE_DHLPaket",
+      ShippingServiceCost: "5.99",
+    },
+    ExcludeShipToLocation: ["US", "CN"],
+  };
+  const actual = structuredClone(shipping);
+  actual.CalculatedShippingRate.WeightMinor["#text"] = "0";
+  actual.ExcludeShipToLocation.reverse();
+  (state.newItem as any).ShippingDetails = actual;
+  const backup = {
+    payload,
+    settingsSnapshot: {
+      SellerProfiles: payload.SellerProfiles,
+      ShippingDetails: shipping,
+    },
+  } as any;
+  expect(await adapter.compare("100000000002", backup, 4999, payload)).toBe(
+    true,
+  );
+  actual.ShippingServiceOptions.ShippingServiceCost = "6.99";
+  expect(await adapter.compare("100000000002", backup, 4999, payload)).toBe(
+    false,
+  );
+  actual.ShippingServiceOptions.ShippingServiceCost = "5.99";
+  actual.ExcludeShipToLocation = ["US", "IN"];
+  expect(await adapter.compare("100000000002", backup, 4999, payload)).toBe(
+    false,
+  );
+  actual.ExcludeShipToLocation = ["CN", "US"];
+  shipping.ShippingType = actual.ShippingType = "Calculated";
+  expect(await adapter.compare("100000000002", backup, 4999, payload)).toBe(
+    false,
+  );
+  shipping.ShippingType = actual.ShippingType = "Flat";
+  shipping.RateTableDetails = actual.RateTableDetails = {
+    DomesticRateTableId: "123",
+  };
+  expect(await adapter.compare("100000000002", backup, 4999, payload)).toBe(
+    false,
+  );
+});
 it("full real-adapter code path backs bytes, restores EPS, verifies, ends once, creates once and compares", async () => {
   const f = fixture(),
     files = new Map<string, Buffer>();
