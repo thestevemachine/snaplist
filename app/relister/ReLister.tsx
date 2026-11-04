@@ -16,7 +16,7 @@ export default function ReLister() {
   const [items, setItems] = useState<Listing[]>([]),
     [seller, setSeller] = useState(""),
     [query, setQuery] = useState(""),
-    [sort, setSort] = useState<Sort>("oldest"),
+    [sort, setSort] = useState<Sort>("newest"),
     [percent, setPercent] = useState("0"),
     [selection, setSelection] = useState<string[]>([]),
     [jobs, setJobs] = useState<Job[]>([]),
@@ -31,7 +31,11 @@ export default function ReLister() {
     () => filtered(items, query, sort),
     [items, query, sort],
   );
-  const pages = Math.max(1, Math.ceil(rows.length / 25)),
+  const displayRows = rows.slice(0, 200);
+  const selectedItems = selection
+    .map((id) => items.find((item) => item.id === id))
+    .filter((item): item is Listing => Boolean(item));
+  const pages = Math.max(1, Math.ceil(displayRows.length / 25)),
     current = Math.min(page, pages - 1);
   async function load() {
     const response = await fetch("/api/relister", { cache: "no-store" });
@@ -157,7 +161,7 @@ export default function ReLister() {
             : "Nicht verfügbar"}
         </p>
         <button disabled={busy} onClick={() => action("sync")}>
-          Angebote synchronisieren
+          Aktive Angebote vollständig synchronisieren
         </button>{" "}
         <button disabled={busy} onClick={() => action("demo")}>
           Generalprobe: Testdaten laden
@@ -208,14 +212,15 @@ export default function ReLister() {
           </select>
         </label>
         <p>
-          Auswahl über alle {rows.length} gefilterten Angebote, einschließlich
-          weiterer Seiten:
+          Ansicht: bis zu 200 von {rows.length} passenden Angeboten. Es werden
+          die 200 zuletzt eingestellten zuerst angezeigt; über „Sortierung“
+          kannst du stattdessen die ältesten 200 ansehen.
         </p>
         <div>
           {[1, 5, 20, 25, 50, 100, 200].map((n) => (
             <button
               key={n}
-              onClick={() => setSelection(quickSelect(rows, seller, n))}
+              onClick={() => setSelection(quickSelect(displayRows, seller, n))}
             >
               Erste {n} auswählen
             </button>
@@ -223,6 +228,31 @@ export default function ReLister() {
           <button onClick={() => setSelection([])}>Auswahl aufheben</button>
         </div>
         <p>{selection.length} Angebote ausgewählt.</p>
+        {selectedItems.length > 0 && (
+          <details>
+            <summary>Auswahl ansehen ({selectedItems.length})</summary>
+            <ul>
+              {selectedItems.map((item) => (
+                <li key={item.id}>
+                  {item.title} · {item.id} · {eur(item.priceCents)} ·{" "}
+                  {item.started
+                    ? new Date(item.started).toLocaleDateString("de-DE")
+                    : "Datum fehlt"}{" "}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelection((current) =>
+                        current.filter((id) => id !== item.id),
+                      )
+                    }
+                  >
+                    Entfernen
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
         <fieldset>
           <legend>Preis reduzieren um</legend>
           {[0, 2, 4, 6, 8, 10].map((n) => (
@@ -263,7 +293,7 @@ export default function ReLister() {
               </tr>
             </thead>
             <tbody>
-              {rows.slice(current * 25, current * 25 + 25).map((l) => {
+              {displayRows.slice(current * 25, current * 25 + 25).map((l) => {
                 const reasons = exclusions(l, seller);
                 return (
                   <tr key={l.id}>
