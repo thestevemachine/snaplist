@@ -204,6 +204,46 @@ it("postcheck preserves image order", async () => {
     "Angebot.PictureDetails.PictureURL.0",
   );
 });
+it("compares destination membership and exact weight independently of formatting", async () => {
+  const { adapter, payload, state } = fixture();
+  payload.ShipToLocations = ["DE", "FR"];
+  state.newItem.ShipToLocations = ["FR", "DE"];
+  const shipping = {
+    CalculatedShippingRate: {
+      WeightMinor: { "#text": "0.00", "@_unit": "kg" },
+    },
+    InternationalShippingServiceOption: [{ ShipToLocation: ["DE", "FR"] }],
+  };
+  (state.newItem as any).ShippingDetails = structuredClone(shipping);
+  (state.newItem as any).ShippingDetails.CalculatedShippingRate.WeightMinor[
+    "#text"
+  ] = "0.0";
+  (
+    state.newItem as any
+  ).ShippingDetails.InternationalShippingServiceOption[0].ShipToLocation.reverse();
+  const backup = {
+    payload,
+    settingsSnapshot: {
+      SellerProfiles: payload.SellerProfiles,
+      ShippingDetails: shipping,
+      ShipToLocations: payload.ShipToLocations,
+    },
+  } as any;
+  expect(await adapter.compare("100000000002", backup, 4999, payload)).toBe(
+    true,
+  );
+  state.newItem.ShipToLocations = ["DE", "ES"];
+  expect(await adapter.compare("100000000002", backup, 4999, payload)).toBe(
+    false,
+  );
+  state.newItem.ShipToLocations = ["FR", "DE"];
+  (state.newItem as any).ShippingDetails.CalculatedShippingRate.WeightMinor[
+    "#text"
+  ] = "1";
+  expect(await adapter.compare("100000000002", backup, 4999, payload)).toBe(
+    false,
+  );
+});
 
 it("full real-adapter code path backs bytes, restores EPS, verifies, ends once, creates once and compares", async () => {
   const f = fixture(),

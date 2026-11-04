@@ -52,6 +52,34 @@ const canonical = (x: any): any =>
             .map((k) => [k, canonical(x[k])]),
         )
       : String(x ?? "");
+// Shipping destinations are sets; eBay may return them in a different order.
+// Normalize decimal representation only for weights, preserving units, values,
+// service priorities and ordered images. Every other field remains strict.
+const comparisonValue = (x: any, path = ""): any => {
+  if (Array.isArray(x)) {
+    const values = x.map((v, i) => comparisonValue(v, `${path}.${i}`));
+    return /(?:^|\.)(ShipToLocations|ShipToLocation)$/.test(path) &&
+      x.every((v) => typeof v === "string")
+      ? values.sort()
+      : values;
+  }
+  if (x && typeof x === "object")
+    return Object.fromEntries(
+      Object.entries(x).map(([key, value]) => [
+        key,
+        comparisonValue(value, path ? `${path}.${key}` : key),
+      ]),
+    );
+  if (
+    /(?:^|\.)(WeightMinor|WeightMajor)\.#text$/.test(path) &&
+    /^\d+(?:\.\d+)?$/.test(String(x))
+  ) {
+    const [whole, fraction = ""] = String(x).split(".");
+    const tail = fraction.replace(/0+$/, "");
+    return `${BigInt(whole)}${tail ? `.${tail}` : ""}`;
+  }
+  return x;
+};
 // All side effects are injected, tested and guarded by a separate server grant.
 // Construction alone never grants permission to end/create.
 const settings = (raw: RawItem) =>
@@ -305,14 +333,18 @@ export class TradingAdapter implements Adapter {
           diff(a[key], b[key], `${path}.${key}`);
       } else this.mismatches.push(path);
     };
-    diff(fields, expected, "Angebot");
+    const actualFields = comparisonValue(fields),
+      expectedFields = comparisonValue(expected),
+      actualSettings = comparisonValue(settings(raw)),
+      expectedSettings = comparisonValue(backup.settingsSnapshot);
+    diff(actualFields, expectedFields, "Angebot");
     if (backup.settingsSnapshot)
-      diff(settings(raw), backup.settingsSnapshot, "Einstellungen");
+      diff(actualSettings, expectedSettings, "Einstellungen");
     const matches =
-      digest(canonical(fields)) === digest(canonical(expected)) &&
+      digest(canonical(actualFields)) === digest(canonical(expectedFields)) &&
       (!backup.settingsSnapshot ||
-        digest(canonical(settings(raw))) ===
-          digest(canonical(backup.settingsSnapshot)));
+        digest(canonical(actualSettings)) ===
+          digest(canonical(expectedSettings)));
     if (!matches && !this.mismatches.length) this.mismatches.push("Struktur");
     return matches;
   }
