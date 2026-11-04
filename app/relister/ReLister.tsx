@@ -128,9 +128,8 @@ export default function ReLister() {
       </p>
       {preparationOnly && (
         <p>
-          Erste Vorbereitung: Bitte genau ein echtes Angebot auswählen und diese
-          Seite während der Verarbeitung geöffnet lassen. Gespeicherter
-          Fortschritt wird beim nächsten Öffnen fortgesetzt.
+          Erste Vorbereitung: Bitte genau ein echtes Angebot auswählen. Der
+          Fortschritt bleibt gespeichert.
         </p>
       )}
       <section className="panel">
