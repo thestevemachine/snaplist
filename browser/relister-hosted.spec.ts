@@ -25,7 +25,10 @@ test("real account login → preview → durable confirmation → worker → his
   const db = createClient(url, process.env.SUPABASE_EU_SECRET_KEY!, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const email = `relister-${randomUUID()}@example.invalid`,
+  const preparationOnly = process.env.RELISTER_PREPARATION_ONLY === "true";
+  const email = preparationOnly
+      ? "relister-preparation-owner@example.invalid"
+      : `relister-${randomUUID()}@example.invalid`,
     password = randomUUID() + randomUUID();
   const user = await db.auth.admin.createUser({
     email,
@@ -86,11 +89,13 @@ test("real account login → preview → durable confirmation → worker → his
       throw Error("Confirmed job missing.");
     jobId = jobs.data[0].id;
     expect(jobs.data[0].document.confirmed).toBe(true);
-    await processJob(jobId!);
-    await page.reload();
+    if (!preparationOnly) {
+      await processJob(jobId!);
+      await page.reload();
+    }
     await expect(
       page.getByRole("heading", { name: "Simulation · 1/1 abgeschlossen" }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 30000 });
     const result = await db
       .from("relister_jobs")
       .select("document")

@@ -1,10 +1,12 @@
-# Single-item pilot — awaits real account/read-only rollout approval
+# Single-item pilot — preparation approved, live mutations locked
 
 The implementation and isolated tests are reviewable in PR #46. No real eBay item has yet been backed up or approved through this feature. This is not a request to end an offer.
 
 ## Gate 1: read-only rollout / real preparation
 
-The user explicitly prohibited production deployment/migrations. The isolated Supabase test account has no seller grant; existing production eBay/account secrets have not been copied. To obtain a real, owned, current listing and complete snapshot through the established login, approve a strictly read-only deployment/migration stage separately, or configure an approved isolated environment with its own user-completed eBay consent. Do not invent a seller/item or use a public search result as ownership proof. Do not switch RuNames or activate a second keyset as a workaround.
+On 2026-11-04 the user explicitly approved production migrations/deployment for preparing exactly one real item. This supersedes the earlier prohibition only for this read-only preparation stage. RELISTER_PREPARATION_ONLY=true restricts the API to the owner and atomically binds one source item per account. Browser polling advances persisted preparation while the page remains open because production has no Inngest credentials. RELISTER_LIVE_ENABLED=false remains enforced.
+
+Originally the user explicitly prohibited production deployment/migrations. The isolated Supabase test account has no seller grant; existing production eBay/account secrets have not been copied. To obtain a real, owned, current listing and complete snapshot through the established login, approve a strictly read-only deployment/migration stage separately, or configure an approved isolated environment with its own user-completed eBay consent. Do not invent a seller/item or use a public search result as ownership proof. Do not switch RuNames or activate a second keyset as a workaround.
 
 RELISTER_LIVE_ENABLED remains absent; no relister_approvals rows may be created during this stage. Select exactly one eligible German item and run dry-run. Record:
 - authenticated account UUID, GetUser seller and original item ID/link/SKU;

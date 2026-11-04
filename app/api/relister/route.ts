@@ -12,7 +12,8 @@ import {
   command,
 } from "@/lib/relister/store";
 import { reader } from "@/lib/relister/ebay";
-import { preview } from "@/lib/relister/jobs";
+import { preview, processJob } from "@/lib/relister/jobs";
+import { syncStep } from "@/lib/relister/sync";
 import { exclusions, reducedPrice } from "@/lib/relister/domain";
 import { sampleListing } from "@/lib/relister/simulation";
 export const maxDuration = 300;
@@ -29,6 +30,16 @@ async function handle(req: NextRequest) {
       { status: 503 },
     );
   const account = currentAccount()!;
+  const preparationOnly = process.env.RELISTER_PREPARATION_ONLY === "true";
+  if (preparationOnly && !account.owner)
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Die erste Vorbereitung ist nur für das freigegebene Eigentümerkonto verfügbar.",
+      },
+      { status: 403 },
+    );
   try {
     if (req.method === "GET")
       return NextResponse.json(
@@ -44,6 +55,8 @@ async function handle(req: NextRequest) {
               .maybeSingle()
           ).data,
           mode: "dry-run",
+          preparationOnly,
+          runner: preparationOnly ? "browser" : "background",
           viewsNotice:
             "Aufrufe nicht verfügbar. Analytics-Berechtigung wurde nicht erweitert.",
         },
@@ -52,6 +65,22 @@ async function handle(req: NextRequest) {
     if (!sameOrigin(req))
       return NextResponse.json({ ok: false }, { status: 403 });
     const body = await req.json();
+    if (body.action === "advance" && preparationOnly) {
+      await syncStep(account.id);
+      const next = (await jobs(account.id)).find(
+        (j) =>
+          j.confirmed &&
+          !j.paused &&
+          j.mode !== "live" &&
+          j.rows.some(
+            (r) =>
+              !["completed", "review", "skipped"].includes(r.phase) &&
+              !(j.mode === "dry-run" && r.phase === "ready"),
+          ),
+      );
+      if (next) await processJob(next.id);
+      return NextResponse.json({ ok: true });
+    }
     if (body.action === "sync") {
       const ebay = await reader();
       const queued = await accountDb()
@@ -80,6 +109,17 @@ async function handle(req: NextRequest) {
       if (!c) throw Error("Zuerst synchronisieren.");
       if (!Array.isArray(body.ids) || body.ids.length > 200)
         throw Error("Ungültige Auswahl.");
+      if (preparationOnly && c.seller !== "SIMULATION") {
+        if (body.ids.length !== 1)
+          return NextResponse.json(
+            {
+              ok: false,
+              error:
+                "Freigegeben ist die Vorbereitung genau eines echten Angebots. Bitte nur ein Angebot auswählen; ein Wechsel benötigt eine weitere Freigabe.",
+            },
+            { status: 400 },
+          );
+      }
       const selected = body.ids.map((id: string) =>
         c.listings.find((l) => l.id === id),
       );
@@ -97,7 +137,23 @@ async function handle(req: NextRequest) {
           { ok: false, error: conflicts.join("; ") },
           { status: 400 },
         );
-      // Real listings remain read-only until management/promotions are positively proven.
+      if (preparationOnly && c.seller !== "SIMULATION") {
+        const bound = await accountDb().rpc("relister_bind_preparation", {
+          p_account: account.id,
+          p_seller: c.seller,
+          p_item: body.ids[0],
+        });
+        if (bound.error || bound.data !== true)
+          return NextResponse.json(
+            {
+              ok: false,
+              error:
+                "Die Freigabe ist bereits an ein anderes Angebot gebunden. Ein Wechsel benötigt eine weitere Freigabe.",
+            },
+            { status: 409 },
+          );
+      }
+      // Real listings remain read-only until separately approved.
       const job = preview(account.id, c.seller, selected, body.percent);
       if (c.seller !== "SIMULATION") {
         job.mode = "dry-run";
@@ -113,7 +169,7 @@ async function handle(req: NextRequest) {
         if (body.digest !== job.previewDigest)
           throw Error("Vorschau stimmt nicht überein.");
         if (job.mode === "dry-run") {
-          if (process.env.RELISTER_LIVE_ENABLED !== "true")
+          if (preparationOnly || process.env.RELISTER_LIVE_ENABLED !== "true")
             throw Error("Live-Pilot nicht freigegeben.");
           const activated = await accountDb().rpc("relister_activate", {
             p_job: job.id,

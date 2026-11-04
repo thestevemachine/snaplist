@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { apiPost } from "@/lib/api-client";
 import {
   filtered,
@@ -25,7 +25,9 @@ export default function ReLister() {
     [busy, setBusy] = useState(false),
     [page, setPage] = useState(0),
     [synced, setSynced] = useState(""),
-    [sync, setSync] = useState<any>();
+    [sync, setSync] = useState<any>(),
+    [preparationOnly, setPreparationOnly] = useState(false);
+  const advancing = useRef(false);
   const rows = useMemo(
     () => filtered(items, query, sort),
     [items, query, sort],
@@ -41,6 +43,30 @@ export default function ReLister() {
     setSynced(data.catalog?.synced_at ?? "");
     setJobs(data.jobs ?? []);
     setSync(data.sync);
+    setPreparationOnly(Boolean(data.preparationOnly));
+    const pending =
+      data.sync?.pending ||
+      (data.jobs ?? []).some(
+        (j: Job) =>
+          j.confirmed &&
+          !j.paused &&
+          j.mode !== "live" &&
+          j.rows.some(
+            (r) =>
+              !["completed", "review", "skipped"].includes(r.phase) &&
+              !(j.mode === "dry-run" && r.phase === "ready"),
+          ),
+      );
+    if (data.runner === "browser" && pending && !advancing.current) {
+      advancing.current = true;
+      try {
+        const response = await apiPost("/api/relister", { action: "advance" });
+        const result = await response.json();
+        if (!result.ok) throw Error(result.error);
+      } finally {
+        advancing.current = false;
+      }
+    }
   }
   useEffect(() => {
     let active = true;
@@ -99,6 +125,13 @@ export default function ReLister() {
         deiner Erfahrung verbundene Auslandsangebote; die erneute Übernahme und
         Preisweitergabe sind noch ungeprüft.
       </p>
+      {preparationOnly && (
+        <p>
+          Erste Vorbereitung: Bitte genau ein echtes Angebot auswählen und diese
+          Seite während der Verarbeitung geöffnet lassen. Gespeicherter
+          Fortschritt wird beim nächsten Öffnen fortgesetzt.
+        </p>
+      )}
       <section className="panel">
         <h2>Verkäuferbestand</h2>
         <p>

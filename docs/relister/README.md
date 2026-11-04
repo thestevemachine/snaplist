@@ -54,3 +54,9 @@ See TEST-ENVIRONMENT.md, REHEARSAL.json, PILOT.md and CONFLICTS.md.
 ## Official sources checked
 
 [GetMyeBaySelling](https://developer.ebay.com/devzone/xml/docs/reference/ebay/GetMyeBaySelling.html), [GetItem](https://developer.ebay.com/devzone/xml/docs/reference/ebay/GetItem.html), [GetBestOffers](https://developer.ebay.com/devzone/xml/docs/reference/ebay/GetBestOffers.html), [AddFixedPriceItem including UUID/fees/VAT/catalog behavior](https://developer.ebay.com/devzone/xml/docs/reference/ebay/AddFixedPriceItem.html), [EndFixedPriceItem](https://developer.ebay.com/devzone/xml/docs/reference/ebay/EndFixedPriceItem.html), [Inventory record error 25710](https://developer.ebay.com/support/knowledge-base/5210), [Analytics overview](https://developer.ebay.com/api-docs/sell/analytics/static/overview.html).
+
+## Production preparation rollout (2026-11-04)
+
+The user separately approved production database setup and deployment for exactly one real item, with End/Add still locked. Four migrations are now applied to production (the fourth atomically binds the account to one source item). RELISTER_ENABLED=true, RELISTER_PREPARATION_ONLY=true and RELISTER_LIVE_ENABLED=false. The preparation API is owner-only. The browser advances saved work automatically while Re-Lister stays open; production has no configured Inngest credentials, so closed-browser unattended execution is not claimed.
+
+A clean npm ci from the committed package-lock.json succeeded in a temporary directory. With those exact dependencies, 67 focused tests and the production build pass. The isolated hosted Chrome test also passes with the preparation mode and automatic processing; no direct worker invocation or extra processing click is needed. SQL assertions validate single-item binding, same-item retries, second-item and foreign-account denial, and browser RPC denial. No real eBay mutation or live approval was created.
