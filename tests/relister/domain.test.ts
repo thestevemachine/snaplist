@@ -45,7 +45,6 @@ describe("Re-Lister selection and pricing", () => {
     { variations: true },
     { management: "inventory" },
     { offers: "unknown" },
-    { promotion: "active" },
     { type: "Chinese" },
     { active: false },
   ])("excludes unsafe state %j", (patch) =>
@@ -53,6 +52,14 @@ describe("Re-Lister selection and pricing", () => {
       exclusions({ ...sampleListing("1"), ...patch } as any, "SIMULATION")
         .length,
     ).toBeGreaterThan(0),
+  );
+  it.each(["active", "unknown", "clear"] as const)(
+    "allows shop campaign state %s",
+    (promotion) => {
+      expect(
+        exclusions({ ...sampleListing("1"), promotion }, "SIMULATION"),
+      ).toEqual([]);
+    },
   );
   it("blocks offer thresholds above target", () =>
     expect(

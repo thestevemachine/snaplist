@@ -161,12 +161,12 @@ export function riskProbe(token: string, call: TradingCall) {
           Number(best.PaginationResult?.TotalNumberOfPages ?? 1) <= 1
         ? "clear"
         : "unknown";
-    // Conditional GetItem fields represent active promotional price displays or
-    // strike-through treatments. The full ReturnAll response must be supplied.
+    // GetItem does not establish absence of shop coupons or advertising.
+    // Keep this evidence informational; campaign participation is managed by eBay.
     const promotion =
       raw.DiscountPriceInfo || raw.SellingStatus?.PromotionalSaleDetails
         ? "active"
-        : "clear";
+        : "unknown";
     return { management, offers, promotion };
   };
 }

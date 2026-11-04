@@ -17,6 +17,7 @@ import { syncStep } from "@/lib/relister/sync";
 import { realAdapter } from "@/lib/relister/runtime";
 import { exclusions, reducedPrice } from "@/lib/relister/domain";
 import { sampleListing } from "@/lib/relister/simulation";
+import { backgroundReady, wakeRelister } from "@/lib/relister/worker";
 export const maxDuration = 300;
 async function handle(req: NextRequest) {
   const denied = guardApiRequest(req);
@@ -57,7 +58,8 @@ async function handle(req: NextRequest) {
           ).data,
           mode: "dry-run",
           preparationOnly,
-          runner: preparationOnly ? "browser" : "background",
+          runner:
+            preparationOnly && !backgroundReady() ? "browser" : "background",
           viewsNotice:
             "Aufrufe nicht verfügbar. Analytics-Berechtigung wurde nicht erweitert.",
         },
@@ -125,6 +127,10 @@ async function handle(req: NextRequest) {
       }
     }
     if (body.action === "advance" && preparationOnly) {
+      if (backgroundReady()) {
+        await wakeRelister();
+        return NextResponse.json({ ok: true });
+      }
       await syncStep(account.id);
       const next = (await jobs(account.id)).find(
         (j) =>
@@ -151,6 +157,7 @@ async function handle(req: NextRequest) {
           pending: true,
         });
       if (queued.error) throw Error("Sync-Auftrag nicht gespeichert.");
+      await wakeRelister();
       return NextResponse.json({ ok: true });
     }
     if (body.action === "demo") {
@@ -219,6 +226,7 @@ async function handle(req: NextRequest) {
         job.confirmed = true;
       }
       await insert(job);
+      await wakeRelister();
       return NextResponse.json({ ok: true, job });
     }
     if (["confirm", "pause", "resume"].includes(body.action)) {
@@ -236,6 +244,7 @@ async function handle(req: NextRequest) {
             p_digest: body.digest,
           });
           if (activated.error) throw Error("Pilotfreigabe fehlt.");
+          await wakeRelister();
           return NextResponse.json({ ok: true });
         }
         if (job.mode !== "simulation")
@@ -243,6 +252,7 @@ async function handle(req: NextRequest) {
         job.confirmed = true;
       } else job.paused = body.action === "pause";
       await command(account.id, job.id, body.action);
+      if (body.action !== "pause") await wakeRelister();
       return NextResponse.json({ ok: true, job });
     }
     return NextResponse.json(

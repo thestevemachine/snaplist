@@ -184,8 +184,8 @@ export function exclusions(
     reasons.push("Verwaltungsweg nicht als Trading bestätigt");
   if (l.offers !== "clear")
     reasons.push("Laufender oder ungeklärter Preisvorschlag/Verkaufsvorgang");
-  if (l.promotion !== "clear")
-    reasons.push("Rabattaktion oder Preisbezug ungeklärt");
+  // Existing shop campaigns are managed by eBay. They do not block relisting;
+  // the publication payload preserves the shop category without creating ads.
   if (l.currency !== "EUR" || target < 1)
     reasons.push("Ungültiger EUR-Zielpreis");
   if ((l.minOfferCents ?? 0) > target || (l.autoAcceptCents ?? 0) > target)
