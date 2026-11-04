@@ -15,17 +15,14 @@ export type SyncState = {
   error?: string;
 };
 function selectionWindow(items: Listing[]) {
-  const newestFirst = [...items].sort(
-    (a, b) => Date.parse(b.started) - Date.parse(a.started),
-  );
-  return [
-    ...new Map(
-      [...newestFirst.slice(0, 200), ...newestFirst.slice(-200)].map((item) => [
-        item.id,
-        item,
-      ]),
-    ).values(),
-  ];
+  return [...items]
+    .filter((item) => Number.isFinite(Date.parse(item.started)))
+    .sort(
+      (a, b) =>
+        Date.parse(a.started) - Date.parse(b.started) ||
+        a.id.localeCompare(b.id),
+    )
+    .slice(0, 200);
 }
 export async function syncStep(account: string) {
   const db = accountDb(),
@@ -74,7 +71,7 @@ export async function syncStep(account: string) {
         }
       } else if (state.stage === "details") {
         // Also narrow detail-stage jobs created by the earlier full-catalog sync.
-        if (state.items.length > 400) {
+        if (state.items.length > 200) {
           state.items = selectionWindow(state.items);
           state.cursor = 0;
         }

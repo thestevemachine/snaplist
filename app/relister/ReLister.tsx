@@ -8,7 +8,6 @@ import {
   reducedPrice,
   type Listing,
   type Job,
-  type Sort,
 } from "@/lib/relister/domain";
 const eur = (c: number) =>
   (c / 100).toLocaleString("de-DE", { style: "currency", currency: "EUR" });
@@ -16,7 +15,6 @@ export default function ReLister() {
   const [items, setItems] = useState<Listing[]>([]),
     [seller, setSeller] = useState(""),
     [query, setQuery] = useState(""),
-    [sort, setSort] = useState<Sort>("newest"),
     [percent, setPercent] = useState("0"),
     [selection, setSelection] = useState<string[]>([]),
     [jobs, setJobs] = useState<Job[]>([]),
@@ -27,10 +25,7 @@ export default function ReLister() {
     [synced, setSynced] = useState(""),
     [sync, setSync] = useState<any>();
   const advancing = useRef(false);
-  const rows = useMemo(
-    () => filtered(items, query, sort),
-    [items, query, sort],
-  );
+  const rows = useMemo(() => filtered(items, query, "oldest"), [items, query]);
   const displayRows = rows.slice(0, 200);
   const syncing = Boolean(sync?.pending);
   const selectedItems = selection
@@ -42,12 +37,14 @@ export default function ReLister() {
     const response = await fetch("/api/relister", { cache: "no-store" });
     const data = await response.json();
     if (!data.ok) throw Error(data.error);
-    setItems(data.sync?.pending ? [] : (data.catalog?.listings ?? []));
+    const listings: Listing[] = data.catalog?.listings ?? [];
+    const listingIds = new Set(listings.map((listing) => listing.id));
+    setItems(listings);
+    setSelection((current) => current.filter((id) => listingIds.has(id)));
     setSeller(data.catalog?.seller ?? "");
     setSynced(data.catalog?.synced_at ?? "");
     setJobs(data.jobs ?? []);
     setSync(data.sync);
-    if (data.sync?.pending) setSelection([]);
     const pending =
       data.sync?.pending ||
       (data.jobs ?? []).some(
@@ -158,30 +155,36 @@ export default function ReLister() {
         <h2>Verkäuferbestand</h2>
         <p>
           Konto: {seller || "Noch nicht synchronisiert"} · Datenstand:{" "}
-          {syncing
-            ? "wird aktualisiert"
-            : synced
-              ? new Date(synced).toLocaleString("de-DE")
-              : "Nicht verfügbar"}
+          {synced
+            ? new Date(synced).toLocaleString("de-DE")
+            : "Nicht verfügbar"}
+          {syncing ? " · Abgleich im Hintergrund läuft" : ""}
         </p>
         <div className="relister-toolbar">
           <button
             className="relister-primary"
-            disabled={busy}
+            disabled={busy || syncing}
             onClick={() => action("sync")}
           >
             Aktive Angebote vollständig synchronisieren
           </button>
-          <button disabled={busy} onClick={() => action("demo")}>
+          <button disabled={busy || syncing} onClick={() => action("demo")}>
             Generalprobe: Testdaten laden
           </button>
         </div>
         <p>
           {syncing
             ? sync.document.stage === "pages"
-              ? `Aktive Angebote werden geladen: ${Math.max(0, Number(sync.document.page) - 1)} Seiten gelesen, ${sync.document.items?.length ?? 0} gefunden. Die Liste erscheint nach dem vollständigen Abgleich.`
-              : `Sicherheitsprüfung läuft: ${sync.document.cursor} von ${sync.document.items?.length ?? 0} Angeboten geprüft. Die Liste erscheint nach dem vollständigen Abgleich.`
+              ? `Live-Abgleich: ${Math.max(0, Number(sync.document.page) - 1)} Seiten gelesen, ${sync.document.items?.length ?? 0} Angebote erfasst. Die gespeicherte Liste bleibt sichtbar; ausgewählte Angebote werden vor jeder Änderung direkt bei eBay geprüft.`
+              : `Prüfung der 200 ältesten Angebote: ${sync.document.cursor} von ${sync.document.items?.length ?? 0} geprüft. Die gespeicherte Liste bleibt sichtbar.`
             : (sync?.document.error ?? "")}
+        </p>
+        <p className="relister-safety-note">
+          Der Verkäuferbestand wird etwa alle 6 Stunden im Hintergrund
+          aktualisiert. Vor dem Beenden prüft Snaplist jedes ausgewählte Angebot
+          live bei eBay: aktiv, unverkauft, Einzelstück und unveränderter Preis.
+          Bei Abweichungen oder unklarem Status stoppt der Auftrag, bevor ein
+          neues Angebot erstellt wird.
         </p>
         <p>
           Aufrufe: Nicht verfügbar. Seitenaufrufe, Suchimpressionen und
@@ -198,35 +201,10 @@ export default function ReLister() {
             }}
           />
         </label>
-        <label>
-          Sortierung{" "}
-          <select
-            value={sort}
-            onChange={(e) => {
-              setSort(e.target.value as Sort);
-              setPage(0);
-            }}
-          >
-            <option value="oldest">Einstelldatum: älteste zuerst</option>
-            <option value="newest">Einstelldatum: neueste zuerst</option>
-            <option
-              value="viewsAsc"
-              disabled={!items.some((l) => l.views !== null)}
-            >
-              Aufrufe aufsteigend (fehlende zuletzt)
-            </option>
-            <option
-              value="viewsDesc"
-              disabled={!items.some((l) => l.views !== null)}
-            >
-              Aufrufe absteigend (fehlende zuletzt)
-            </option>
-          </select>
-        </label>
         <p className="relister-view-summary">
           {syncing
-            ? "Der Verkäuferbestand wird aktualisiert. Die alte Testliste ist währenddessen ausgeblendet."
-            : `Ansicht: bis zu 200 von ${rows.length} passenden Angeboten. Es werden die 200 zuletzt eingestellten zuerst angezeigt; über „Sortierung“ kannst du stattdessen die ältesten 200 ansehen.`}
+            ? `Es bleiben die zuletzt gespeicherten ältesten Angebote sichtbar (${rows.length} passend). Der Live-Abgleich ersetzt sie nach Abschluss.`
+            : `Auswahl: die 200 ältesten aktiven Angebote aus dem Verkäuferbestand (${rows.length} passend).`}
         </p>
         <div className="relister-selection-actions">
           {[1, 5, 20, 25, 50, 100, 200].map((n) => (
