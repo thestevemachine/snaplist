@@ -200,6 +200,9 @@ it("postcheck preserves image order", async () => {
   expect(await adapter.compare("100000000002", b, 4999, payload)).toBe(true);
   state.newItem.PictureDetails.PictureURL.reverse();
   expect(await adapter.compare("100000000002", b, 4999, payload)).toBe(false);
+  expect(adapter.comparisonDetails()).toContain(
+    "Angebot.PictureDetails.PictureURL.0",
+  );
 });
 
 it("full real-adapter code path backs bytes, restores EPS, verifies, ends once, creates once and compares", async () => {

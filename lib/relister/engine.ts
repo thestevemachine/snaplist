@@ -30,6 +30,7 @@ export interface Adapter {
     target: number,
     payload?: Payload,
   ): Promise<boolean>;
+  comparisonDetails?(): string[];
 }
 export interface Repository {
   save(job: Job): Promise<void>;
@@ -245,7 +246,9 @@ export async function advance(
           row.outgoing,
         ))
       )
-        throw Error("Nachprüfung abweichend: manuelle Prüfung.");
+        throw Error(
+          `Nachprüfung abweichend: ${adapter.comparisonDetails?.().join(", ") || "manuelle Prüfung"}.`,
+        );
       await repo.completed?.(job, row);
       transition(
         row,

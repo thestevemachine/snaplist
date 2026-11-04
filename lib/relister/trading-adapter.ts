@@ -71,6 +71,10 @@ const settings = (raw: RawItem) =>
       .map((k) => [k, raw[k]]),
   );
 export class TradingAdapter implements Adapter {
+  private mismatches: string[] = [];
+  comparisonDetails() {
+    return this.mismatches;
+  }
   constructor(
     private account: string,
     private seller: string,
@@ -276,6 +280,7 @@ export class TradingAdapter implements Adapter {
     return String(r.ItemID);
   }
   async compare(id: string, backup: Backup, target: number, payload?: Payload) {
+    this.mismatches = [];
     const actual = await this.read(id);
     if (
       actual.seller !== this.seller ||
@@ -286,17 +291,30 @@ export class TradingAdapter implements Adapter {
       actual.currency !== "EUR"
     )
       return false;
-    const fields = publicationPayload(await this.raw(id));
+    const raw = await this.raw(id);
+    const fields = publicationPayload(raw);
     const expected = payload ?? {
       ...backup.payload,
       StartPrice: (target / 100).toFixed(2),
     };
-    return (
+    const diff = (a: any, b: any, path: string) => {
+      if (digest(canonical(a)) === digest(canonical(b))) return;
+      if (this.mismatches.length >= 16) return;
+      if (a && b && typeof a === "object" && typeof b === "object") {
+        for (const key of new Set([...Object.keys(a), ...Object.keys(b)]))
+          diff(a[key], b[key], `${path}.${key}`);
+      } else this.mismatches.push(path);
+    };
+    diff(fields, expected, "Angebot");
+    if (backup.settingsSnapshot)
+      diff(settings(raw), backup.settingsSnapshot, "Einstellungen");
+    const matches =
       digest(canonical(fields)) === digest(canonical(expected)) &&
       (!backup.settingsSnapshot ||
-        digest(canonical(settings(await this.raw(id)))) ===
-          digest(canonical(backup.settingsSnapshot)))
-    );
+        digest(canonical(settings(raw))) ===
+          digest(canonical(backup.settingsSnapshot)));
+    if (!matches && !this.mismatches.length) this.mismatches.push("Struktur");
+    return matches;
   }
 }
 export function productionTransport(token: string): TradingCall {
