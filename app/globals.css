@@ -2369,6 +2369,53 @@ textarea.title-input {
   font-weight: 500;
 }
 
+.relister-history-note {
+  color: var(--color-ink-soft);
+  font-size: 0.9rem;
+}
+
+.relister-batch {
+  margin-top: 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface-sunk);
+}
+
+.relister-batch-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 1rem;
+  padding: 0.9rem 1rem;
+  cursor: pointer;
+  font-weight: 600;
+  list-style-position: inside;
+}
+
+.relister-batch-date {
+  color: var(--color-ink);
+}
+
+.relister-batch-mode {
+  color: var(--color-ink-soft);
+  font-weight: 500;
+}
+
+.relister-batch-state,
+.relister-batch-running {
+  margin-left: auto;
+  color: var(--color-ink-soft);
+  font-size: 0.85rem;
+}
+
+.relister-batch-running {
+  color: #08654f;
+}
+
+.relister-batch-content {
+  padding: 0 1rem 1rem;
+}
+
 .relister-history-row {
   margin-top: 1rem;
   padding: 1rem;
