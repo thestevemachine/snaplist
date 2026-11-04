@@ -222,3 +222,16 @@ it("does not clear duplicated or changing inventory pagination", async () => {
     ).toBe("unknown");
   }
 });
+
+it("sends an explicit supported locale instead of fetch's wildcard language", async () => {
+  fetch.mockReset();
+  const probe = setup({});
+  await probe(id, { SKU: "fixture-sku" });
+  expect(fetch.mock.calls[0][1].headers["Accept-Language"]).toBe("de-DE");
+  await inventoryFallback({ total: 0 });
+  expect(
+    fetch.mock.calls.every(
+      (c: any) => c[1].headers["Accept-Language"] === "de-DE",
+    ),
+  ).toBe(true);
+});

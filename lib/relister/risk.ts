@@ -10,7 +10,10 @@ export function riskProbe(token: string, call: TradingCall) {
       const r = await boundedFetch(
         `https://api.ebay.com/sell/inventory/v1/inventory_item/${encodeURIComponent(raw.SKU)}`,
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Accept-Language": "de-DE",
+          },
           redirect: "error",
           cache: "no-store",
         },
@@ -40,7 +43,10 @@ export function riskProbe(token: string, call: TradingCall) {
               ? "https://api.ebay.com/sell/inventory/v1/inventory_item?limit=1"
               : `https://api.ebay.com/sell/inventory/v1/inventory_item?limit=100&offset=${offset}`;
           const inventory = await boundedFetch(url, {
-            headers: { Authorization: `Bearer ${token}` },
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Accept-Language": "de-DE",
+            },
             redirect: "error",
             cache: "no-store",
           });
