@@ -25,9 +25,7 @@ export default function ReLister() {
     [busy, setBusy] = useState(false),
     [page, setPage] = useState(0),
     [synced, setSynced] = useState(""),
-    [sync, setSync] = useState<any>(),
-    [preparationOnly, setPreparationOnly] = useState(false),
-    [pilotItem, setPilotItem] = useState("");
+    [sync, setSync] = useState<any>();
   const advancing = useRef(false);
   const rows = useMemo(
     () => filtered(items, query, sort),
@@ -44,7 +42,6 @@ export default function ReLister() {
     setSynced(data.catalog?.synced_at ?? "");
     setJobs(data.jobs ?? []);
     setSync(data.sync);
-    setPreparationOnly(Boolean(data.preparationOnly));
     const pending =
       data.sync?.pending ||
       (data.jobs ?? []).some(
@@ -82,6 +79,26 @@ export default function ReLister() {
       clearInterval(timer);
     };
   }, []);
+  async function confirmJob(job: Job) {
+    if (job.mode === "simulation") {
+      if (
+        !window.confirm(
+          `Den Probelauf mit ${job.rows.length} Testangebot(en) starten? Es werden keine echten eBay-Angebote verändert.`,
+        )
+      )
+        return;
+    } else if (
+      !window.confirm(
+        `Jetzt genau diese ${job.rows.length} geprüften deutschen Angebote beenden und als neue eBay-Festpreisangebote erstellen?\n\n` +
+          `Die alten Angebote werden beendet. Die neuen Artikel erhalten neue Artikelnummern und übernehmen die gesicherten Bilder, Angaben sowie Versand-, Rückgabe- und Zahlungsrichtlinien. Das sind echte neue Angebote, keine eBay-Wiedereinstellungen.\n\n` +
+          `Einstellgebühr laut Vorprüfung: 0 €. Verkaufskosten und Kontingent können anfallen. Die Shop-Kategorie wird übernommen; Snaplist ändert keine Gutscheine oder Werbung.`,
+      )
+    ) {
+      return;
+    }
+    await action("confirm", { id: job.id, digest: job.previewDigest });
+  }
+
   async function action(action: string, extra: Record<string, unknown> = {}) {
     setBusy(true);
     setMessage("");
@@ -94,7 +111,7 @@ export default function ReLister() {
       await load();
       setMessage(
         action === "confirm"
-          ? "Probelauf bestätigt. Hintergrundverarbeitung übernimmt."
+          ? "Auftrag ausdrücklich freigegeben. Die Hintergrundverarbeitung übernimmt."
           : "Gespeichert.",
       );
     } catch (e) {
@@ -114,24 +131,23 @@ export default function ReLister() {
       <h1>Re-Lister</h1>
       <p>
         <strong>
-          {jobs.some((j) => j.mode === "live")
-            ? "Separat freigegebener Live-Auftrag vorhanden. Fortschritt unten prüfen."
-            : "Probelauf: keine echten Angebote werden beendet, neu erstellt oder im Preis geändert."}
+          {jobs.some(
+            (j) =>
+              j.mode === "live" &&
+              j.rows.some(
+                (r) => !["completed", "review", "skipped"].includes(r.phase),
+              ),
+          )
+            ? "Ein bestätigter Auftrag läuft im Hintergrund. Fortschritt unten prüfen."
+            : "Jeder Auftrag wird zuerst vollständig gesichert und geprüft. Erst deine ausdrückliche Bestätigung startet die Änderung am eBay-Angebot."}
         </strong>
       </p>
       <p>
         Neue Artikelnummern garantieren keinen Rankingvorteil. Beobachter und
         Angebotsgeschichte werden nicht automatisch übertragen. Neue Angebote
-        können Gebühren und Kontingent verbrauchen. Webinterpret beendet laut
-        deiner Erfahrung verbundene Auslandsangebote; die erneute Übernahme und
-        Preisweitergabe sind noch ungeprüft.
+        können Verkaufsgebühren und Kontingent verbrauchen. Snaplist ändert
+        bestehende Gutscheine und Werbung nicht.
       </p>
-      {preparationOnly && (
-        <p>
-          Erste Vorbereitung: Bitte genau ein echtes Angebot auswählen. Der
-          Fortschritt bleibt gespeichert.
-        </p>
-      )}
       <section className="panel">
         <h2>Verkäuferbestand</h2>
         <p>
@@ -146,31 +162,6 @@ export default function ReLister() {
         <button disabled={busy} onClick={() => action("demo")}>
           Generalprobe: Testdaten laden
         </button>
-        {preparationOnly && (
-          <div>
-            <button disabled={busy} onClick={() => action("load-oldest")}>
-              Ältestes aktives deutsches Angebot laden
-            </button>
-            <label>
-              Artikelnummer für die Einzelprüfung{" "}
-              <input
-                value={pilotItem}
-                onChange={(e) => setPilotItem(e.target.value.trim())}
-                inputMode="numeric"
-              />
-            </label>{" "}
-            <button
-              disabled={busy || !/^\d{6,20}$/.test(pilotItem)}
-              onClick={() => action("load-item", { item: pilotItem })}
-            >
-              Einzelangebot laden
-            </button>
-            <p>
-              Prüft nur ein eigenes deutsches Angebot und pausiert die
-              vollständige Bestandsprüfung. Dabei wird kein Angebot verändert.
-            </p>
-          </div>
-        )}
         <p>
           {sync?.pending
             ? `Synchronisierung läuft: ${sync.document.stage}, ${sync.document.cursor} Details geprüft.`
@@ -318,7 +309,7 @@ export default function ReLister() {
                     </td>
                     <td>{eur(l.priceCents)}</td>
                     <td>{l.views ?? "Nicht verfügbar"}</td>
-                    <td>{reasons.join("; ") || "Geeignet für Generalprobe"}</td>
+                    <td>{reasons.join("; ") || "Für Prüfung geeignet"}</td>
                   </tr>
                 );
               })}
@@ -362,18 +353,10 @@ export default function ReLister() {
             <>
               <p>
                 Die Bestätigung gilt ausschließlich für simuliertes Beenden und
-                simulierte Neuerstellung mit gesicherten Testbildern.
-                Produktiver Pilot noch gesperrt.
+                simulierte Neuerstellung mit gesicherten Testbildern. Echte
+                eBay-Angebote werden dabei nicht verändert.
               </p>
-              <button
-                disabled={busy}
-                onClick={() =>
-                  action("confirm", {
-                    id: preview.id,
-                    digest: preview.previewDigest,
-                  })
-                }
-              >
+              <button disabled={busy} onClick={() => void confirmJob(preview)}>
                 Geprüften Probelauf ausdrücklich bestätigen
               </button>
             </>
@@ -393,7 +376,7 @@ export default function ReLister() {
               {j.mode === "simulation"
                 ? "Simulation"
                 : j.mode === "dry-run"
-                  ? "Probelauf ohne Veröffentlichung"
+                  ? "Sicherung & Vorprüfung"
                   : "Live"}{" "}
               · {j.rows.filter((r) => r.phase === "completed").length}/
               {j.rows.length} abgeschlossen
@@ -408,14 +391,8 @@ export default function ReLister() {
             </button>
             {j.mode === "dry-run" &&
               j.rows.every((r) => r.phase === "ready") && (
-                <button
-                  disabled={busy}
-                  onClick={() =>
-                    action("confirm", { id: j.id, digest: j.previewDigest })
-                  }
-                >
-                  Geprüften Auftrag bestätigen (gesonderte Pilotfreigabe
-                  erforderlich)
+                <button disabled={busy} onClick={() => void confirmJob(j)}>
+                  {`Jetzt ${j.rows.length} geprüfte Angebote als neue Listings einstellen`}
                 </button>
               )}
             {j.rows.map((r) => (
