@@ -11,6 +11,13 @@ import {
 } from "@/lib/relister/domain";
 const eur = (c: number) =>
   (c / 100).toLocaleString("de-DE", { style: "currency", currency: "EUR" });
+const dateTime = (value?: string) => {
+  if (!value || !Number.isFinite(Date.parse(value))) return "Zeitpunkt nicht verfügbar";
+  return new Date(value).toLocaleString("de-DE", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+};
 export default function ReLister() {
   const [items, setItems] = useState<Listing[]>([]),
     [seller, setSeller] = useState(""),
@@ -402,6 +409,7 @@ export default function ReLister() {
                   : "Live"}{" "}
               · {j.rows.filter((r) => r.phase === "completed").length}/
               {j.rows.length} abgeschlossen
+              <small className="relister-job-date">{dateTime(j.createdAt)}</small>
             </h3>
             <button
               disabled={busy}
@@ -422,40 +430,80 @@ export default function ReLister() {
                 </button>
               )}
             {j.rows.map((r) => (
-              <details key={r.id}>
-                <summary>
-                  {r.listing.title}: {r.phase}
-                  {r.error ? ` – ${r.error}` : ""}
-                </summary>
-                <p>
-                  Alt: {r.listing.id} · Neu: {r.newId ?? "Noch nicht erstellt"}
-                </p>
-                <p>
-                  Erste Erfassung: {r.listing.firstSeen}. Ausgangspreis{" "}
-                  {eur(r.originalCents)}, Zielpreis {eur(r.targetCents)}.
-                </p>
-                <p>
-                  Geschätzte Einstellgebühren:{" "}
-                  {r.feeCents === undefined
-                    ? "Noch nicht geprüft"
-                    : eur(r.feeCents)}
-                  . Verkaufskosten und Kontingent separat beachten.
-                </p>
-                {r.backup && (
+              <article
+                className={`relister-history-row${r.phase === "completed" ? " is-completed" : ""}`}
+                key={r.id}
+              >
+                <div className="relister-history-preview">
+                  {r.listing.thumbnail &&
+                  /^https:\/\/i\.ebayimg\.com\//.test(r.listing.thumbnail) ? (
+                    <img src={r.listing.thumbnail} alt="" width={72} height={72} />
+                  ) : (
+                    <div className="relister-history-placeholder" aria-hidden="true">—</div>
+                  )}
+                  <div className="relister-history-main">
+                    <div className="relister-history-title-line">
+                      <strong>{r.listing.title}</strong>
+                      <span className={`relister-phase-badge${r.phase === "completed" ? " is-completed" : ""}`}>
+                        {r.phase === "completed" ? "Wieder eingestellt" : r.phase}
+                      </span>
+                    </div>
+                    <div className="relister-history-meta">
+                      <span>SKU {r.listing.sku || "—"}</span>
+                      <span>Ursprünglich eingestellt: {dateTime(r.listing.started)}</span>
+                      <span>{eur(r.originalCents)} → {eur(r.targetCents)}</span>
+                    </div>
+                    {r.phase === "completed" ? (
+                      <div className="relister-history-result">
+                        <strong>
+                          Neu eingestellt am{" "}
+                          {dateTime(r.history.slice().reverse().find((h) => h.phase === "completed")?.at)}
+                        </strong>
+                        {r.newId ? (
+                          <a
+                            href={`https://www.ebay.de/itm/${encodeURIComponent(r.newId)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Aktuelles Listing ansehen · {r.newId}
+                          </a>
+                        ) : (
+                          <span>Neue Artikelnummer nicht verfügbar</span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="relister-history-status">
+                        {r.error ? `Fehler: ${r.error}` : `Status: ${r.phase}`}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <details className="relister-history-details">
+                  <summary>Auftragsdetails und Verlauf</summary>
+                  <p>Alt: {r.listing.id} · Neu: {r.newId ?? "Noch nicht erstellt"}</p>
                   <p>
-                    Sicherung v{r.backup.version}: {r.backup.images.length}{" "}
-                    Bilddatei(en), SHA256 {r.backup.digest}
+                    Erste Erfassung: {dateTime(r.listing.firstSeen)}. Ausgangspreis{" "}
+                    {eur(r.originalCents)}, Zielpreis {eur(r.targetCents)}.
                   </p>
-                )}
-                <ol>
-                  {r.history.map((h, i) => (
-                    <li key={i}>
-                      {h.at}: {h.note}
-                    </li>
-                  ))}
-                </ol>
-              </details>
-            ))}
+                  <p>
+                    Geschätzte Einstellgebühren:{" "}
+                    {r.feeCents === undefined ? "Noch nicht geprüft" : eur(r.feeCents)}
+                    . Verkaufskosten und Kontingent separat beachten.
+                  </p>
+                  {r.backup && (
+                    <p>
+                      Sicherung v{r.backup.version}: {r.backup.images.length} Bilddatei(en),
+                      SHA256 {r.backup.digest}
+                    </p>
+                  )}
+                  <ol>
+                    {r.history.map((h, i) => (
+                      <li key={i}>{dateTime(h.at)}: {h.note}</li>
+                    ))}
+                  </ol>
+                </details>
+              </article>
+            ))}}
           </article>
         ))}
       </section>
