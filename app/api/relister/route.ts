@@ -14,6 +14,7 @@ import {
 import { reader } from "@/lib/relister/ebay";
 import { preview, processJob } from "@/lib/relister/jobs";
 import { syncStep } from "@/lib/relister/sync";
+import { realAdapter } from "@/lib/relister/runtime";
 import { exclusions, reducedPrice } from "@/lib/relister/domain";
 import { sampleListing } from "@/lib/relister/simulation";
 export const maxDuration = 300;
@@ -65,6 +66,33 @@ async function handle(req: NextRequest) {
     if (!sameOrigin(req))
       return NextResponse.json({ ok: false }, { status: 403 });
     const body = await req.json();
+    if (body.action === "load-item" && preparationOnly) {
+      if (typeof body.item !== "string" || !/^\d{6,20}$/.test(body.item))
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "Bitte eine gültige eBay-Artikelnummer eingeben.",
+          },
+          { status: 400 },
+        );
+      const ebay = await reader();
+      const listing = await (
+        await realAdapter(account, ebay.seller)
+      ).read(body.item);
+      const old = await catalog(account.id);
+      await saveCatalog(account.id, ebay.seller, [
+        ...(old?.seller === ebay.seller
+          ? old.listings.filter((l) => l.id !== listing.id)
+          : []),
+        listing,
+      ]);
+      const paused = await accountDb()
+        .from("relister_sync")
+        .update({ pending: false, updated_at: new Date().toISOString() })
+        .eq("account_id", account.id);
+      if (paused.error) throw Error("Bestandsprüfung nicht pausiert.");
+      return NextResponse.json({ ok: true });
+    }
     if (body.action === "advance" && preparationOnly) {
       await syncStep(account.id);
       const next = (await jobs(account.id)).find(

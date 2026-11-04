@@ -84,7 +84,8 @@ export async function syncStep(account: string) {
         pending: state.stage !== "done",
         updated_at: new Date().toISOString(),
       })
-      .eq("account_id", account);
+      .eq("account_id", account)
+      .eq("pending", true);
     if (saved.error) throw Error("Sync-Fortschritt nicht gespeichert.");
   } catch {
     await db

@@ -26,7 +26,8 @@ export default function ReLister() {
     [page, setPage] = useState(0),
     [synced, setSynced] = useState(""),
     [sync, setSync] = useState<any>(),
-    [preparationOnly, setPreparationOnly] = useState(false);
+    [preparationOnly, setPreparationOnly] = useState(false),
+    [pilotItem, setPilotItem] = useState("");
   const advancing = useRef(false);
   const rows = useMemo(
     () => filtered(items, query, sort),
@@ -146,6 +147,28 @@ export default function ReLister() {
         <button disabled={busy} onClick={() => action("demo")}>
           Generalprobe: Testdaten laden
         </button>
+        {preparationOnly && (
+          <div>
+            <label>
+              Artikelnummer für die Einzelprüfung{" "}
+              <input
+                value={pilotItem}
+                onChange={(e) => setPilotItem(e.target.value.trim())}
+                inputMode="numeric"
+              />
+            </label>{" "}
+            <button
+              disabled={busy || !/^\d{6,20}$/.test(pilotItem)}
+              onClick={() => action("load-item", { item: pilotItem })}
+            >
+              Einzelangebot laden
+            </button>
+            <p>
+              Prüft nur ein eigenes deutsches Angebot und pausiert die
+              vollständige Bestandsprüfung. Dabei wird kein Angebot verändert.
+            </p>
+          </div>
+        )}
         <p>
           {sync?.pending
             ? `Synchronisierung läuft: ${sync.document.stage}, ${sync.document.cursor} Details geprüft.`
