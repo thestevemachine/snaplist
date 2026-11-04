@@ -249,6 +249,8 @@ export async function advance(
         throw Error(
           `Nachprüfung abweichend: ${adapter.comparisonDetails?.().join(", ") || "manuelle Prüfung"}.`,
         );
+      row.error = undefined;
+      row.nextAttemptAt = undefined;
       await repo.completed?.(job, row);
       transition(
         row,

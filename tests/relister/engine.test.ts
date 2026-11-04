@@ -26,6 +26,24 @@ function fixture() {
   return { job, saved, repo };
 }
 describe("durable re-list simulation", () => {
+  it("persists clearing an earlier error only after a successful postcheck", async () => {
+    const { job, repo, saved } = fixture();
+    const adapter = new Simulation(job.rows);
+    const row = job.rows[0];
+    row.backup = await adapter.backup(row, "account");
+    row.newId = "SIM-confirmed";
+    row.phase = "created";
+    row.error = "Previous mismatch";
+    adapter.compare = async () => false;
+    await advance(job, row, adapter, repo);
+    expect(saved.at(-1)?.rows[0].phase).toBe("review");
+    expect(saved.at(-1)?.rows[0].error).toBeTruthy();
+    row.phase = "created";
+    adapter.compare = async () => true;
+    await advance(job, row, adapter, repo);
+    expect(saved.at(-1)?.rows[0].phase).toBe("completed");
+    expect(saved.at(-1)?.rows[0].error).toBeUndefined();
+  });
   it("completes backup through postcheck with immutable discounted price", async () => {
     const { job, repo, saved } = fixture();
     await advance(job, job.rows[0], new Simulation(job.rows), repo);
