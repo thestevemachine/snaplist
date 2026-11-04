@@ -62,3 +62,37 @@ it("excludes promotional or strike-through prices", async () =>
       })
     ).promotion,
   ).toBe("active"));
+
+const activeSource = {
+  SKU: "sku",
+  ItemID: id,
+  Site: "Germany",
+  Seller: { UserID: "seller" },
+  SellingStatus: { ListingStatus: "Active" },
+};
+const noOffers = {
+  Ack: "Failure",
+  Errors: [{ ErrorCode: "20140", SeverityCode: "Error" }],
+};
+it("accepts documented no-active-offers 20140 for the exact verified active source", async () => {
+  expect((await setup(noOffers)(id, activeSource)).offers).toBe("clear");
+});
+it("does not hide mixed API errors or a source mismatch behind 20140", async () => {
+  await expect(
+    setup({
+      ...noOffers,
+      Errors: [...noOffers.Errors, { ErrorCode: "931", SeverityCode: "Error" }],
+    })(id, activeSource),
+  ).rejects.toThrow();
+  await expect(
+    setup(noOffers)(id, { ...activeSource, ItemID: "100000000099" }),
+  ).rejects.toThrow();
+});
+it("does not turn a conflicting returned offer into a clear result", async () => {
+  await expect(
+    setup({ ...noOffers, BestOfferArray: { BestOffer: { Status: "Active" } } })(
+      id,
+      activeSource,
+    ),
+  ).rejects.toThrow();
+});

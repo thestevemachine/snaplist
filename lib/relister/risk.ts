@@ -29,7 +29,6 @@ export function riskProbe(token: string, call: TradingCall) {
       "GetBestOffers",
       `<ItemID>${xml(id)}</ItemID><BestOfferStatus>Active</BestOfferStatus>`,
     );
-    assertTradingSuccess(best);
     const entries = [
       ...list<any>(best.BestOfferArray?.BestOffer),
       ...list<any>(best.ItemBestOffers?.BestOfferArray?.BestOffer),
@@ -37,6 +36,22 @@ export function riskProbe(token: string, call: TradingCall) {
         list<any>(x.BestOfferArray?.BestOffer),
       ),
     ];
+    // eBay documents 20140 as no offers matching the exact ItemID/Active query.
+    // Accept it only for the freshly verified active German source, with no
+    // conflicting errors or returned offers. Missing data is still unknown.
+    // https://developer.ebay.com/Devzone/XML/docs/Reference/eBay/Errors/ErrorMessages.htm
+    const errors = list<any>(best.Errors);
+    const documentedEmpty =
+      String(raw.ItemID ?? "") === id &&
+      raw.Site === "Germany" &&
+      Boolean(raw.Seller?.UserID) &&
+      raw.SellingStatus?.ListingStatus === "Active" &&
+      errors.length > 0 &&
+      errors.every(
+        (e) => String(e.ErrorCode) === "20140" && e.SeverityCode === "Error",
+      ) &&
+      entries.length === 0;
+    if (!documentedEmpty) assertTradingSuccess(best);
     const containers = list<any>(best.ItemBestOffersArray?.ItemBestOffers);
     const boundEmpty =
       (Object.hasOwn(best, "BestOfferArray") &&
@@ -51,7 +66,7 @@ export function riskProbe(token: string, call: TradingCall) {
       String(best.PaginationResult?.TotalNumberOfEntries ?? "") === "0";
     offers = entries.length
       ? "pending"
-      : (boundEmpty || explicitZero) &&
+      : (documentedEmpty || boundEmpty || explicitZero) &&
           Number(best.PaginationResult?.TotalNumberOfPages ?? 1) <= 1
         ? "clear"
         : "unknown";
