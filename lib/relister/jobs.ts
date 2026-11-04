@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { digest, advance } from "./engine";
+import { digest, advance, type Adapter } from "./engine";
 import {
   reducedPrice,
   exclusions,
@@ -70,7 +70,7 @@ export async function processJob(id: string) {
     if (job.mode === "live" && process.env.RELISTER_LIVE_ENABLED !== "true")
       throw Error("Live-Pilot nicht freigegeben.");
     const repo = repository(job.account, owner);
-    let adapter;
+    let adapter: Adapter;
     try {
       adapter =
         job.mode !== "simulation"
