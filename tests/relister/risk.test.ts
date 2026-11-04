@@ -99,6 +99,7 @@ it("does not turn a conflicting returned offer into a clear result", async () =>
 
 async function inventoryFallback(summary: any, ok = true) {
   fetch.mockReset();
+  fetch.mockResolvedValue({ ok: false, status: 500, json: async () => ({}) });
   fetch.mockResolvedValueOnce({
     ok: false,
     status: 400,
@@ -122,7 +123,7 @@ it("requires an explicit empty inventory before clearing an invalid-SKU response
   );
 });
 it.each([
-  { total: 1, inventoryItems: [{ sku: "fixture" }] },
+  { total: 2, inventoryItems: [{ sku: "fixture" }] },
   { total: "0" },
   {},
   { total: 0, inventoryItems: [{ sku: "fixture" }] },
@@ -139,3 +140,85 @@ it("accepts the documented 400/25710 absence response", async () =>
   expect((await setup({}, 400)(id, { SKU: "fixture" })).management).toBe(
     "trading",
   ));
+
+it("proves absence only after every inventory page was read", async () => {
+  fetch.mockReset();
+  fetch.mockResolvedValueOnce({
+    ok: false,
+    status: 400,
+    json: async () => ({ errors: [{ errorId: 25709 }] }),
+  });
+  fetch.mockResolvedValueOnce({
+    ok: true,
+    status: 200,
+    json: async () => ({ total: 2, inventoryItems: [{ sku: "other-1" }] }),
+  });
+  fetch.mockResolvedValueOnce({
+    ok: true,
+    status: 200,
+    json: async () => ({ total: 2, inventoryItems: [{ sku: "other-2" }] }),
+  });
+  expect(
+    (
+      await riskProbe("fixture", async () => ({ Ack: "Success" }))(id, {
+        SKU: "target",
+      })
+    ).management,
+  ).toBe("trading");
+  expect(fetch.mock.calls[2][0]).toContain("offset=1");
+});
+it("detects inventory-managed SKU on a later page", async () => {
+  fetch.mockReset();
+  fetch.mockResolvedValueOnce({
+    ok: false,
+    status: 400,
+    json: async () => ({ errors: [{ errorId: 25709 }] }),
+  });
+  fetch.mockResolvedValueOnce({
+    ok: true,
+    status: 200,
+    json: async () => ({ total: 2, inventoryItems: [{ sku: "other-1" }] }),
+  });
+  fetch.mockResolvedValueOnce({
+    ok: true,
+    status: 200,
+    json: async () => ({ total: 2, inventoryItems: [{ sku: "target" }] }),
+  });
+  expect(
+    (
+      await riskProbe("fixture", async () => ({ Ack: "Success" }))(id, {
+        SKU: "target",
+      })
+    ).management,
+  ).toBe("inventory");
+});
+it("does not clear duplicated or changing inventory pagination", async () => {
+  for (const next of [
+    { total: 2, inventoryItems: [{ sku: "same" }] },
+    { total: 3, inventoryItems: [{ sku: "other" }] },
+  ]) {
+    fetch.mockReset();
+    fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      json: async () => ({ errors: [{ errorId: 25709 }] }),
+    });
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ total: 2, inventoryItems: [{ sku: "same" }] }),
+    });
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => next,
+    });
+    expect(
+      (
+        await riskProbe("fixture", async () => ({ Ack: "Success" }))(id, {
+          SKU: "target",
+        })
+      ).management,
+    ).toBe("unknown");
+  }
+});

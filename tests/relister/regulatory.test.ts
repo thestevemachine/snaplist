@@ -50,3 +50,18 @@ it("accepts zero shipping-discount sentinels and blocks active profiles", () => 
   source.ShippingDetails.ShippingDiscountProfileID = "123";
   expect(() => publicationPayload(source)).toThrow("ShippingDiscountProfileID");
 });
+
+it("keeps a brand-only catalog response through the identical existing brand aspect", () => {
+  const source = {
+    ...samplePayload("100000000001"),
+    ProductListingDetails: { BrandMPN: { Brand: "Fixture brand" } },
+    ItemSpecifics: {
+      NameValueList: [{ Name: "Marke", Value: ["Fixture brand"] }],
+    },
+  };
+  const payload = publicationPayload(source);
+  expect(payload.ItemSpecifics).toEqual(source.ItemSpecifics);
+  expect(payload.ProductListingDetails).toBeUndefined();
+  source.ItemSpecifics.NameValueList[0].Value = ["Different brand"];
+  expect(() => publicationPayload(source)).toThrow("Produktkennung");
+});

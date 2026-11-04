@@ -234,13 +234,37 @@ export function publicationPayload(i: Data): Payload {
         optional.ProductListingDetails[k] = String(i.ProductListingDetails[k]);
     if (i.ProductListingDetails.BrandMPN) {
       const b = i.ProductListingDetails.BrandMPN;
-      if (!b.Brand || !b.MPN) throw Error("Produktkennung unvollständig.");
-      optional.ProductListingDetails.BrandMPN = {
-        Brand: String(b.Brand),
-        MPN: String(b.MPN),
-      };
+      if (b.Brand && b.MPN)
+        optional.ProductListingDetails.BrandMPN = {
+          Brand: String(b.Brand),
+          MPN: String(b.MPN),
+        };
+      else {
+        const specifics = list<any>(i.ItemSpecifics.NameValueList);
+        const represented = (names: string[], value: unknown) =>
+          !value ||
+          specifics.some(
+            (x) =>
+              names.includes(String(x.Name).toLowerCase()) &&
+              list(x.Value).map(String).includes(String(value)),
+          );
+        if (
+          !represented(["brand", "marke"], b.Brand) ||
+          !represented(["mpn", "herstellernummer"], b.MPN)
+        )
+          throw Error(
+            "Unvollständige Produktkennung ist nicht in Artikelmerkmalen gesichert.",
+          );
+      }
     }
   }
+  if (
+    optional.ProductListingDetails &&
+    !["EAN", "ISBN", "UPC", "ProductReferenceID", "BrandMPN"].some(
+      (k) => (optional.ProductListingDetails as any)[k] !== undefined,
+    )
+  )
+    delete optional.ProductListingDetails;
   const offerSettings =
     offer !== undefined
       ? {

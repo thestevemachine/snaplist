@@ -31,24 +31,74 @@ export function riskProbe(token: string, call: TradingCall) {
         b.errors.length &&
         b.errors.every((e: any) => Number(e.errorId) === 25709)
       ) {
-        const inventory = await boundedFetch(
-          "https://api.ebay.com/sell/inventory/v1/inventory_item?limit=1",
-          {
+        let offset = 0,
+          expected: number | undefined;
+        const seen = new Set<string>();
+        for (let page = 0; page < 101; page++) {
+          const url =
+            offset === 0
+              ? "https://api.ebay.com/sell/inventory/v1/inventory_item?limit=1"
+              : `https://api.ebay.com/sell/inventory/v1/inventory_item?limit=100&offset=${offset}`;
+          const inventory = await boundedFetch(url, {
             headers: { Authorization: `Bearer ${token}` },
             redirect: "error",
             cache: "no-store",
-          },
-        );
-        const summary = await inventory.json().catch(() => null);
-        if (
-          inventory.ok &&
-          summary?.total === 0 &&
-          !summary.errors &&
-          (summary.inventoryItems === undefined ||
-            (Array.isArray(summary.inventoryItems) &&
-              summary.inventoryItems.length === 0))
-        )
-          management = "trading";
+          });
+          const summary = await inventory.json().catch(() => null);
+          if (
+            !inventory.ok ||
+            summary?.errors ||
+            !Number.isSafeInteger(summary?.total) ||
+            summary.total < 0 ||
+            summary.total > 10000 ||
+            (expected !== undefined && expected !== summary.total)
+          ) {
+            const detail = JSON.stringify(summary?.errors ?? []).toLowerCase();
+            console.warn("relister-inventory-summary", {
+              httpStatus: inventory.status,
+              totalType: typeof summary?.total,
+              itemArray: Array.isArray(summary?.inventoryItems),
+              errorCodes: Array.isArray(summary?.errors)
+                ? summary.errors
+                    .map((e: any) => String(e.errorId))
+                    .filter((x: string) => /^\d{1,12}$/.test(x))
+                : [],
+              hints: [
+                "sku",
+                "locale",
+                "limit",
+                "offset",
+                "content-language",
+                "accept-language",
+                "marketplace",
+                "authorization",
+              ].filter((x) => detail.includes(x)),
+            });
+            break;
+          }
+          const total: number = summary.total;
+          expected = total;
+          const items =
+            summary.inventoryItems === undefined && expected === 0
+              ? []
+              : summary.inventoryItems;
+          if (
+            !Array.isArray(items) ||
+            items.some((x) => typeof x.sku !== "string" || !x.sku)
+          )
+            break;
+          if (items.some((x) => x.sku === raw.SKU)) {
+            management = "inventory";
+            break;
+          }
+          for (const item of items) seen.add(item.sku);
+          offset += items.length;
+          if (offset === total && seen.size === total) {
+            management = "trading";
+            break;
+          }
+          if (items.length === 0 || offset >= total) break;
+        }
       }
       if (management === "unknown")
         console.warn("relister-management-check", {
