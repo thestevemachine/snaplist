@@ -117,7 +117,16 @@ export class TradingAdapter implements Adapter {
     }
     return {
       ...l,
-      ...(await this.evidence(id, raw)),
+      // After End, GetItem is the authoritative stock/sale/status check.
+      // Active-offer probes can reject ended items with 20140; they cannot
+      // establish eligibility and are not needed for the recovery checks.
+      ...(l.active
+        ? await this.evidence(id, raw)
+        : {
+            management: "unknown" as const,
+            offers: "unknown" as const,
+            promotion: "unknown" as const,
+          }),
       ...(blockingReason ? { blockingReason } : {}),
     };
   }

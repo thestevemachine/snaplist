@@ -86,20 +86,40 @@ function fixture() {
       ActiveList: { PaginationResult: { TotalNumberOfPages: 0 } },
     };
   });
+  const evidence = vi.fn(async (_id: string, _raw: any) => ({
+    management: "trading" as const,
+    offers: "clear" as const,
+    promotion: "clear" as const,
+  }));
   const adapter = new TradingAdapter(
     "account",
     "SIMULATION",
     call,
     { put: async () => {}, get: async () => fixtureImage },
-    async () => ({
-      management: "trading",
-      offers: "clear",
-      promotion: "clear",
-    }),
+    evidence,
     async (_image, name) => `https://i.ebayimg.com/images/${name}`,
   );
-  return { payload, state, call, adapter };
+  return { payload, state, call, adapter, evidence };
 }
+it("reads ended source stock and sales without querying active offers", async () => {
+  const { state, adapter, evidence } = fixture();
+  state.active = false;
+  evidence.mockRejectedValueOnce(Error("eBay 20140: no active offers"));
+  expect(await adapter.read(id)).toMatchObject({
+    active: false,
+    quantity: 1,
+    sold: 0,
+    offers: "unknown",
+    management: "unknown",
+  });
+  expect(evidence).not.toHaveBeenCalled();
+});
+it("continues probing eligibility for active sources", async () => {
+  const { adapter, evidence } = fixture();
+  evidence.mockRejectedValueOnce(Error("unavailable"));
+  await expect(adapter.read(id)).rejects.toThrow("unavailable");
+  expect(evidence).toHaveBeenCalledOnce();
+});
 it("builds explicit Add payload with stable UUID and no old item ID", () => {
   const p = payloadXml(samplePayload(id), "A".repeat(32));
   expect(p).toContain("<UUID>");
