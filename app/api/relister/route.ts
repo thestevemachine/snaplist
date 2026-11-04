@@ -75,23 +75,49 @@ async function handle(req: NextRequest) {
           },
           { status: 400 },
         );
-      const ebay = await reader();
-      const listing = await (
-        await realAdapter(account, ebay.seller)
-      ).read(body.item);
-      const old = await catalog(account.id);
-      await saveCatalog(account.id, ebay.seller, [
-        ...(old?.seller === ebay.seller
-          ? old.listings.filter((l) => l.id !== listing.id)
-          : []),
-        listing,
-      ]);
-      const paused = await accountDb()
-        .from("relister_sync")
-        .update({ pending: false, updated_at: new Date().toISOString() })
-        .eq("account_id", account.id);
-      if (paused.error) throw Error("Bestandsprüfung nicht pausiert.");
-      return NextResponse.json({ ok: true });
+      let stage = "seller-access";
+      try {
+        const ebay = await reader();
+        stage = "item-check";
+        const listing = await (
+          await realAdapter(account, ebay.seller)
+        ).read(body.item);
+        stage = "catalog-read";
+        const old = await catalog(account.id);
+        stage = "catalog-save";
+        await saveCatalog(account.id, ebay.seller, [
+          ...(old?.seller === ebay.seller
+            ? old.listings.filter((l) => l.id !== listing.id)
+            : []),
+          listing,
+        ]);
+        stage = "sync-pause";
+        const paused = await accountDb()
+          .from("relister_sync")
+          .update({ pending: false, updated_at: new Date().toISOString() })
+          .eq("account_id", account.id);
+        if (paused.error) throw Error("Bestandsprüfung nicht pausiert.");
+        return NextResponse.json({ ok: true });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "";
+        const codes = [...message.matchAll(/eBay (\d{1,12})/g)].map(
+          (x) => x[1],
+        );
+        const detail =
+          message === "Verkäufer/Marktplatz stimmt nicht überein."
+            ? message
+            : codes.length
+              ? `eBay-Fehler ${[...new Set(codes)].join(", ")}.`
+              : "Zugang, Artikelnummer und Serverkonfiguration prüfen.";
+        console.warn("relister-source-check", { stage, ebayCodes: codes });
+        return NextResponse.json(
+          {
+            ok: false,
+            error: `Einzelprüfung fehlgeschlagen (${stage}): ${detail}`,
+          },
+          { status: 400 },
+        );
+      }
     }
     if (body.action === "advance" && preparationOnly) {
       await syncStep(account.id);

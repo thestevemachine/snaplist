@@ -90,3 +90,13 @@ it("loads the checked source and pauses bulk sync without starting a job", async
     expect.objectContaining({ pending: false }),
   );
 });
+
+it("reports only the stage and eBay code, never arbitrary upstream secrets", async () => {
+  m.read.mockRejectedValueOnce(Error("eBay 12345: secret-fixture-token"));
+  const r = await request({ action: "load-item", item: "100000000001" });
+  const body = await r.json();
+  expect(r.status).toBe(400);
+  expect(body.error).toContain("item-check");
+  expect(body.error).toContain("12345");
+  expect(body.error).not.toContain("secret-fixture-token");
+});
