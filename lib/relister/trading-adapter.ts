@@ -52,51 +52,34 @@ const canonical = (x: any): any =>
             .map((k) => [k, canonical(x[k])]),
         )
       : String(x ?? "");
-// Shipping destinations are sets; eBay may return them in a different order.
-// Normalize decimal representation only for weights, preserving units, values,
-// service priorities and ordered images. Every other field remains strict.
-const comparisonValue = (x: any, path = ""): any => {
-  if (Array.isArray(x)) {
-    const values = x.map((v, i) => comparisonValue(v, `${path}.${i}`));
-    return /(?:^|\.)(ShipToLocations|ShipToLocation|ExcludeShipToLocation)$/.test(
-      path,
-    ) && x.every((v) => typeof v === "string")
-      ? values.sort()
-      : values;
-  }
-  if (x && typeof x === "object") {
-    const value = Object.fromEntries(
-      Object.entries(x).map(([key, value]) => [
-        key,
-        comparisonValue(value, path ? `${path}.${key}` : key),
-      ]),
+// Business-policy identifiers are authoritative for policy-managed terms.
+// eBay expands those terms into response metadata which may vary in order or
+// defaults. Do not compare those generated copies when both policy IDs match.
+const policyComparable = (value: any, other: any): any => {
+  if (!value || typeof value !== "object") return value;
+  const result = { ...value };
+  const same = (kind: string, field: string) => {
+    const a = value.SellerProfiles?.[kind]?.[field];
+    const b = other?.SellerProfiles?.[kind]?.[field];
+    return (
+      a !== undefined &&
+      a !== null &&
+      String(a) !== "" &&
+      String(a) !== "0" &&
+      String(a) === String(b)
     );
-    // Weight does not determine pure flat-rate charges without rate tables.
-    // Handling charges and every other shipping condition remain checked.
-    if (
-      path === "ShippingDetails" &&
-      x.ShippingType === "Flat" &&
-      !x.RateTableDetails &&
-      value.CalculatedShippingRate
-    ) {
-      const calculated = { ...value.CalculatedShippingRate };
-      delete calculated.WeightMajor;
-      delete calculated.WeightMinor;
-      if (Object.keys(calculated).length)
-        value.CalculatedShippingRate = calculated;
-      else delete value.CalculatedShippingRate;
-    }
-    return value;
+  };
+  if (same("SellerShippingProfile", "ShippingProfileID")) {
+    delete result.ShippingDetails;
+    delete result.ShipToLocations;
   }
-  if (
-    /(?:^|\.)(WeightMinor|WeightMajor)\.#text$/.test(path) &&
-    /^\d+(?:\.\d+)?$/.test(String(x))
-  ) {
-    const [whole, fraction = ""] = String(x).split(".");
-    const tail = fraction.replace(/0+$/, "");
-    return `${BigInt(whole)}${tail ? `.${tail}` : ""}`;
+  if (same("SellerReturnProfile", "ReturnProfileID"))
+    delete result.ReturnPolicy;
+  if (same("SellerPaymentProfile", "PaymentProfileID")) {
+    delete result.PaymentMethods;
+    delete result.PaymentInstructions;
   }
-  return x;
+  return result;
 };
 // All side effects are injected, tested and guarded by a separate server grant.
 // Construction alone never grants permission to end/create.
@@ -351,10 +334,13 @@ export class TradingAdapter implements Adapter {
           diff(a[key], b[key], `${path}.${key}`);
       } else this.mismatches.push(path);
     };
-    const actualFields = comparisonValue(fields),
-      expectedFields = comparisonValue(expected),
-      actualSettings = comparisonValue(settings(raw)),
-      expectedSettings = comparisonValue(backup.settingsSnapshot);
+    const actualFields = policyComparable(fields, expected),
+      expectedFields = policyComparable(expected, fields),
+      actualSettings = policyComparable(settings(raw), backup.settingsSnapshot),
+      expectedSettings = policyComparable(
+        backup.settingsSnapshot,
+        settings(raw),
+      );
     diff(actualFields, expectedFields, "Angebot");
     if (backup.settingsSnapshot)
       diff(actualSettings, expectedSettings, "Einstellungen");

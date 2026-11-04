@@ -204,94 +204,57 @@ it("postcheck preserves image order", async () => {
     "Angebot.PictureDetails.PictureURL.0",
   );
 });
-it("compares destination membership and exact weight independently of formatting", async () => {
+it("uses matching shipping, return and payment policies rather than generated response copies", async () => {
   const { adapter, payload, state } = fixture();
   payload.ShipToLocations = ["DE", "FR"];
   state.newItem.ShipToLocations = ["FR", "DE"];
-  const shipping = {
-    CalculatedShippingRate: {
-      WeightMinor: { "#text": "0.00", "@_unit": "kg" },
-    },
-    InternationalShippingServiceOption: [{ ShipToLocation: ["DE", "FR"] }],
+  (state.newItem as any).ShippingDetails = {
+    ShippingType: "Flat",
+    CalculatedShippingRate: { WeightMinor: "0" },
+    ExcludeShipToLocation: ["CN", "US"],
   };
-  (state.newItem as any).ShippingDetails = structuredClone(shipping);
-  (state.newItem as any).ShippingDetails.CalculatedShippingRate.WeightMinor[
-    "#text"
-  ] = "0.0";
-  (
-    state.newItem as any
-  ).ShippingDetails.InternationalShippingServiceOption[0].ShipToLocation.reverse();
+  (state.newItem as any).ReturnPolicy = {
+    Description: "Current policy response",
+  };
+  (state.newItem as any).PaymentMethods = ["VisaMC", "PayPal"];
   const backup = {
     payload,
     settingsSnapshot: {
-      SellerProfiles: payload.SellerProfiles,
-      ShippingDetails: shipping,
-      ShipToLocations: payload.ShipToLocations,
+      SellerProfiles: structuredClone(payload.SellerProfiles),
+      ShipToLocations: ["DE", "FR"],
+      ShippingDetails: {
+        ShippingType: "Flat",
+        CalculatedShippingRate: { WeightMinor: "200" },
+        ExcludeShipToLocation: ["US", "CN"],
+      },
+      ReturnPolicy: { Description: "Earlier policy response" },
+      PaymentMethods: ["PayPal", "VisaMC"],
     },
   } as any;
   expect(await adapter.compare("100000000002", backup, 4999, payload)).toBe(
     true,
   );
-  state.newItem.ShipToLocations = ["DE", "ES"];
+  state.newItem.AutoPay = "true";
   expect(await adapter.compare("100000000002", backup, 4999, payload)).toBe(
     false,
   );
-  state.newItem.ShipToLocations = ["FR", "DE"];
-  (state.newItem as any).ShippingDetails.CalculatedShippingRate.WeightMinor[
-    "#text"
-  ] = "1";
+});
+it.each([
+  ["SellerShippingProfile", "ShippingProfileID"],
+  ["SellerReturnProfile", "ReturnProfileID"],
+  ["SellerPaymentProfile", "PaymentProfileID"],
+])("rejects a different framework policy %s", async (kind, field) => {
+  const { adapter, payload, state } = fixture();
+  (state.newItem.SellerProfiles as any)[kind][field] = "different-policy";
+  const backup = {
+    payload,
+    settingsSnapshot: { SellerProfiles: payload.SellerProfiles },
+  } as any;
   expect(await adapter.compare("100000000002", backup, 4999, payload)).toBe(
     false,
   );
 });
 
-it("checks flat shipping costs and excluded-country membership while ignoring unused weight metadata", async () => {
-  const { adapter, payload, state } = fixture();
-  const shipping: any = {
-    ShippingType: "Flat",
-    CalculatedShippingRate: { WeightMinor: { "#text": "200", "@_unit": "gm" } },
-    ShippingServiceOptions: {
-      ShippingService: "DE_DHLPaket",
-      ShippingServiceCost: "5.99",
-    },
-    ExcludeShipToLocation: ["US", "CN"],
-  };
-  const actual = structuredClone(shipping);
-  actual.CalculatedShippingRate.WeightMinor["#text"] = "0";
-  actual.ExcludeShipToLocation.reverse();
-  (state.newItem as any).ShippingDetails = actual;
-  const backup = {
-    payload,
-    settingsSnapshot: {
-      SellerProfiles: payload.SellerProfiles,
-      ShippingDetails: shipping,
-    },
-  } as any;
-  expect(await adapter.compare("100000000002", backup, 4999, payload)).toBe(
-    true,
-  );
-  actual.ShippingServiceOptions.ShippingServiceCost = "6.99";
-  expect(await adapter.compare("100000000002", backup, 4999, payload)).toBe(
-    false,
-  );
-  actual.ShippingServiceOptions.ShippingServiceCost = "5.99";
-  actual.ExcludeShipToLocation = ["US", "IN"];
-  expect(await adapter.compare("100000000002", backup, 4999, payload)).toBe(
-    false,
-  );
-  actual.ExcludeShipToLocation = ["CN", "US"];
-  shipping.ShippingType = actual.ShippingType = "Calculated";
-  expect(await adapter.compare("100000000002", backup, 4999, payload)).toBe(
-    false,
-  );
-  shipping.ShippingType = actual.ShippingType = "Flat";
-  shipping.RateTableDetails = actual.RateTableDetails = {
-    DomesticRateTableId: "123",
-  };
-  expect(await adapter.compare("100000000002", backup, 4999, payload)).toBe(
-    false,
-  );
-});
 it("full real-adapter code path backs bytes, restores EPS, verifies, ends once, creates once and compares", async () => {
   const f = fixture(),
     files = new Map<string, Buffer>();
