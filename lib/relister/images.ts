@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { boundedFetch } from "../network";
+import { imageSize } from "../image-size";
 export function checkedImageUrl(value: string) {
   const u = new URL(value);
   const modern = /^\/images\/[a-zA-Z0-9_.$~\/-]+$/.test(u.pathname);
@@ -26,11 +27,41 @@ export function checkedImageUrl(value: string) {
     throw Error("Bild-URL nicht zugelassen.");
   return u;
 }
+
+function largestRenditionUrl(value: string) {
+  const url = checkedImageUrl(value);
+  // GetItem may return either a small modern s-l* rendition or a legacy
+  // FullURL ending in $_1/$_12. Request eBay's largest/zoom rendition before
+  // downloading the immutable backup; changing only the later EPS URL cannot
+  // restore pixels already lost by downloading a preview.
+  url.pathname = url.pathname.replace(
+    /\/s-l\d+(?=(-\d+)?\.(?:jpe?g|png|webp)$)/i,
+    "/s-l1600",
+  );
+  url.pathname = url.pathname.replace(/_\d+(?=\.(?:jpe?g|png|webp)$)/i, "_57");
+  return url;
+}
+
 export async function fetchImage(url: string) {
-  const response = await boundedFetch(checkedImageUrl(url), {
+  const largest = largestRenditionUrl(url);
+  const original = checkedImageUrl(url);
+  let response = await boundedFetch(largest, {
     redirect: "error",
     cache: "no-store",
   });
+  // A transformed rendition can be unavailable for an older listing. In that
+  // case, try the URL eBay returned, but only after requesting the max variant.
+  if (
+    !response.ok &&
+    largest.href !== original.href &&
+    [400, 404, 410].includes(response.status)
+  ) {
+    await response.body?.cancel();
+    response = await boundedFetch(original, {
+      redirect: "error",
+      cache: "no-store",
+    });
+  }
   const mime = response.headers.get("content-type")?.split(";")[0];
   if (
     !response.ok ||
@@ -64,6 +95,11 @@ export async function fetchImage(url: string) {
         : data.subarray(0, 4).toString() === "RIFF" &&
           data.subarray(8, 12).toString() === "WEBP";
   if (!valid) throw Error("Bildformat widersprüchlich.");
+  const dimensions = imageSize(data.toString("base64"));
+  if (dimensions && Math.max(dimensions.width, dimensions.height) < 500)
+    throw Error(
+      `eBay-Originalbild ist auch in der größten verfügbaren Variante zu klein (${dimensions.width} × ${dimensions.height} px; mindestens 500 px an der längsten Seite).`,
+    );
   return {
     data,
     mime: mime!,
