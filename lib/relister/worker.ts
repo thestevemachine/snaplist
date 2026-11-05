@@ -165,6 +165,7 @@ export const relisterTick = inngest.createFunction(
         await step.run(`job-${round}-${id}`, () => processJob(id));
       await step.sleep(`pace-${round}`, "30s");
     }
+    if (!backgroundReady()) return { continued: false };
     await step.sendEvent("continue-work", {
       name: "relister/work.requested",
       data: {},
