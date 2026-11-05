@@ -420,6 +420,19 @@ export default function ReLister() {
               : j.mode === "dry-run"
                 ? "Sicherung & Vorprüfung"
                 : "Live";
+          const retryable =
+            j.mode === "dry-run" && j.confirmed && !j.paused
+              ? j.rows.filter(
+                  (r) =>
+                    r.phase === "review" &&
+                    Boolean(r.backup?.images?.length) &&
+                    !r.newId &&
+                    !r.createAttempted &&
+                    !r.history.some((h) =>
+                      ["end_requested", "ended", "create_requested", "created", "completed"].includes(h.phase),
+                    ),
+                )
+              : [];
           return (
             <details
               className="relister-batch"
@@ -443,6 +456,24 @@ export default function ReLister() {
                 >
                   {j.paused ? "Fortsetzen" : "Pausieren"}
                 </button>
+                {retryable.length > 0 && (
+                  <>
+                    <p className="relister-history-note">
+                      Diese gesicherten Angebote wurden nicht beendet. Erneute Prüfung liest jeden Artikel frisch bei eBay und erstellt nur eine neue Vorschau.
+                    </p>
+                    <button
+                      disabled={busy}
+                      onClick={() =>
+                        action("retry-review", {
+                          id: j.id,
+                          itemIds: retryable.map((r) => r.id),
+                        })
+                      }
+                    >
+                      {"Gesicherte Angebote erneut prüfen (" + retryable.length + ")"}
+                    </button>
+                  </>
+                )}
                 {j.mode === "dry-run" &&
                   j.rows.every((r) => r.phase === "ready") && (
                     <button
