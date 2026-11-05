@@ -10,6 +10,7 @@ import {
   insert,
   getJob,
   command,
+  repository,
 } from "@/lib/relister/store";
 import { preview, processJob } from "@/lib/relister/jobs";
 import { reader } from "@/lib/relister/ebay";
@@ -135,6 +136,53 @@ async function handle(req: NextRequest) {
         job.confirmed = true;
       }
       await insert(job);
+      await wakeRelister();
+      return NextResponse.json({ ok: true, job });
+    }
+    if (body.action === "retry-review") {
+      if (typeof body.id !== "string" || !Array.isArray(body.itemIds))
+        throw Error("Auftrag oder Angebote fehlen.");
+      if (body.itemIds.length < 1 || body.itemIds.length > 100)
+        throw Error("1 bis 100 Angebote erneut prüfen.");
+      const job = await getJob(account.id, body.id);
+      const requested = new Set(body.itemIds);
+      if (
+        requested.size !== body.itemIds.length ||
+        job.mode !== "dry-run" ||
+        !job.confirmed ||
+        job.paused ||
+        job.seller === "SIMULATION"
+      )
+        throw Error("Nur bestätigte Prüfungen eines echten Angebotsbatches können wiederholt werden.");
+      const rows = job.rows.filter((row) => requested.has(row.id));
+      if (rows.length !== requested.size)
+        throw Error("Ein Angebot gehört nicht zu diesem Auftrag.");
+      const unsafePhases = new Set(["end_requested", "ended", "create_requested", "created", "completed"]);
+      for (const row of rows) {
+        if (
+          row.phase !== "review" ||
+          !row.backup?.images?.length ||
+          row.newId ||
+          row.createAttempted ||
+          row.history.some((entry) => unsafePhases.has(entry.phase))
+        )
+          throw Error("Mindestens ein Angebot kann nicht gefahrlos erneut geprüft werden.");
+      }
+      for (const row of rows) {
+        row.phase = "selected";
+        row.outgoing = undefined;
+        row.feeCents = undefined;
+        row.verifiedAt = undefined;
+        row.error = undefined;
+        row.nextAttemptAt = undefined;
+        row.attempts = 0;
+        row.history.push({
+          at: new Date().toISOString(),
+          phase: "selected",
+          note: "Erneute Sicherungs- und Vorprüfung angefordert; kein Angebot wird beendet oder eingestellt.",
+        });
+      }
+      await repository(account.id).save(job);
       await wakeRelister();
       return NextResponse.json({ ok: true, job });
     }
