@@ -149,7 +149,7 @@ async function handle(req: NextRequest) {
       const requested = new Set(body.itemIds);
       if (
         requested.size !== body.itemIds.length ||
-        job.mode !== "dry-run" ||
+        !["dry-run", "live"].includes(job.mode) ||
         !job.confirmed ||
         job.paused ||
         job.seller === "SIMULATION"
@@ -168,10 +168,18 @@ async function handle(req: NextRequest) {
         )
           throw Error("Mindestens ein Angebot kann nicht gefahrlos erneut geprüft werden.");
       }
+      if (job.mode === "live") {
+        const retry = preview(account.id, job.seller, rows.map(row => row.listing), rows[0].percent);
+        retry.mode = "dry-run";
+        retry.confirmed = true;
+        await insert(retry);
+        await wakeRelister();
+        return NextResponse.json({ ok: true, job: retry });
+      }
       for (const row of rows) {
         // Backups are immutable. Use a new storage namespace and fetch the
         // source listing's current, highest-resolution images on every retry.
-        row.id = randomUUID();
+        Object.assign(row, { backupNamespace: randomUUID() });
         row.backup = undefined;
         row.phase = "selected";
         row.outgoing = undefined;
@@ -192,19 +200,26 @@ async function handle(req: NextRequest) {
     }
     if (["confirm", "pause", "resume"].includes(body.action)) {
       if (typeof body.id !== "string") throw Error("Auftrag fehlt.");
-      const job = await getJob(account.id, body.id);
+      const { data: record, error: readError } = await accountDb().from("relister_jobs")
+        .select("document,revision,pending").eq("account_id", account.id).eq("id", body.id).single();
+      if (readError || !record) throw Error("Auftrag nicht gefunden.");
+      const job = record.document as Awaited<ReturnType<typeof getJob>>;
       if (body.action === "confirm") {
         if (body.digest !== job.previewDigest)
           throw Error("Vorschau stimmt nicht überein.");
         if (job.mode === "dry-run") {
           if (process.env.RELISTER_LIVE_ENABLED !== "true")
             throw Error("Live-Erstellung ist derzeit nicht freigegeben.");
+          const ready = job.rows.filter(row => row.phase === "ready");
+          const requested = new Set(Array.isArray(body.itemIds) ? body.itemIds : job.rows.map(row => row.id));
           if (
-            job.rows.length < 1 ||
+            job.paused || !job.confirmed || record.pending ||
+            requested.size !== ready.length || ready.some(row => !requested.has(row.id)) ||
+            job.rows.some(row => !["ready", "review", "skipped"].includes(row.phase)) ||
+            ready.length < 1 ||
             job.rows.length > 100 ||
-            job.rows.some(
+            ready.some(
               (row) =>
-                row.phase !== "ready" ||
                 !row.backup ||
                 !row.outgoing ||
                 row.feeCents !== 0,
@@ -213,7 +228,7 @@ async function handle(req: NextRequest) {
             throw Error(
               "Nicht alle ausgewählten Angebote sind fertig geprüft.",
             );
-          const grants = job.rows.map((row) => ({
+          const grants = ready.map((row) => ({
             job_id: job.id,
             item_id: row.listing.id,
             account_id: account.id,
@@ -229,12 +244,13 @@ async function handle(req: NextRequest) {
             .upsert(grants, { onConflict: "job_id,item_id" });
           if (stored.error)
             throw Error("Auftragsfreigabe konnte nicht gespeichert werden.");
-          const activated = await accountDb().rpc("relister_activate", {
-            p_job: job.id,
-            p_account: account.id,
-            p_digest: body.digest,
-          });
-          if (activated.error)
+          // Review and skipped rows stay terminal and receive no authorization.
+          const activated = await accountDb().from("relister_jobs")
+            .update({ document: { ...job, mode: "live" }, pending: true,
+              updated_at: new Date().toISOString(), revision: Number(record.revision) + 1 })
+            .eq("id", job.id).eq("account_id", account.id).eq("revision", record.revision)
+            .eq("pending", false).select("id").maybeSingle();
+          if (activated.error || !activated.data)
             throw Error(
               "Auftragsfreigabe fehlgeschlagen. Bitte Vorschau erneut laden.",
             );
