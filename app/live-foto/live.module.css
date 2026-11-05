@@ -1,0 +1,63 @@
+.page {
+  max-width: 52rem;
+}
+.camera {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  padding: 1rem 0;
+}
+.camera video {
+  width: min(100%, 40rem);
+  max-height: 52vh;
+  background: #142421;
+  object-fit: contain;
+  border-radius: 0.7rem;
+}
+.shutter {
+  min-height: 4.25rem;
+  min-width: 12rem;
+  border: 2px solid #fff;
+  border-radius: 3rem;
+  background: #155e52;
+  color: white;
+  font-weight: 700;
+  font-size: 1rem;
+}
+.shutter:disabled {
+  opacity: 0.55;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+.thumbs {
+  display: flex;
+  gap: 0.65rem;
+  list-style: none;
+  overflow-x: auto;
+  padding: 0 0 0.5rem;
+}
+.thumbs li {
+  flex: 0 0 7rem;
+  display: grid;
+  gap: 0.25rem;
+}
+.thumbs img {
+  width: 7rem;
+  height: 5.5rem;
+  object-fit: contain;
+  background: #eee;
+  border-radius: 0.4rem;
+}
+.list {
+  padding-left: 1.1rem;
+}
+.list li {
+  margin-bottom: 0.75rem;
+}
+.page input:not([type="file"]) {
+  max-width: 100%;
+}

@@ -3,6 +3,7 @@ import { db, checked, environment } from "./store";
 import { analyzePhotos } from "@/lib/services/analyze";
 import { prepareListing } from "@/lib/services/prepare";
 import { researchListing } from "@/lib/services/research";
+import { analysisJpeg } from "@/lib/live-foto/image";
 import { NonRetriableError } from "inngest";
 
 async function context(jobId: string) {
@@ -29,27 +30,28 @@ async function context(jobId: string) {
     throw new NonRetriableError("Batch expired or unavailable.");
   return { job, item, batch };
 }
-async function images(batchId: string, ids: string[]) {
+async function images(batchId: string, ids: string[], live: boolean, sources: Record<string, string> = {}) {
   const rows = checked(
     await db()
       .from("lister_photos")
       .select("*")
-      .eq("batch_id", batchId)
+      .in("batch_id", [...new Set(ids.map((id) => sources[id] ?? batchId))])
       .in("client_id", ids),
   );
   return Promise.all(
     ids.map(async (id) => {
-      const row = rows.find((r: any) => r.client_id === id);
+      const row = rows.find((r) => r.client_id === id && r.batch_id === (sources[id] ?? batchId));
       if (!row || row.state !== "uploaded")
         throw new NonRetriableError("A photo upload is incomplete.");
       const blob = checked(
         await db()
           .storage.from(row.bucket_id)
-          .download(row.object_path + "/analysis.jpg"),
+          .download(row.object_path + (live ? "/upload.jpg" : "/analysis.jpg")),
       );
+      const bytes = Buffer.from(await blob.arrayBuffer());
       return {
         mediaType: "image/jpeg",
-        data: Buffer.from(await blob.arrayBuffer()).toString("base64"),
+        data: (live ? await analysisJpeg(bytes) : bytes).toString("base64"),
       };
     }),
   );
@@ -66,13 +68,15 @@ async function runStage(jobId: string, stage: "analysis" | "prepared") {
   const photos = await images(
     batch.id,
     item.draft.analysisPhotoIds ?? item.draft.photoIds,
+    batch.settings?.source === "live-foto",
+    batch.settings?.source === "live-foto" ? item.draft.photoSources : undefined,
   );
   const response =
     stage === "analysis"
       ? await analyzePhotos({
           images: photos,
           profile: "auto",
-          ...batch.settings,
+          ...(batch.settings?.source === "live-foto" ? {} : batch.settings),
         })
       : await prepareListing(
           {
@@ -173,6 +177,7 @@ export const expireBatches = inngest.createFunction(
           .from("lister_batches")
           .select("id")
           .eq("environment", environment())
+          .or("settings->>source.is.null,settings->>source.not.in.(live-foto,live-foto-session)")
           .lt("expires_at", new Date().toISOString())
           .limit(50),
       );

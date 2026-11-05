@@ -32,6 +32,13 @@ const nextConfig = {
           // random nonce, so it cannot be a static header here.
         ],
       },
+      {
+        source: "/live-foto",
+        headers: [
+          // Camera access is needed only on the first-party capture page.
+          { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
+        ],
+      },
     ];
   },
 };

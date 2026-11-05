@@ -11,6 +11,7 @@
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "test:browser": "playwright test",
+    "test:browser:live": "playwright test -c browser/live-foto.config.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -20,6 +21,7 @@
     "next": "^15.5.25",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "sharp": "0.35.4",
     "zod": "^4.5.4"
   },
   "devDependencies": {
