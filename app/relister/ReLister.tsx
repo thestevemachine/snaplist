@@ -58,10 +58,22 @@ export default function ReLister() {
     [preview, setPreview] = useState<Job>(),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false),
+    [starting, setStarting] = useState(false),
+    [startError, setStartError] = useState(""),
+    [startedJob, setStartedJob] = useState<Job>(),
     [retryingJob, setRetryingJob] = useState<string>(),
     [synced, setSynced] = useState(""),
     [sync, setSync] = useState<any>();
   const advancing = useRef(false);
+  const currentJob = startedJob
+    ? jobs.find((job) => job.id === startedJob.id) ?? startedJob
+    : jobs.find((job) =>
+        job.mode === "live" && job.confirmed &&
+        job.rows.some((row) => !["completed", "review", "skipped"].includes(row.phase)),
+      );
+  const jobFinished = currentJob?.rows.filter(
+    (row) => ["completed", "review", "skipped"].includes(row.phase),
+  ).length ?? 0;
   const rows = useMemo(() => filtered(items, query, "oldest"), [items, query]);
   const syncing = Boolean(sync?.pending);
   const selectedItems = selection
@@ -138,6 +150,10 @@ export default function ReLister() {
 
   async function action(action: string, extra: Record<string, unknown> = {}) {
     setBusy(true);
+    if (action === "start") {
+      setStarting(true);
+      setStartError("");
+    }
     if (action === "retry-review" && typeof extra.id === "string") setRetryingJob(extra.id);
     setMessage("");
     try {
@@ -146,6 +162,11 @@ export default function ReLister() {
       if (!data.ok) throw Error(data.error);
       if (action === "preview") setPreview(data.job);
       else if (action === "confirm") setPreview(undefined);
+      if (action === "start") {
+        setStartedJob(data.job);
+        setSelection([]);
+        return;
+      }
       await load();
       setMessage(
         action === "confirm" || action === "start"
@@ -153,9 +174,14 @@ export default function ReLister() {
           : "Gespeichert.",
       );
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Anfrage fehlgeschlagen.");
+      const message = e instanceof SyntaxError
+        ? "Der Server hat keine lesbare Antwort geliefert."
+        : e instanceof Error ? e.message : "Anfrage fehlgeschlagen.";
+      if (action === "start") setStartError(message);
+      else setMessage(message);
     } finally {
       setBusy(false);
+      setStarting(false);
       setRetryingJob(undefined);
     }
   }
@@ -376,9 +402,36 @@ export default function ReLister() {
             disabled={busy || !selection.length || Boolean(percentError)}
             onClick={() => action(seller === "SIMULATION" ? "preview" : "start", { ids: selection, percent })}
           >
-            {seller === "SIMULATION" ? "Simulation vorbereiten" : "Ausgewählte Angebote jetzt neu einstellen"}
+            {starting ? <><ProgressRing /> Auftrag wird gesendet …</>
+              : seller === "SIMULATION" ? "Simulation vorbereiten"
+              : "Ausgewählte Angebote jetzt neu einstellen"}
           </button>
         </p>
+        {starting && <p role="status">Warte auf die Bestätigung von Snaplist …</p>}
+        {startError && <p role="alert">Auftragsstart konnte nicht bestätigt werden. {startError}</p>}
+        {currentJob && (
+          <section className="relister-selected" aria-label="Fortschritt des Auftrags">
+            <p role="status">
+              {!currentJob.paused && jobFinished < currentJob.rows.length && <ProgressRing />}
+              <strong>{currentJob.paused ? "Auftrag pausiert" : jobFinished === 0 &&
+                currentJob.rows.every((row) => row.phase === "selected")
+                ? "Auftrag angenommen · wartet auf Bearbeitung"
+                : `${jobFinished} von ${currentJob.rows.length} bearbeitet`}</strong>
+            </p>
+            <progress aria-label="Bearbeitete Angebote" value={jobFinished} max={currentJob.rows.length} />
+            <ul>
+              {currentJob.rows.map((row) => (
+                <li key={row.id}>
+                  {row.listing.title} · {row.newId && row.phase === "review"
+                    ? "Neu erstellt, Nachprüfung offen"
+                    : row.phase === "ready" ? "Vorprüfung bestanden" : phaseLabel[row.phase]}
+                  {row.newId && <> · <a href={`https://www.ebay.de/itm/${encodeURIComponent(row.newId)}`}>Neues Angebot</a></>}
+                  {row.error && <> · {row.error}</>}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </section>
       {preview && (
         <section className="panel">
