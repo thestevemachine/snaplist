@@ -381,11 +381,10 @@ export function productionUpload(token: string) {
   return async (image: { mediaType: string; data: string }, name: string) => {
     const source = sharp(Buffer.from(image.data, "base64"), { limitInputPixels: 40_000_000 });
     const { width, height } = await source.metadata();
-    if (width && height && Math.max(width, height) < 500) {
-      const resized = await source.rotate().resize(800, 800, { fit: "inside" })
-        .flatten({ background: "#ffffff" }).jpeg({ quality: 92 }).toBuffer();
-      image = { mediaType: "image/jpeg", data: resized.toString("base64") };
-    }
+    if (!width || !height)
+      throw Error("Auflösung des eBay-Bildes konnte nicht geprüft werden.");
+    if (Math.max(width, height) < 500)
+      throw Error(`eBay-Bild auch in der größten verfügbaren Version zu klein (${width} × ${height} px). Bitte ein größeres Originalfoto verwenden.`);
     const r = await uploadOnePhoto(token, image, name);
     if (!r.url) {
       const message =
