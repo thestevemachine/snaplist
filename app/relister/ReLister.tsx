@@ -120,7 +120,7 @@ export default function ReLister() {
       clearInterval(timer);
     };
   }, []);
-  async function confirmJob(job: Job) {
+  async function confirmJob(job: Job, ready = job.rows) {
     if (job.mode === "simulation") {
       if (
         !window.confirm(
@@ -130,14 +130,14 @@ export default function ReLister() {
         return;
     } else if (
       !window.confirm(
-        `Jetzt genau diese ${job.rows.length} geprüften deutschen Angebote beenden und als neue eBay-Festpreisangebote erstellen?\n\n` +
+        `Jetzt genau diese ${ready.length} geprüften deutschen Angebote beenden und als neue eBay-Festpreisangebote erstellen?\n\n` +
           `Die alten Angebote werden beendet. Die neuen Artikel erhalten neue Artikelnummern und übernehmen die gesicherten Bilder, Angaben sowie Versand-, Rückgabe- und Zahlungsrichtlinien. Das sind echte neue Angebote, keine eBay-Wiedereinstellungen.\n\n` +
           `Einstellgebühr laut Vorprüfung: 0 €. Verkaufskosten und Kontingent können anfallen. Die Shop-Kategorie wird übernommen; Snaplist ändert keine Gutscheine oder Werbung.`,
       )
     ) {
       return;
     }
-    await action("confirm", { id: job.id, digest: job.previewDigest });
+    await action("confirm", { id: job.id, digest: job.previewDigest, itemIds: ready.map(row => row.id) });
   }
 
   async function action(action: string, extra: Record<string, unknown> = {}) {
@@ -448,6 +448,7 @@ export default function ReLister() {
             (r) => r.phase === "skipped" && !completedRelist(jobs, r.listing.id),
           ).length;
           const retrying = retryingJob === j.id;
+          const ready = j.rows.filter(r => r.phase === "ready");
           const allReady = j.mode === "dry-run" && j.rows.length > 0 && j.rows.every((r) => r.phase === "ready");
           const running =
             j.confirmed && !j.paused &&
@@ -463,11 +464,10 @@ export default function ReLister() {
                 ? "Sicherung & Vorprüfung"
                 : "Live";
           const retryable =
-            j.mode === "dry-run" && j.confirmed && !j.paused
+            j.mode !== "simulation" && j.confirmed && !j.paused
               ? j.rows.filter(
                   (r) =>
                     r.phase === "review" &&
-                    Boolean(r.backup?.images?.length) &&
                     !r.newId &&
                     !r.createAttempted &&
                     !r.history.some((h) =>
@@ -512,7 +512,7 @@ export default function ReLister() {
                 {retryable.length > 0 && (
                   <>
                     <p className="relister-history-note">
-                      Die erneute Prüfung lädt die größten verfügbaren Bilder frisch von eBay. Sobald alle Angebote bereit sind, erscheint hier die Schaltfläche zum Neueinstellen.
+                      Die erneute Prüfung lädt die größten verfügbaren Bilder frisch von eBay. Angebote mit bestandener Vorprüfung kannst du separat neu einstellen.
                     </p>
                     <button
                       disabled={busy}
@@ -527,13 +527,13 @@ export default function ReLister() {
                     </button>
                   </>
                 )}
-                {allReady && !j.paused && (
+                {j.mode === "dry-run" && ready.length > 0 && !running && !j.paused && (
                     <button
                       className="relister-destructive"
                       disabled={busy}
-                      onClick={() => void confirmJob(j)}
+                      onClick={() => void confirmJob(j, ready)}
                     >
-                      {`Jetzt ${j.rows.length} geprüfte Angebote als neue Listings einstellen`}
+                      {ready.length === 1 ? "Jetzt 1 geprüftes Angebot neu einstellen" : `Jetzt ${ready.length} geprüfte Angebote neu einstellen`}
                     </button>
                   )}
                 {j.rows.map((r) => (
@@ -600,7 +600,7 @@ export default function ReLister() {
                             {r.error === "Unveränderliche Sicherung bereits vorhanden."
                               ? "Erneute Prüfung fehlgeschlagen: Die vorhandene Bildsicherung wurde nicht wiederverwendet. Bitte nach dem Update erneut prüfen."
                               : r.error
-                                ? `Fehler: ${r.error}`
+                                ? r.error.includes("21919137") ? "eBay hat die Bildauflösung abgelehnt. Starte die erneute Bildprüfung." : `Fehler: ${r.error}`
                                 : r.phase === "review"
                                   ? "Manuelle Prüfung erforderlich"
                                   : r.phase === "ready" && j.mode === "dry-run"
