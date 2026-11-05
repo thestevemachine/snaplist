@@ -90,14 +90,28 @@ export async function advance(
           reasons.join("; ") ||
             "Preis seit Vorschau geändert: neue Vorschau erforderlich.",
         );
-      row.backup = await adapter.backup(row, job.account);
-      row.listing = row.backup.listing;
-      if (
-        !row.backup.images.length ||
-        row.backup.images.some((i) => !i.path || !i.sha256 || i.bytes <= 0)
-      )
-        throw Error("Bildsicherung unvollständig.");
-      transition(row, "backed_up", "Daten und Bilddateien gesichert");
+      if (row.backup) {
+        if (
+          !row.backup.images.length ||
+          row.backup.images.some((i) => !i.path || !i.sha256 || i.bytes <= 0)
+        )
+          throw Error("Vorhandene Bildsicherung unvollständig.");
+        await adapter.assertSnapshot?.(row.backup);
+        transition(
+          row,
+          "backed_up",
+          "Original erneut bei eBay geprüft; vorhandene unveränderliche Sicherung wiederverwendet",
+        );
+      } else {
+        row.backup = await adapter.backup(row, job.account);
+        row.listing = row.backup.listing;
+        if (
+          !row.backup.images.length ||
+          row.backup.images.some((i) => !i.path || !i.sha256 || i.bytes <= 0)
+        )
+          throw Error("Bildsicherung unvollständig.");
+        transition(row, "backed_up", "Daten und Bilddateien gesichert");
+      }
       await repo.save(job);
     }
     if (row.phase === "backed_up") {
