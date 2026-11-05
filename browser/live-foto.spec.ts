@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import sharp from "sharp";
 
 test("fake camera: local queue, next article, reload, export, paired draft", async ({
   page,
@@ -107,24 +108,46 @@ test("fake camera: local queue, next article, reload, export, paired draft", asy
   await page.getByLabel("SKU (optional)").fill("PILOT-A");
   const capture = async (n: number) => {
     await page.getByRole("button", { name: "Foto aufnehmen" }).click();
-    await expect(page.getByText(new RegExp(`^${n} / 12 Fotos`))).toBeVisible();
+    await expect(page.getByText(new RegExp(` · ${n} Fotos$`))).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Foto aufnehmen" }),
+    ).toBeEnabled();
     measured.push(
       await page.getByText(/Aufnahme und Aufbereitung/).innerText(),
     );
   };
+  await page.getByRole("button", { name: "Vollbild", exact: true }).click();
+  await page.getByRole("slider", { name: "Kamera-Zoom" }).fill("2");
   await capture(1);
   await expect.poll(() => attempts.length).toBeGreaterThan(0);
+  const first = await sharp(
+    stored.get(attempts[0].batch)!.get(attempts[0].photo)!,
+  ).metadata();
+  expect([first.width, first.height]).toEqual([320, 240]);
+  await page.getByRole("button", { name: "Vollbild verlassen" }).click();
   await capture(2);
   await page.getByRole("button", { name: "Foto 2 ersetzen" }).click();
   await capture(2);
   await page.getByRole("button", { name: "Foto 2 entfernen" }).click();
   await expect(page.getByText(/^1 \/ 12 Fotos/)).toBeVisible();
-  await page.getByRole("button", { name: "Brille fertig → nächste" }).click();
+  await page.getByRole("button", { name: "Artikel fertig → nächster" }).click();
   await expect(page.locator("video")).toBeVisible();
   await expect(page.getByLabel("SKU (optional)")).toHaveValue("");
   await page.getByLabel("SKU (optional)").fill("PILOT-B");
+  await page.getByRole("button", { name: "Vollbild", exact: true }).click();
   await capture(1);
-  await page.getByRole("button", { name: "Brille fertig → nächste" }).click();
+  await page.getByRole("button", { name: "Artikel fertig → nächster" }).click();
+  await expect(page.getByText("Aktueller Artikel · 0 Fotos")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Vollbild verlassen" }),
+  ).toBeVisible();
+  await expect(page.getByRole("slider", { name: "Kamera-Zoom" })).toHaveValue(
+    "2",
+  );
+  await page.getByRole("button", { name: "Kamera schließen" }).click();
+  await expect(
+    page.getByRole("button", { name: "Kamera öffnen" }),
+  ).toBeVisible();
   expect(drafts).toHaveLength(0);
   const downloadPromise = page.waitForEvent("download");
   await page

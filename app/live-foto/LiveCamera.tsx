@@ -56,11 +56,8 @@ export function LiveCamera() {
   const [stream, setStream] = useState<MediaStream>();
   const camera = useRef<MediaStream>(undefined);
   const mounted = useRef(false);
-  const [zoom, setZoom] = useState<{
-    min: number;
-    max: number;
-    step: number;
-  }>();
+  const [zoom, setZoom] = useState(1);
+  const [fullscreen, setFullscreen] = useState(false);
   const [opening, setOpening] = useState(false);
   const video = useRef<HTMLVideoElement>(null);
   const shutter = useRef(false);
@@ -314,6 +311,27 @@ export function LiveCamera() {
     };
   }, [journal?.session]);
 
+  useEffect(() => {
+    if (!fullscreen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFullscreen(false);
+    };
+    window.addEventListener("keydown", escape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", escape);
+    };
+  }, [fullscreen]);
+
+  function closeCamera() {
+    camera.current?.getTracks().forEach((track) => track.stop());
+    camera.current = undefined;
+    setStream(undefined);
+    setFullscreen(false);
+  }
+
   async function startCamera() {
     setError("");
     setOpening(true);
@@ -333,15 +351,7 @@ export function LiveCamera() {
       }
       camera.current = value;
       setStream(value);
-      const track = value.getVideoTracks()[0];
-      const limits = track?.getCapabilities?.() as MediaTrackCapabilities & {
-        zoom?: { min: number; max: number; step: number };
-      };
-      setZoom(
-        limits?.zoom && limits.zoom.max > limits.zoom.min
-          ? limits.zoom
-          : undefined,
-      );
+      setZoom(1);
     } catch {
       setError(
         "Kamera nicht verfügbar. Prüfe Berechtigung und HTTPS oder nutze den Datei-Upload.",
@@ -512,14 +522,90 @@ export function LiveCamera() {
         Fotografiere eine Brille nach der anderen. Die Entwürfe prüfst und
         veröffentlichst du später in Snaplist.
       </p>
-      {error && <p role="alert">{error}</p>}
+      {error && !fullscreen && <p role="alert">{error}</p>}
       {network && <p role="status">{network}</p>}
       {!current && !error && <p>Lokalen Fotospeicher öffnen …</p>}
       {current && (
         <>
           <section className={styles.camera} aria-label="Kamera">
-            <video ref={video} hidden={!stream} autoPlay playsInline muted />
-            {!stream ? (
+            <div
+              className={fullscreen ? styles.fullscreen : styles.viewfinder}
+              hidden={!stream}
+            >
+              <div className={styles.cameraHeader}>
+                <button
+                  className="btn"
+                  aria-pressed={fullscreen}
+                  onClick={() => setFullscreen((value) => !value)}
+                >
+                  {fullscreen ? "Vollbild verlassen" : "Vollbild"}
+                </button>
+                <button
+                  className="btn"
+                  disabled={capturing}
+                  onClick={closeCamera}
+                >
+                  Kamera schließen
+                </button>
+              </div>
+              <div className={styles.preview}>
+                <video
+                  ref={video}
+                  autoPlay
+                  playsInline
+                  muted
+                  style={{
+                    transform: `scale(${zoom})`,
+                    clipPath: `inset(${(1 - 1 / zoom) * 50}%)`,
+                  }}
+                />
+              </div>
+              <div className={styles.cameraControls}>
+                <p role="status">
+                  {current.sku.trim() || "Aktueller Artikel"} ·{" "}
+                  {current.ids.length} Fotos
+                </p>
+                {fullscreen && error && <p role="alert">{error}</p>}
+                <label className={styles.zoom}>
+                  Zoom · {zoom.toFixed(1)}×
+                  <input
+                    aria-label="Kamera-Zoom"
+                    type="range"
+                    min={1}
+                    max={3}
+                    step={0.1}
+                    value={zoom}
+                    disabled={capturing}
+                    onChange={(event) => setZoom(Number(event.target.value))}
+                  />
+                </label>
+                <div className={styles.cameraButtons}>
+                  <button
+                    className={styles.shutter}
+                    disabled={
+                      capturing ||
+                      (current.ids.length >= MAX_PHOTOS && !replacement)
+                    }
+                    onClick={() => {
+                      if (stream && video.current)
+                        void capture(() =>
+                          exposure(video.current!, stream, zoom),
+                        );
+                    }}
+                  >
+                    Foto aufnehmen
+                  </button>
+                  <button
+                    className="btn"
+                    disabled={capturing || !current.ids.length}
+                    onClick={() => void finish()}
+                  >
+                    Artikel fertig → nächster
+                  </button>
+                </div>
+              </div>
+            </div>
+            {!stream && (
               <button
                 className="btn"
                 disabled={opening}
@@ -527,64 +613,6 @@ export function LiveCamera() {
               >
                 Kamera öffnen
               </button>
-            ) : (
-              <>
-                <button
-                  className={styles.shutter}
-                  disabled={
-                    capturing ||
-                    (current.ids.length >= MAX_PHOTOS && !replacement)
-                  }
-                  onClick={() =>
-                    void capture(() => exposure(video.current!, stream))
-                  }
-                >
-                  Foto aufnehmen
-                </button>
-                {zoom && (
-                  <label>
-                    Zoom{" "}
-                    <input
-                      type="range"
-                      min={zoom.min}
-                      max={zoom.max}
-                      step={zoom.step || 0.1}
-                      defaultValue={
-                        (
-                          stream
-                            .getVideoTracks()[0]
-                            .getSettings() as MediaTrackSettings & {
-                            zoom?: number;
-                          }
-                        ).zoom ?? zoom.min
-                      }
-                      onChange={(e) => {
-                        const setting = {
-                          zoom: Number(e.target.value),
-                        } as MediaTrackConstraintSet;
-                        void stream
-                          .getVideoTracks()[0]
-                          .applyConstraints({ advanced: [setting] })
-                          .catch(() =>
-                            setError(
-                              "Diese Kamera hat den Zoom nicht übernommen.",
-                            ),
-                          );
-                      }}
-                    />
-                  </label>
-                )}
-                <button
-                  className="btn btn-ghost"
-                  onClick={() => {
-                    stream.getTracks().forEach((t) => t.stop());
-                    camera.current = undefined;
-                    setStream(undefined);
-                  }}
-                >
-                  Kamera schließen
-                </button>
-              </>
             )}
             <label>
               Datei-Upload (Fallback){" "}
@@ -685,13 +713,15 @@ export function LiveCamera() {
             })}
           </ul>
           <div className={styles.actions}>
-            <button
-              className="btn"
-              disabled={capturing || !current.ids.length}
-              onClick={() => void finish()}
-            >
-              Brille fertig → nächste
-            </button>
+            {!stream && (
+              <button
+                className="btn"
+                disabled={capturing || !current.ids.length}
+                onClick={() => void finish()}
+              >
+                Artikel fertig → nächster
+              </button>
+            )}
             <button
               className="btn btn-ghost"
               onClick={() => {

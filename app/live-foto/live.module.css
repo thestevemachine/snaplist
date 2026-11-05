@@ -61,3 +61,72 @@
 .page input:not([type="file"]) {
   max-width: 100%;
 }
+
+.viewfinder,
+.fullscreen {
+  width: 100%;
+  display: grid;
+  gap: 0.5rem;
+  background: #101c1a;
+  color: white;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+}
+.viewfinder[hidden] {
+  display: none;
+}
+.fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  border-radius: 0;
+  padding: max(0.75rem, env(safe-area-inset-top))
+    max(0.75rem, env(safe-area-inset-right))
+    max(0.75rem, env(safe-area-inset-bottom))
+    max(0.75rem, env(safe-area-inset-left));
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+.preview {
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  overflow: hidden;
+}
+.preview video {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 52vh;
+}
+.fullscreen .preview video {
+  max-height: 100%;
+}
+.cameraHeader,
+.cameraButtons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+}
+.cameraControls {
+  display: grid;
+  justify-items: center;
+  gap: 0.4rem;
+}
+.cameraControls p {
+  margin: 0;
+}
+.zoom {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.zoom input {
+  width: min(40vw, 13rem);
+}
+.cameraButtons .shutter {
+  min-width: 0;
+  padding-inline: 1rem;
+}

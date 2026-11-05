@@ -75,8 +75,13 @@ ab Safari 18.4](https://webkit.org/blog/16574/webkit-features-in-safari-18-4/),
 Sonst ist die tatsächliche
 Videoauflösung die Obergrenze. Die App skaliert nicht hoch. Android/Chrome
 und iOS/Safari können unterschiedliche Auflösungen, Fokus und Zoom liefern.
-Die App zeigt Zoom nur bei gemeldeter Hardware-Unterstützung. Keine Garantie
-für Makro-Autofokus, Linsenwechsel oder Qualität der nativen Kamera-App.
+In der normalen Ansicht und im Vollbild steht ein digitaler Zoom von 1× bis
+3× zur Verfügung. Oberhalb von 1× speichert die App den mittleren Ausschnitt
+des Videobilds in seiner tatsächlichen Pixelauflösung. Der Zoom vergrößert
+die Ansicht, liefert aber keine zusätzlichen Bilddetails. Im Vollbild bleiben
+Auslöser, Artikelabschluss und Kameraschließen direkt verfügbar. Beim
+Artikelabschluss bleibt der Stream aktiv. Makro-Autofokus, Linsenwechsel
+und die Qualität der nativen Kamera-App hängen vom Gerät ab.
 Bei unscharfen Bügelbeschriftungen Abstand, Licht und Kamerawinkel ändern oder
 den gekennzeichneten Datei-Upload verwenden.
 
