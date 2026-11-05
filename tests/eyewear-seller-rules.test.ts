@@ -3,7 +3,7 @@ import {germanGlassesTitle} from "@/lib/glasses-rules";
 import {eyewearSellerRulePatch} from "@/lib/eyewear-seller-rules";
 import {boxSizePatch} from "@/lib/eyewear-measurements";
 import type {AspectMeta} from "@/lib/ebay/taxonomy";
-const meta:AspectMeta[]=[{name:"Rahmenfarbe",mode:"SELECTION_ONLY",cardinality:"MULTI",values:["Gold","Schwarz","Roségold"],required:false}];
+const meta:AspectMeta[]=[{name:"Rahmenfarbe",mode:"SELECTION_ONLY",cardinality:"MULTI",values:["Gold","Schwarz","Roségold"],required:false,usage:"OPTIONAL" as const}];
 const l={title:"Ic! Berlin Brille",description:"Original",brand:"Ic! Berlin",color:["Roségold","Schwarz"],condition_notes:"Ungetragen ohne Etui",item_specifics:{Rahmenfarbe:"Roségold | Schwarz",Form:"Rund",Abteilung:"Herren Damen",Modell:"Pluto",Rahmenbreite:"140 mm",Besonderheiten:"Strass"}};
 it("prioritizes base Gold and places Strass and L XL immediately after the shape within 80 characters",()=>{
  const title=germanGlassesTitle(l,meta);
@@ -22,7 +22,7 @@ it("adds Roségold only when there is space, preserves condition details, and do
 it("fills already recognized 44 square 20 150 into empty taxonomy fields even when size is present",()=>{
  const fields={lensWidth:{value:"44",source:"label" as const,quote:"44 □ 20 150",photos:[2]},bridgeWidth:{value:"20",source:"label" as const,quote:"44 □ 20 150",photos:[2]},templeLength:{value:"150",source:"label" as const,quote:"44 □ 20 150",photos:[2]}};
  const listing={title:"Brille",description:"",size:"44 □ 20 150",eyewear:{fields,warnings:[]},item_specifics:{Glasbreite:"",Stegbreite:"",Bügellänge:""}};
- const dims:AspectMeta[]=["Glasbreite","Stegbreite","Bügellänge"].map(name=>({name,mode:"FREE_TEXT",cardinality:"SINGLE",dataType:"NUMBER",values:[],required:false}));
+ const dims:AspectMeta[]=["Glasbreite","Stegbreite","Bügellänge"].map(name=>({name,mode:"FREE_TEXT",cardinality:"SINGLE",dataType:"NUMBER",values:[],required:false,usage:"OPTIONAL" as const}));
  const patch=boxSizePatch(listing,dims)!;expect(patch.item_specifics).toMatchObject({Glasbreite:"44",Stegbreite:"20",Bügellänge:"150"});
  expect(boxSizePatch({...listing,...patch},dims)).toBeUndefined();
 });

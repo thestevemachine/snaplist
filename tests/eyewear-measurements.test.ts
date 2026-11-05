@@ -17,7 +17,7 @@ it("recovers missing measurements from stored quoted temple evidence without mod
  expect(manualEyewearMeasurement(l,"Gesamtbreite","138",[]).manual_measurement_values?.Gesamtbreite).toBe("138");
  expect(manualEyewearMeasurement(l,"Gesamtbreite","138",[]).item_specifics?.Gesamtbreite).toBeUndefined();
  expect(manualEyewearMeasurement(l,"Glashöhe","",[]).manual_measurement_fields).toContain("Glashöhe");
- expect(manualEyewearMeasurement(l,"Gesamtbreite","138",[{name:"Rahmenbreite",mode:"FREE_TEXT",cardinality:"SINGLE",values:[],required:false,dataType:"NUMBER"}]).item_specifics?.Rahmenbreite).toBe("138");
+ expect(manualEyewearMeasurement(l,"Gesamtbreite","138",[{name:"Rahmenbreite",mode:"FREE_TEXT",cardinality:"SINGLE",values:[],required:false,usage:"OPTIONAL" as const,dataType:"NUMBER"}]).item_specifics?.Rahmenbreite).toBe("138");
 });
 it("keeps complete box evidence when a later width fact contains only the number",async()=>{
  const {extractEyewear}=await import("@/lib/eyewear-inscriptions");

@@ -66,3 +66,41 @@ test("leaving the upload step releases the camera without dropping the saved ima
  await page.getByRole("button",{name:"Diese Fotos gehören zu einem Artikel"}).click();
  expect(await page.evaluate(()=>(window as any).cameraStream.getTracks().every((t:MediaStreamTrack)=>t.readyState==="ended"))).toBe(true);
 });
+
+test("landscape fullscreen zoom saves the cropped photo in the Snaplist workspace", async ({ page }) => {
+  await setup(page);
+  await page.getByRole("button", { name: "Kamera öffnen · mehrere Fotos aufnehmen" }).click();
+  await page.getByRole("button", { name: "Vollbild", exact: true }).click();
+  await page.setViewportSize({ width: 844, height: 390 });
+  const video = page.getByLabel("Live-Kamerabild");
+  const shutter = page.getByRole("button", { name: "Foto aufnehmen", exact: true });
+  await expect(shutter).toBeInViewport();
+  expect((await shutter.boundingBox())!.x).toBeGreaterThan((await video.boundingBox())!.x);
+  const touch = (type: string, pointerId: number, clientX: number) =>
+    video.dispatchEvent(type, { pointerType: "touch", pointerId, clientX, clientY: 100 });
+  await touch("pointerdown", 1, 100);
+  await touch("pointerdown", 2, 150);
+  await touch("pointermove", 2, 200);
+  await touch("pointerup", 1, 100);
+  await touch("pointerup", 2, 200);
+  await expect(page.getByRole("slider", { name: "Kamera-Zoom" })).toHaveValue("2");
+  await shutter.click();
+  await expect(page.getByText(/1 Fotos aufgenommen/)).toBeVisible();
+  await page.getByRole("button", { name: "Fertig · Kamera schließen" }).click();
+  await expect(page.locator(".thumb")).toHaveCount(1);
+  const dimensions = await page.evaluate(async () => {
+    const open = indexedDB.open("listing-writer-drafts");
+    const db = await new Promise<IDBDatabase>(resolve => open.onsuccess = () => resolve(open.result));
+    const result = db.transaction("assets").objectStore("assets").getAll();
+    const assets = await new Promise<{ original: Blob }[]>(resolve => result.onsuccess = () => resolve(result.result));
+    db.close();
+    const image = await createImageBitmap(assets[0].original);
+    const dimensions = [image.width, image.height];
+    image.close();
+    return dimensions;
+  });
+  expect(dimensions).toEqual([800, 600]);
+  await expect(page.getByRole("status").filter({hasText:"Auf diesem Gerät gespeichert"})).toBeVisible();
+  await page.reload();
+  await expect(page.locator(".thumb")).toHaveCount(1);
+});
