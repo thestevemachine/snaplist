@@ -126,9 +126,9 @@ async function handle(req: NextRequest) {
     }
     if (body.action === "preview" || body.action === "start") {
       const direct = body.action === "start";
-      if (direct && (!backgroundReady() || process.env.RELISTER_LIVE_ENABLED !== "true"))
+      if (direct && process.env.RELISTER_LIVE_ENABLED !== "true")
         return NextResponse.json(
-          { ok: false, error: "Die Hintergrundverarbeitung für neue eBay-Angebote ist derzeit nicht verfügbar." },
+          { ok: false, error: "Das Neueinstellen von eBay-Angeboten ist derzeit deaktiviert." },
           { status: 503 },
         );
       const c = await catalog(account.id);
@@ -160,7 +160,14 @@ async function handle(req: NextRequest) {
         await insert(job);
         await saveApprovals(job, job.rows);
         await command(account.id, job.id, "confirm");
-        after(() => wakeRelister());
+        after(async () => {
+          try {
+            await processJob(job.id);
+          } catch {
+            console.warn("relister-initial-processing-deferred");
+          }
+          await wakeRelister();
+        });
         return NextResponse.json({ ok: true, job: { ...job, confirmed: true } });
       }
       if (c.seller !== "SIMULATION") {
