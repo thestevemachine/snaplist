@@ -1,4 +1,3 @@
-/opt/homebrew/Library/Homebrew/cmd/shellenv.sh: line 18: /bin/ps: Operation not permitted
 import { DEFAULT_AI_MODEL } from "../ai-defaults";
 import { getClient, parseModelJson } from "../anthropic";
 import { measuredMessage } from "../ai-usage";
