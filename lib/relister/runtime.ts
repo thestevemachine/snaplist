@@ -9,6 +9,7 @@ import {
 import { riskProbe } from "./risk";
 import { bucket } from "./store";
 import type { BackupStorage } from "./backup";
+import { improveRelistTitle } from "./title";
 export async function backgroundAccount(id: string): Promise<AccountContext> {
   const db = accountDb(),
     u = await db.auth.admin.getUserById(id);
@@ -70,6 +71,8 @@ export async function realAdapter(account: AccountContext, seller: string) {
       imageStore(account.id),
       riskProbe(token, call),
       productionUpload(token),
+      undefined,
+      (title) => accountScope.run(account, () => improveRelistTitle(title)),
     );
   });
 }
