@@ -27,6 +27,27 @@ const completedRelist = (jobs: Job[], listingId: string) =>
         row.phase === "completed" &&
         Boolean(row.newId),
     );
+const phaseLabel: Record<Job["rows"][number]["phase"], string> = {
+  selected: "Wartet auf Bearbeitung",
+  backed_up: "Bilder gesichert",
+  verified: "Vorprüfung erfolgreich",
+  ready: "Bereit zum Neueinstellen",
+  end_requested: "Altes Angebot wird beendet",
+  ended: "Altes Angebot beendet",
+  create_requested: "Neues Angebot wird erstellt",
+  created: "Neues Angebot wird geprüft",
+  completed: "Neu eingestellt",
+  review: "Prüfung nötig",
+  skipped: "Übersprungen",
+};
+
+function ProgressRing() {
+  return <span className="spinner" aria-hidden="true" style={{
+    display: "inline-block", borderColor: "currentColor",
+    borderRightColor: "transparent", verticalAlign: "middle", marginInlineEnd: 6,
+  }} />;
+}
+
 export default function ReLister() {
   const [items, setItems] = useState<Listing[]>([]),
     [seller, setSeller] = useState(""),
@@ -37,6 +58,7 @@ export default function ReLister() {
     [preview, setPreview] = useState<Job>(),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false),
+    [retryingJob, setRetryingJob] = useState<string>(),
     [page, setPage] = useState(0),
     [synced, setSynced] = useState(""),
     [sync, setSync] = useState<any>();
@@ -120,6 +142,7 @@ export default function ReLister() {
 
   async function action(action: string, extra: Record<string, unknown> = {}) {
     setBusy(true);
+    if (action === "retry-review" && typeof extra.id === "string") setRetryingJob(extra.id);
     setMessage("");
     try {
       const response = await apiPost("/api/relister", { action, ...extra });
@@ -137,6 +160,7 @@ export default function ReLister() {
       setMessage(e instanceof Error ? e.message : "Anfrage fehlgeschlagen.");
     } finally {
       setBusy(false);
+      setRetryingJob(undefined);
     }
   }
   let percentError = "";
@@ -423,8 +447,10 @@ export default function ReLister() {
           const skipped = j.rows.filter(
             (r) => r.phase === "skipped" && !completedRelist(jobs, r.listing.id),
           ).length;
+          const retrying = retryingJob === j.id;
+          const allReady = j.mode === "dry-run" && j.rows.length > 0 && j.rows.every((r) => r.phase === "ready");
           const running =
-            !j.paused &&
+            j.confirmed && !j.paused &&
             j.rows.some(
               (r) =>
                 !["completed", "review", "skipped"].includes(r.phase) &&
@@ -459,10 +485,11 @@ export default function ReLister() {
                 <span className="relister-batch-date">{dateTime(j.createdAt)}</span>
                 <span className="relister-batch-mode">{mode}</span>
                 <span>
-                  {completed} in diesem Batch · {completedEarlier} schon vorher erledigt · {needsReview} Prüfung nötig · {skipped} übersprungen
+                  {j.mode === "dry-run" && `${j.rows.filter((r) => r.phase === "ready").length}/${j.rows.length} bereit · `}{completed} neu eingestellt · {completedEarlier} schon vorher erledigt · {needsReview} Prüfung nötig · {skipped} übersprungen
                 </span>
                 <span className={running ? "relister-batch-running" : "relister-batch-state"}>
-                  {j.paused
+                  {(running || retrying) && <ProgressRing />}
+                  {retrying ? "Erneute Prüfung startet" : j.paused
                     ? "Pausiert"
                     : running
                       ? "Läuft"
@@ -470,22 +497,22 @@ export default function ReLister() {
                         ? "Prüfung nötig"
                         : skipped
                           ? "Teilweise übersprungen"
-                          : "Abgeschlossen"}
+                          : allReady ? "Bereit zum Neueinstellen" : "Abgeschlossen"}
                 </span>
               </summary>
               <article className="relister-batch-content">
-                <button
+                {(running || j.paused) && <button
                   disabled={busy}
                   onClick={() =>
                     action(j.paused ? "resume" : "pause", { id: j.id })
                   }
                 >
                   {j.paused ? "Fortsetzen" : "Pausieren"}
-                </button>
+                </button>}
                 {retryable.length > 0 && (
                   <>
                     <p className="relister-history-note">
-                      Diese gesicherten Angebote wurden nicht beendet. Erneute Prüfung liest jeden Artikel frisch bei eBay und erstellt nur eine neue Vorschau.
+                      Die erneute Prüfung lädt die größten verfügbaren Bilder frisch von eBay. Sobald alle Angebote bereit sind, erscheint hier die Schaltfläche zum Neueinstellen.
                     </p>
                     <button
                       disabled={busy}
@@ -496,12 +523,11 @@ export default function ReLister() {
                         })
                       }
                     >
-                      {"Gesicherte Angebote erneut prüfen (" + retryable.length + ")"}
+                      {retrying ? <><ProgressRing /> Erneute Prüfung startet …</> : `Gesicherte Angebote erneut prüfen (${retryable.length})`}
                     </button>
                   </>
                 )}
-                {j.mode === "dry-run" &&
-                  j.rows.every((r) => r.phase === "ready") && (
+                {allReady && !j.paused && (
                     <button
                       className="relister-destructive"
                       disabled={busy}
@@ -532,7 +558,7 @@ export default function ReLister() {
                                 ? "Bereits abgeschlossen"
                                 : r.phase === "review"
                                   ? "Prüfung nötig"
-                                  : r.phase}
+                                  : phaseLabel[r.phase]}
                           </span>
                         </div>
                         <div className="relister-history-meta">
@@ -577,7 +603,9 @@ export default function ReLister() {
                                 ? `Fehler: ${r.error}`
                                 : r.phase === "review"
                                   ? "Manuelle Prüfung erforderlich"
-                                  : `Status: ${r.phase}`}
+                                  : r.phase === "ready" && j.mode === "dry-run"
+                                    ? "Vorprüfung bestanden. Das Originalangebot wurde in diesem Batch noch nicht beendet."
+                                    : phaseLabel[r.phase]}
                           </span>
                         )}
                       </div>
