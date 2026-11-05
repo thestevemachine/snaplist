@@ -16,10 +16,25 @@ import {
 import { preview, processJob } from "@/lib/relister/jobs";
 import { reader } from "@/lib/relister/ebay";
 import { syncStep } from "@/lib/relister/sync";
-import { exclusions, reducedPrice } from "@/lib/relister/domain";
+import { exclusions, reducedPrice, type Job } from "@/lib/relister/domain";
 import { sampleListing } from "@/lib/relister/simulation";
 import { backgroundReady, wakeRelister } from "@/lib/relister/worker";
 export const maxDuration = 300;
+async function saveApprovals(job: Job, rows: Job["rows"]) {
+  const { error } = await accountDb().from("relister_approvals").upsert(
+    rows.map((row) => ({
+      job_id: job.id,
+      item_id: row.listing.id,
+      account_id: job.account,
+      seller: job.seller,
+      snapshot_digest: job.previewDigest,
+      target_cents: row.targetCents,
+      expires_at: "9999-12-31T23:59:59.999Z",
+    })),
+    { onConflict: "job_id,item_id" },
+  );
+  if (error) throw Error("Auftragsfreigabe konnte nicht gespeichert werden.");
+}
 async function handle(req: NextRequest) {
   const denied = guardApiRequest(req);
   if (denied) return denied;
@@ -109,7 +124,13 @@ async function handle(req: NextRequest) {
       );
       return NextResponse.json({ ok: true });
     }
-    if (body.action === "preview") {
+    if (body.action === "preview" || body.action === "start") {
+      const direct = body.action === "start";
+      if (direct && (!backgroundReady() || process.env.RELISTER_LIVE_ENABLED !== "true"))
+        return NextResponse.json(
+          { ok: false, error: "Die Hintergrundverarbeitung für neue eBay-Angebote ist derzeit nicht verfügbar." },
+          { status: 503 },
+        );
       const c = await catalog(account.id);
       if (!c) throw Error("Zuerst synchronisieren.");
       if (!Array.isArray(body.ids) || body.ids.length > 100)
@@ -132,6 +153,16 @@ async function handle(req: NextRequest) {
           { status: 400 },
         );
       const job = preview(account.id, c.seller, selected, body.percent);
+      if (direct) {
+        if (c.seller === "SIMULATION") throw Error("Für Testdaten bitte den Probelauf verwenden.");
+        job.mode = "live";
+        // Persist approval before the job becomes eligible for processing.
+        await insert(job);
+        await saveApprovals(job, job.rows);
+        await command(account.id, job.id, "confirm");
+        await wakeRelister();
+        return NextResponse.json({ ok: true });
+      }
       if (c.seller !== "SIMULATION") {
         job.mode = "dry-run";
         job.confirmed = true;
@@ -228,22 +259,7 @@ async function handle(req: NextRequest) {
             throw Error(
               "Nicht alle ausgewählten Angebote sind fertig geprüft.",
             );
-          const grants = ready.map((row) => ({
-            job_id: job.id,
-            item_id: row.listing.id,
-            account_id: account.id,
-            seller: job.seller,
-            snapshot_digest: job.previewDigest,
-            target_cents: row.targetCents,
-            // This approval is bound to this immutable, user-confirmed job.
-            // It remains valid across background retries and pauses.
-            expires_at: "9999-12-31T23:59:59.999Z",
-          }));
-          const stored = await accountDb()
-            .from("relister_approvals")
-            .upsert(grants, { onConflict: "job_id,item_id" });
-          if (stored.error)
-            throw Error("Auftragsfreigabe konnte nicht gespeichert werden.");
+          await saveApprovals(job, ready);
           // Review and skipped rows stay terminal and receive no authorization.
           const activated = await accountDb().from("relister_jobs")
             .update({ document: { ...job, mode: "live" }, pending: true,
