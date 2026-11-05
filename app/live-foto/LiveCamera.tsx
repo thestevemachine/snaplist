@@ -57,6 +57,21 @@ export function LiveCamera() {
   const camera = useRef<MediaStream>(undefined);
   const mounted = useRef(false);
   const [zoom, setZoom] = useState(1);
+  const fingers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ distance: number; zoom: number } | undefined>(
+    undefined,
+  );
+
+  function fingerDistance() {
+    const [first, second] = fingers.current.values();
+    return first && second
+      ? Math.hypot(second.x - first.x, second.y - first.y)
+      : 0;
+  }
+
+  function endTouch(pointerId: number) {
+    if (fingers.current.delete(pointerId)) pinch.current = undefined;
+  }
   const [fullscreen, setFullscreen] = useState(false);
   const [opening, setOpening] = useState(false);
   const video = useRef<HTMLVideoElement>(null);
@@ -326,6 +341,8 @@ export function LiveCamera() {
   }, [fullscreen]);
 
   function closeCamera() {
+    fingers.current.clear();
+    pinch.current = undefined;
     camera.current?.getTracks().forEach((track) => track.stop());
     camera.current = undefined;
     setStream(undefined);
@@ -548,7 +565,38 @@ export function LiveCamera() {
                   Kamera schließen
                 </button>
               </div>
-              <div className={styles.preview}>
+              <div
+                className={styles.preview}
+                onPointerDown={(event) => {
+                  if (
+                    event.pointerType !== "touch" ||
+                    fingers.current.size >= 2
+                  )
+                    return;
+                  fingers.current.set(event.pointerId, {
+                    x: event.clientX,
+                    y: event.clientY,
+                  });
+                  const distance = fingerDistance();
+                  if (distance > 0) pinch.current = { distance, zoom };
+                }}
+                onPointerMove={(event) => {
+                  if (!fingers.current.has(event.pointerId)) return;
+                  fingers.current.set(event.pointerId, {
+                    x: event.clientX,
+                    y: event.clientY,
+                  });
+                  const start = pinch.current;
+                  if (!start || shutter.current) return;
+                  const scale =
+                    (start.zoom * fingerDistance()) / start.distance;
+                  setZoom(
+                    Math.min(3, Math.max(1, Math.round(scale * 10) / 10)),
+                  );
+                }}
+                onPointerUp={(event) => endTouch(event.pointerId)}
+                onPointerCancel={(event) => endTouch(event.pointerId)}
+              >
                 <video
                   ref={video}
                   autoPlay

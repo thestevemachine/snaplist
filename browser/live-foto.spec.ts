@@ -117,7 +117,27 @@ test("fake camera: local queue, next article, reload, export, paired draft", asy
     );
   };
   await page.getByRole("button", { name: "Vollbild", exact: true }).click();
-  await page.getByRole("slider", { name: "Kamera-Zoom" }).fill("2");
+  const preview = page.locator("video");
+  const touch = (type: string, pointerId: number, clientX: number) =>
+    preview.dispatchEvent(type, {
+      pointerId,
+      pointerType: "touch",
+      clientX,
+      clientY: 200,
+    });
+  await touch("pointerdown", 1, 100);
+  await touch("pointerdown", 2, 150);
+  await touch("pointermove", 2, 200);
+  await expect(page.getByRole("slider", { name: "Kamera-Zoom" })).toHaveValue(
+    "2",
+  );
+  await touch("pointermove", 2, 125);
+  await expect(page.getByRole("slider", { name: "Kamera-Zoom" })).toHaveValue(
+    "1",
+  );
+  await touch("pointermove", 2, 200);
+  await touch("pointerup", 1, 100);
+  await touch("pointerup", 2, 200);
   await capture(1);
   await expect.poll(() => attempts.length).toBeGreaterThan(0);
   const first = await sharp(

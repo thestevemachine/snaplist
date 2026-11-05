@@ -76,7 +76,8 @@ Sonst ist die tatsächliche
 Videoauflösung die Obergrenze. Die App skaliert nicht hoch. Android/Chrome
 und iOS/Safari können unterschiedliche Auflösungen, Fokus und Zoom liefern.
 In der normalen Ansicht und im Vollbild steht ein digitaler Zoom von 1× bis
-3× zur Verfügung. Oberhalb von 1× speichert die App den mittleren Ausschnitt
+3× zur Verfügung. Zwei Finger auf der Vorschau oder der Regler steuern den
+Zoom. Oberhalb von 1× speichert die App den mittleren Ausschnitt
 des Videobilds in seiner tatsächlichen Pixelauflösung. Der Zoom vergrößert
 die Ansicht, liefert aber keine zusätzlichen Bilddetails. Im Vollbild bleiben
 Auslöser, Artikelabschluss und Kameraschließen direkt verfügbar. Beim
