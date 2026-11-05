@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { withAccount, sameOrigin, accountDb } from "@/lib/accounts/server";
 import { currentAccount, accountsEnabled } from "@/lib/accounts/context";
 import { guardApiRequest } from "@/lib/api-guard";
@@ -160,8 +160,8 @@ async function handle(req: NextRequest) {
         await insert(job);
         await saveApprovals(job, job.rows);
         await command(account.id, job.id, "confirm");
-        await wakeRelister();
-        return NextResponse.json({ ok: true });
+        after(() => wakeRelister());
+        return NextResponse.json({ ok: true, job: { ...job, confirmed: true } });
       }
       if (c.seller !== "SIMULATION") {
         job.mode = "dry-run";
