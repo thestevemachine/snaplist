@@ -59,23 +59,19 @@ export default function ReLister() {
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false),
     [retryingJob, setRetryingJob] = useState<string>(),
-    [page, setPage] = useState(0),
     [synced, setSynced] = useState(""),
     [sync, setSync] = useState<any>();
   const advancing = useRef(false);
   const rows = useMemo(() => filtered(items, query, "oldest"), [items, query]);
-  const displayRows = rows.slice(0, 100);
   const syncing = Boolean(sync?.pending);
   const selectedItems = selection
     .map((id) => items.find((item) => item.id === id))
     .filter((item): item is Listing => Boolean(item));
-  const pages = Math.max(1, Math.ceil(displayRows.length / 25)),
-    current = Math.min(page, pages - 1);
   async function load() {
     const response = await fetch("/api/relister", { cache: "no-store" });
     const data = await response.json();
     if (!data.ok) throw Error(data.error);
-    const listings: Listing[] = data.catalog?.listings ?? [];
+    const listings = filtered(data.catalog?.listings ?? [], "", "oldest").slice(0, 25);
     const listingIds = new Set(listings.map((listing) => listing.id));
     setItems(listings);
     setSelection((current) => current.filter((id) => listingIds.has(id)));
@@ -206,7 +202,7 @@ export default function ReLister() {
             disabled={busy || syncing}
             onClick={() => action("sync")}
           >
-            Die 100 ältesten Angebote aktualisieren
+            Die 25 ältesten Angebote aktualisieren
           </button>
           <button disabled={busy || syncing} onClick={() => action("demo")}>
             Generalprobe: Testdaten laden
@@ -216,11 +212,11 @@ export default function ReLister() {
           {syncing
             ? sync.document.stage === "pages"
               ? `Die ältesten Angebote werden geladen; ${sync.document.items?.length ?? 0} vorgemerkt. Die gespeicherte Liste bleibt sichtbar.`
-              : `Prüfung der 100 ältesten Angebote: ${sync.document.cursor} von ${sync.document.items?.length ?? 0} geprüft. Die gespeicherte Liste bleibt sichtbar.`
+              : `Prüfung der 25 ältesten Angebote: ${sync.document.cursor} von ${sync.document.items?.length ?? 0} geprüft. Die gespeicherte Liste bleibt sichtbar.`
             : (sync?.document.error ?? "")}
         </p>
         <p className="relister-safety-note">
-          Der Katalog enthält nur die 100 ältesten Angebote und wird etwa alle 6
+          Der Katalog enthält nur die 25 ältesten Angebote und wird etwa alle 6
           Stunden im Hintergrund aktualisiert. Vor jedem Eingriff prüft
           Snaplist das ausgewählte Angebot direkt bei eBay: aktiv, unverkauft,
           Einzelstück und unveränderter Preis. Nach dem Beenden bestätigt es
@@ -236,22 +232,19 @@ export default function ReLister() {
           Suche nach Titel oder SKU{" "}
           <input
             value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setPage(0);
-            }}
+            onChange={(e) => setQuery(e.target.value)}
           />
         </label>
         <p className="relister-view-summary">
           {syncing
             ? `Es bleiben die zuletzt gespeicherten ältesten Angebote sichtbar (${rows.length} passend). Der Live-Abgleich ersetzt sie nach Abschluss.`
-            : `Auswahl: die 100 ältesten aktiven Angebote (${rows.length} passend).`}
+            : `Auswahl: die 25 ältesten aktiven Angebote (${rows.length} passend).`}
         </p>
         <div className="relister-selection-actions">
-          {[1, 5, 20, 25, 50, 100].map((n) => (
+          {[1, 5, 20, 25].map((n) => (
             <button
               key={n}
-              onClick={() => setSelection(quickSelect(displayRows, seller, n))}
+              onClick={() => setSelection(quickSelect(rows, seller, n))}
             >
               Erste {n} auswählen
             </button>
@@ -324,7 +317,7 @@ export default function ReLister() {
               </tr>
             </thead>
             <tbody>
-              {displayRows.slice(current * 25, current * 25 + 25).map((l) => {
+              {rows.map((l) => {
                 const reasons = exclusions(l, seller);
                 return (
                   <tr key={l.id}>
@@ -377,16 +370,6 @@ export default function ReLister() {
             </tbody>
           </table>
         </div>
-        <button disabled={current === 0} onClick={() => setPage(current - 1)}>
-          Zurück
-        </button>{" "}
-        Seite {current + 1}/{pages}{" "}
-        <button
-          disabled={current + 1 >= pages}
-          onClick={() => setPage(current + 1)}
-        >
-          Weiter
-        </button>
         <p>
           <button
             className="relister-primary"
