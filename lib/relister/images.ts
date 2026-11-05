@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
 import { boundedFetch } from "../network";
-import { imageSize } from "../image-size";
 export function checkedImageUrl(value: string) {
   const u = new URL(value);
   const modern = /^\/images\/[a-zA-Z0-9_.$~\/-]+$/.test(u.pathname);
@@ -95,11 +94,6 @@ export async function fetchImage(url: string) {
         : data.subarray(0, 4).toString() === "RIFF" &&
           data.subarray(8, 12).toString() === "WEBP";
   if (!valid) throw Error("Bildformat widersprüchlich.");
-  const dimensions = imageSize(data.toString("base64"));
-  if (dimensions && Math.max(dimensions.width, dimensions.height) < 500)
-    throw Error(
-      `eBay-Originalbild ist auch in der größten verfügbaren Variante zu klein (${dimensions.width} × ${dimensions.height} px; mindestens 500 px an der längsten Seite).`,
-    );
   return {
     data,
     mime: mime!,
