@@ -115,6 +115,7 @@ export class TradingAdapter implements Adapter {
       name: string,
     ) => Promise<string>,
     private download: typeof fetchImage = fetchImage,
+    private improveTitle: (title: string) => Promise<string> = async (title) => title,
   ) {}
   private async raw(id: string) {
     if (!/^\d{6,20}$/.test(id)) throw Error("Ungültige Artikelnummer.");
@@ -202,13 +203,15 @@ export class TradingAdapter implements Adapter {
   }
   async prepare(backup: Backup, target: number): Promise<Payload> {
     const images = await restoreImages(backup, this.storage),
-      urls: string[] = [];
+      urls: string[] = [],
+      title = await this.improveTitle(backup.payload.Title);
     for (let i = 0; i < images.length; i++)
       urls.push(
         await this.upload(images[i], `relister-${backup.digest}-${i}.jpg`),
       );
     return {
       ...backup.payload,
+      Title: title,
       StartPrice: (target / 100).toFixed(2),
       PictureDetails: { PictureURL: urls },
     };
