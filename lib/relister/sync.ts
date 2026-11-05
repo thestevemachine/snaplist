@@ -22,7 +22,7 @@ function selectionWindow(items: Listing[]) {
         Date.parse(a.started) - Date.parse(b.started) ||
         a.id.localeCompare(b.id),
     )
-    .slice(0, 100);
+    .slice(0, 25);
 }
 export async function syncStep(account: string) {
   const db = accountDb(),
@@ -49,7 +49,7 @@ export async function syncStep(account: string) {
       if (state.stage === "pages") {
         const r = await call(
           "GetMyeBaySelling",
-          `<ActiveList><Include>true</Include><Sort>StartTime</Sort><Pagination><EntriesPerPage>100</EntriesPerPage><PageNumber>1</PageNumber></Pagination></ActiveList>`,
+          `<ActiveList><Include>true</Include><Sort>StartTime</Sort><Pagination><EntriesPerPage>25</EntriesPerPage><PageNumber>1</PageNumber></Pagination></ActiveList>`,
         );
         assertTradingSuccess(r);
         const pages = Number(r.ActiveList?.PaginationResult?.TotalNumberOfPages);
@@ -65,9 +65,13 @@ export async function syncStep(account: string) {
         state.stage = "details";
       } else if (state.stage === "details") {
         // Narrow any older in-progress sync documents before continuing.
-        if (state.items.length > 100) {
-          state.items = selectionWindow(state.items);
-          state.cursor = 0;
+        if (state.items.length > 25) {
+          const oldest = selectionWindow(state.items);
+          const cursor = Math.min(state.cursor, oldest.length);
+          state.cursor = oldest.slice(0, cursor).every(
+            (item, index) => item.id === state.items[index]?.id,
+          ) ? cursor : 0;
+          state.items = oldest;
         }
         const adapter = await realAdapter(ctx, record.seller);
         const end = Math.min(state.cursor + 10, state.items.length);
