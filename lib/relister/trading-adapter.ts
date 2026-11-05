@@ -1,3 +1,4 @@
+import sharp from "sharp";
 import { XMLBuilder } from "fast-xml-parser";
 import { assertTradingSuccess, tradingCall, list, xml } from "../ebay/trading";
 import { uploadOnePhoto } from "../ebay/photo-upload";
@@ -177,7 +178,7 @@ export class TradingAdapter implements Adapter {
     return secureBackup(
       {
         account,
-        rowId: row.id,
+        rowId: (row as Row & { backupNamespace?: string }).backupNamespace ?? row.id,
         seller: this.seller,
         listing,
         payload: publicationPayload(raw),
@@ -378,6 +379,13 @@ export function productionTransport(token: string): TradingCall {
 }
 export function productionUpload(token: string) {
   return async (image: { mediaType: string; data: string }, name: string) => {
+    const source = sharp(Buffer.from(image.data, "base64"), { limitInputPixels: 40_000_000 });
+    const { width, height } = await source.metadata();
+    if (width && height && Math.max(width, height) < 500) {
+      const resized = await source.rotate().resize(800, 800, { fit: "inside" })
+        .flatten({ background: "#ffffff" }).jpeg({ quality: 92 }).toBuffer();
+      image = { mediaType: "image/jpeg", data: resized.toString("base64") };
+    }
     const r = await uploadOnePhoto(token, image, name);
     if (!r.url) {
       const message =
