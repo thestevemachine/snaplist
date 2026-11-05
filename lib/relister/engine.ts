@@ -59,12 +59,14 @@ export async function advance(
     (row.nextAttemptAt && row.nextAttemptAt > Date.now())
   )
     return;
+  const preparing = ["selected", "backed_up", "verified"].includes(row.phase);
   const postcheckOnly =
     row.phase === "created" &&
     row.createAttempted === true &&
     Boolean(row.newId);
   if (
     job.mode === "live" &&
+    !preparing &&
     !postcheckOnly &&
     !(await repo.authorized?.(job, row))
   )
