@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { base64, convert, exposure } from "@/lib/live-foto/camera";
+import {
+  applyCameraZoom,
+  base64,
+  convert,
+  exposure,
+  openCameraStream,
+  readCameraZoom,
+} from "@/lib/live-foto/camera";
 import { type DraftRow, liveRequest, retryDelay } from "@/lib/live-foto/client";
 import {
   type Article,
@@ -57,6 +64,12 @@ export function LiveCamera() {
   const camera = useRef<MediaStream>(undefined);
   const mounted = useRef(false);
   const [zoom, setZoom] = useState(1);
+  const [cameraZoom, setCameraZoom] = useState({ requested: 1, actual: 1 });
+  const zoomWork = useRef(Promise.resolve());
+  const cropZoom = Math.max(1, zoom / cameraZoom.actual);
+  const [nativeZoom, setNativeZoom] = useState(false);
+  const zoomPending = nativeZoom && cameraZoom.requested !== zoom;
+  const viewfinder = useRef<HTMLDivElement>(null);
   const fingers = useRef(new Map<number, { x: number; y: number }>());
   const pinch = useRef<{ distance: number; zoom: number } | undefined>(
     undefined,
@@ -327,16 +340,61 @@ export function LiveCamera() {
   }, [journal?.session]);
 
   useEffect(() => {
+    if (!stream || !nativeZoom) return;
+    let current = true;
+    const timer = window.setTimeout(() => {
+      zoomWork.current = zoomWork.current
+        .then(async () => {
+          if (!current) return;
+          const actual = await applyCameraZoom(
+            stream.getVideoTracks()[0],
+            zoom,
+          );
+          if (current) setCameraZoom({ requested: zoom, actual });
+        })
+        .catch(() => {
+          if (current)
+            setCameraZoom({
+              requested: zoom,
+              actual: readCameraZoom(stream.getVideoTracks()[0]),
+            });
+        });
+    }, 60);
+    return () => {
+      current = false;
+      window.clearTimeout(timer);
+    };
+  }, [stream, nativeZoom, zoom]);
+
+  function leaveFullscreen() {
+    if (document.fullscreenElement === viewfinder.current)
+      void document.exitFullscreen?.().catch(() => {});
+    setFullscreen(false);
+  }
+
+  function toggleFullscreen() {
+    if (fullscreen) return leaveFullscreen();
+    setFullscreen(true);
+    // CSS fills the viewport when the browser has no fullscreen API.
+    void viewfinder.current?.requestFullscreen?.().catch(() => {});
+  }
+
+  useEffect(() => {
     if (!fullscreen) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const escape = (event: KeyboardEvent) => {
       if (event.key === "Escape") setFullscreen(false);
     };
+    const changed = () => {
+      if (!document.fullscreenElement) setFullscreen(false);
+    };
+    document.addEventListener("fullscreenchange", changed);
     window.addEventListener("keydown", escape);
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", escape);
+      document.removeEventListener("fullscreenchange", changed);
     };
   }, [fullscreen]);
 
@@ -346,7 +404,7 @@ export function LiveCamera() {
     camera.current?.getTracks().forEach((track) => track.stop());
     camera.current = undefined;
     setStream(undefined);
-    setFullscreen(false);
+    leaveFullscreen();
   }
 
   async function startCamera() {
@@ -354,19 +412,21 @@ export function LiveCamera() {
     setOpening(true);
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error();
-      const value = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 2560 },
-          height: { ideal: 1920 },
-        },
-      });
+      const value = await openCameraStream();
       if (!mounted.current) {
         value.getTracks().forEach((track) => track.stop());
         return;
       }
       camera.current = value;
+      const track = value.getVideoTracks()[0];
+      const capabilities = track.getCapabilities?.() as
+        { zoom?: { min: number; max: number } } | undefined;
+      setNativeZoom(
+        Boolean(
+          capabilities?.zoom && capabilities.zoom.max > capabilities.zoom.min,
+        ),
+      );
+      setCameraZoom({ requested: 1, actual: readCameraZoom(track) });
       setStream(value);
       setZoom(1);
     } catch {
@@ -546,6 +606,7 @@ export function LiveCamera() {
         <>
           <section className={styles.camera} aria-label="Kamera">
             <div
+              ref={viewfinder}
               className={fullscreen ? styles.fullscreen : styles.viewfinder}
               hidden={!stream}
             >
@@ -553,7 +614,7 @@ export function LiveCamera() {
                 <button
                   className="btn"
                   aria-pressed={fullscreen}
-                  onClick={() => setFullscreen((value) => !value)}
+                  onClick={toggleFullscreen}
                 >
                   {fullscreen ? "Vollbild verlassen" : "Vollbild"}
                 </button>
@@ -603,8 +664,8 @@ export function LiveCamera() {
                   playsInline
                   muted
                   style={{
-                    transform: `scale(${zoom})`,
-                    clipPath: `inset(${(1 - 1 / zoom) * 50}%)`,
+                    transform: `scale(${cropZoom})`,
+                    clipPath: `inset(${(1 - 1 / cropZoom) * 50}%)`,
                   }}
                 />
               </div>
@@ -615,7 +676,10 @@ export function LiveCamera() {
                 </p>
                 {fullscreen && error && <p role="alert">{error}</p>}
                 <label className={styles.zoom}>
-                  Zoom · {zoom.toFixed(1)}×
+                  {cameraZoom.actual > 1 && cropZoom <= 1.01
+                    ? "Kamerazoom"
+                    : "Zoom"}{" "}
+                  · {zoom.toFixed(1)}×
                   <input
                     aria-label="Kamera-Zoom"
                     type="range"
@@ -632,12 +696,13 @@ export function LiveCamera() {
                     className={styles.shutter}
                     disabled={
                       capturing ||
+                      zoomPending ||
                       (current.ids.length >= MAX_PHOTOS && !replacement)
                     }
                     onClick={() => {
                       if (stream && video.current)
                         void capture(() =>
-                          exposure(video.current!, stream, zoom),
+                          exposure(video.current!, stream, cropZoom),
                         );
                     }}
                   >

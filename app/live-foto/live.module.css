@@ -131,3 +131,38 @@
   min-width: 0;
   padding-inline: 1rem;
 }
+
+.fullscreen:fullscreen {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border: 0;
+}
+@media (orientation: landscape) {
+  .fullscreen {
+    grid-template-columns: minmax(0, 1fr) clamp(8rem, 23vw, 13rem);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas: "preview header" "preview controls";
+  }
+  .fullscreen .preview {
+    grid-area: preview;
+    min-width: 0;
+  }
+  .fullscreen .cameraHeader {
+    grid-area: header;
+  }
+  .fullscreen .cameraControls {
+    grid-area: controls;
+    align-content: center;
+    overflow-y: auto;
+    min-height: 0;
+  }
+  .fullscreen .cameraButtons,
+  .fullscreen .zoom {
+    flex-direction: column;
+  }
+  .fullscreen .zoom input {
+    max-width: 100%;
+    width: 8rem;
+  }
+}

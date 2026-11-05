@@ -75,14 +75,17 @@ ab Safari 18.4](https://webkit.org/blog/16574/webkit-features-in-safari-18-4/),
 Sonst ist die tatsächliche
 Videoauflösung die Obergrenze. Die App skaliert nicht hoch. Android/Chrome
 und iOS/Safari können unterschiedliche Auflösungen, Fokus und Zoom liefern.
-In der normalen Ansicht und im Vollbild steht ein digitaler Zoom von 1× bis
-3× zur Verfügung. Zwei Finger auf der Vorschau oder der Regler steuern den
-Zoom. Oberhalb von 1× speichert die App den mittleren Ausschnitt
-des Videobilds in seiner tatsächlichen Pixelauflösung. Der Zoom vergrößert
-die Ansicht, liefert aber keine zusätzlichen Bilddetails. Im Vollbild bleiben
-Auslöser, Artikelabschluss und Kameraschließen direkt verfügbar. Beim
-Artikelabschluss bleibt der Stream aktiv. Makro-Autofokus, Linsenwechsel
-und die Qualität der nativen Kamera-App hängen vom Gerät ab.
+Zwei Finger auf der Vorschau oder der Regler steuern den Zoom von 1× bis
+3×. Wenn der Browser eine Kamerasteuerung freigibt, setzt Live-Foto den
+Zoom am Kamerastream und liest den bestätigten Wert zurück. Welche
+Bilddetails der Stream dabei liefert, hängt von Gerät und Browser ab.
+Fehlender Kamerazoom wird durch einen mittigen digitalen Ausschnitt
+ergänzt. Dieser enthält keine zusätzlichen Bilddetails. Im Querformat
+zeigt das Vollbild die Vorschau links und Auslöser, Artikelabschluss und
+Kameraschließen rechts. Der Browser nutzt sein eigenes Vollbild, sofern
+verfügbar, sonst füllt die Kamera den sichtbaren Seitenbereich. Beim
+Artikelabschluss bleibt der Stream aktiv.
+
 Bei unscharfen Bügelbeschriftungen Abstand, Licht und Kamerawinkel ändern oder
 den gekennzeichneten Datei-Upload verwenden.
 

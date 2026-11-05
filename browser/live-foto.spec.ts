@@ -279,3 +279,55 @@ test("only the capture route allows the native camera API with a fake Chrome dev
     page.getByRole("button", { name: "Kamera öffnen" }),
   ).toBeVisible();
 });
+
+test("camera-controlled zoom fills the preview without a second crop and keeps the shutter beside it in landscape", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    // Simulate an exposed camera zoom control on Chrome's fake video track.
+    let zoom = 1;
+    const capabilities = MediaStreamTrack.prototype.getCapabilities;
+    const settings = MediaStreamTrack.prototype.getSettings;
+    const apply = MediaStreamTrack.prototype.applyConstraints;
+    MediaStreamTrack.prototype.getCapabilities = function () {
+      return {
+        ...capabilities.call(this),
+        zoom: { min: 1, max: 3, step: 0.1 },
+      };
+    };
+    MediaStreamTrack.prototype.getSettings = function () {
+      return { ...settings.call(this), zoom };
+    };
+    MediaStreamTrack.prototype.applyConstraints = async function (constraints) {
+      const requested = (constraints as { zoom?: { exact: number } })?.zoom;
+      if (requested) zoom = requested.exact;
+      else await apply.call(this, constraints);
+    };
+    // Verify the viewport fallback used by browsers without element fullscreen.
+    Object.defineProperty(HTMLElement.prototype, "requestFullscreen", {
+      value: undefined,
+    });
+  });
+
+  await page.goto("/live-foto");
+  await page.getByRole("button", { name: "Kamera öffnen" }).click();
+  await page.getByRole("button", { name: "Vollbild", exact: true }).click();
+  await page.setViewportSize({ width: 852, height: 393 });
+  const shutter = page.getByRole("button", { name: "Foto aufnehmen" });
+  const preview = page.locator("video");
+  await expect(shutter).toBeInViewport();
+  await expect(
+    page.getByRole("button", { name: "Artikel fertig → nächster" }),
+  ).toBeInViewport();
+  expect((await shutter.boundingBox())!.x).toBeGreaterThan(
+    (await preview.boundingBox())!.x,
+  );
+  await page.getByRole("slider", { name: "Kamera-Zoom" }).fill("2");
+  await expect(page.getByText("Kamerazoom · 2.0×")).toBeVisible();
+  await expect(preview).toHaveCSS("transform", "matrix(1, 0, 0, 1, 0, 0)");
+  await expect(shutter).toBeEnabled();
+  await page.getByRole("button", { name: "Kamera schließen" }).click();
+  await expect(
+    page.getByRole("button", { name: "Kamera öffnen" }),
+  ).toBeVisible();
+});
