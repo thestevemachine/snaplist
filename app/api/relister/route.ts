@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { withAccount, sameOrigin, accountDb } from "@/lib/accounts/server";
 import { currentAccount, accountsEnabled } from "@/lib/accounts/context";
@@ -161,7 +162,6 @@ async function handle(req: NextRequest) {
       for (const row of rows) {
         if (
           row.phase !== "review" ||
-          !row.backup?.images?.length ||
           row.newId ||
           row.createAttempted ||
           row.history.some((entry) => unsafePhases.has(entry.phase))
@@ -169,6 +169,10 @@ async function handle(req: NextRequest) {
           throw Error("Mindestens ein Angebot kann nicht gefahrlos erneut geprüft werden.");
       }
       for (const row of rows) {
+        // Backups are immutable. Use a new storage namespace and fetch the
+        // source listing's current, highest-resolution images on every retry.
+        row.id = randomUUID();
+        row.backup = undefined;
         row.phase = "selected";
         row.outgoing = undefined;
         row.feeCents = undefined;
@@ -179,7 +183,7 @@ async function handle(req: NextRequest) {
         row.history.push({
           at: new Date().toISOString(),
           phase: "selected",
-          note: "Erneute Sicherungs- und Vorprüfung angefordert; kein Angebot wird beendet oder eingestellt.",
+          note: "Frische Sicherung direkt vom aktiven eBay-Angebot angefordert; Bilder werden neu und in größter verfügbarer Auflösung geladen. Kein Angebot wird beendet oder eingestellt.",
         });
       }
       await repository(account.id).save(job);
