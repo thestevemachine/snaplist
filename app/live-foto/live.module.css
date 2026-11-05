@@ -1,0 +1,168 @@
+.page {
+  max-width: 52rem;
+}
+.camera {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  padding: 1rem 0;
+}
+.camera video {
+  width: min(100%, 40rem);
+  max-height: 52vh;
+  background: #142421;
+  object-fit: contain;
+  border-radius: 0.7rem;
+}
+.shutter {
+  min-height: 4.25rem;
+  min-width: 12rem;
+  border: 2px solid #fff;
+  border-radius: 3rem;
+  background: #155e52;
+  color: white;
+  font-weight: 700;
+  font-size: 1rem;
+}
+.shutter:disabled {
+  opacity: 0.55;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+.thumbs {
+  display: flex;
+  gap: 0.65rem;
+  list-style: none;
+  overflow-x: auto;
+  padding: 0 0 0.5rem;
+}
+.thumbs li {
+  flex: 0 0 7rem;
+  display: grid;
+  gap: 0.25rem;
+}
+.thumbs img {
+  width: 7rem;
+  height: 5.5rem;
+  object-fit: contain;
+  background: #eee;
+  border-radius: 0.4rem;
+}
+.list {
+  padding-left: 1.1rem;
+}
+.list li {
+  margin-bottom: 0.75rem;
+}
+.page input:not([type="file"]) {
+  max-width: 100%;
+}
+
+.viewfinder,
+.fullscreen {
+  width: 100%;
+  display: grid;
+  gap: 0.5rem;
+  background: #101c1a;
+  color: white;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+}
+.viewfinder[hidden] {
+  display: none;
+}
+.fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  border-radius: 0;
+  padding: max(0.75rem, env(safe-area-inset-top))
+    max(0.75rem, env(safe-area-inset-right))
+    max(0.75rem, env(safe-area-inset-bottom))
+    max(0.75rem, env(safe-area-inset-left));
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+.preview {
+  touch-action: none;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  overflow: hidden;
+}
+.preview video {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 52vh;
+}
+.fullscreen .preview video {
+  max-height: 100%;
+}
+.cameraHeader,
+.cameraButtons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+}
+.cameraControls {
+  display: grid;
+  justify-items: center;
+  gap: 0.4rem;
+}
+.cameraControls p {
+  margin: 0;
+}
+.zoom {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.zoom input {
+  width: min(40vw, 13rem);
+}
+.cameraButtons .shutter {
+  min-width: 0;
+  padding-inline: 1rem;
+}
+
+.fullscreen:fullscreen {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border: 0;
+}
+@media (orientation: landscape) {
+  .fullscreen {
+    grid-template-columns: minmax(0, 1fr) clamp(8rem, 23vw, 13rem);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas: "preview header" "preview controls";
+  }
+  .fullscreen .preview {
+    grid-area: preview;
+    min-width: 0;
+  }
+  .fullscreen .cameraHeader {
+    grid-area: header;
+  }
+  .fullscreen .cameraControls {
+    grid-area: controls;
+    align-content: center;
+    overflow-y: auto;
+    min-height: 0;
+  }
+  .fullscreen .cameraButtons,
+  .fullscreen .zoom {
+    flex-direction: column;
+  }
+  .fullscreen .zoom input {
+    max-width: 100%;
+    width: 8rem;
+  }
+}

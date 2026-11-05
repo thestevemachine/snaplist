@@ -95,6 +95,8 @@ export async function POST(req: NextRequest) {
     if (!workspace)
       throw new Error("Open this batch in the browser where you created it.");
     const batch = await ownedBatch(id.parse(body.batchId), workspace);
+    if (batch.settings?.source === "live-foto" || batch.settings?.source === "live-foto-session")
+      throw new Error("Batch not found or expired.");
     if (body.action === "upload-links") {
       if (batch.status !== "draft")
         throw new Error("This batch is already queued.");

@@ -1299,3 +1299,6 @@ textarea {
 .batch-table-scroll {
   scroll-padding-inline: 1rem;
 }
+
+.app-sections { display: flex; align-items: center; gap: 1rem; padding-block: .65rem; }
+.app-sections a { font-weight: 650; }

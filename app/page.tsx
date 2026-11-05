@@ -27,6 +27,7 @@ import { chunkImagesForUpload } from "@/lib/uploadBatches";
 import { EbayConnect } from "./EbayConnect";
 import { ModelSelector } from "./ModelSelector";
 import { ReviewBoard } from "./ReviewBoard";
+import { LiveDrafts } from "./live-foto/LiveDrafts";
 import { CloudBatch } from "./CloudBatch";
 import { ListingsView } from "./ListingsView";
 import type {
@@ -969,6 +970,18 @@ export default function Home() {
       </header>
 
       <EbayConnect />
+      <LiveDrafts groups={groups} enabled={!busy} onImport={async (group, incoming) => {
+        if (groups.some((g) => g.id === group.id)) return;
+        const nextPhotos = [...photos, ...incoming];
+        const nextGroups = [...groups, group];
+        await saveDraft({
+          version: 1, photos: nextPhotos, groups: nextGroups, orphanIds, binPrefix, skuStart,
+          step: "listings", updatedAt: Date.now(),
+        });
+        setPhotos(nextPhotos.map(lightPhoto));
+        setGroups(nextGroups);
+        setStep("listings");
+      }} />
 
       {step === "upload" && (
         <>

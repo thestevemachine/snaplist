@@ -22,7 +22,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <nav aria-label="App-Bereiche" className="wrap app-sections">
+          <a href="/">Snaplist</a>
+          {/* The independent Re-Lister branch registers its route here when merged. */}
+          <a href="/live-foto">Live-Foto</a>
+        </nav>
+        {children}
+      </body>
     </html>
   );
 }
