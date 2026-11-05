@@ -18,6 +18,15 @@ const dateTime = (value?: string) => {
     timeStyle: "short",
   });
 };
+const completedRelist = (jobs: Job[], listingId: string) =>
+  jobs
+    .flatMap((job) => job.rows)
+    .find(
+      (row) =>
+        row.listing.id === listingId &&
+        row.phase === "completed" &&
+        Boolean(row.newId),
+    );
 export default function ReLister() {
   const [items, setItems] = useState<Listing[]>([]),
     [seller, setSeller] = useState(""),
@@ -407,6 +416,13 @@ export default function ReLister() {
         )}
         {jobs.slice(0, 14).map((j, index) => {
           const completed = j.rows.filter((r) => r.phase === "completed").length;
+          const completedEarlier = j.rows.filter(
+            (r) => r.phase === "skipped" && Boolean(completedRelist(jobs, r.listing.id)),
+          ).length;
+          const needsReview = j.rows.filter((r) => r.phase === "review").length;
+          const skipped = j.rows.filter(
+            (r) => r.phase === "skipped" && !completedRelist(jobs, r.listing.id),
+          ).length;
           const running =
             !j.paused &&
             j.rows.some(
@@ -442,9 +458,19 @@ export default function ReLister() {
               <summary className="relister-batch-summary">
                 <span className="relister-batch-date">{dateTime(j.createdAt)}</span>
                 <span className="relister-batch-mode">{mode}</span>
-                <span>{completed}/{j.rows.length} abgeschlossen</span>
+                <span>
+                  {completed} in diesem Batch · {completedEarlier} schon vorher erledigt · {needsReview} Prüfung nötig · {skipped} übersprungen
+                </span>
                 <span className={running ? "relister-batch-running" : "relister-batch-state"}>
-                  {j.paused ? "Pausiert" : running ? "Läuft" : "Beendet"}
+                  {j.paused
+                    ? "Pausiert"
+                    : running
+                      ? "Läuft"
+                      : needsReview
+                        ? "Prüfung nötig"
+                        : skipped
+                          ? "Teilweise übersprungen"
+                          : "Abgeschlossen"}
                 </span>
               </summary>
               <article className="relister-batch-content">
@@ -500,7 +526,13 @@ export default function ReLister() {
                         <div className="relister-history-title-line">
                           <strong>{r.listing.title}</strong>
                           <span className={`relister-phase-badge${r.phase === "completed" ? " is-completed" : ""}`}>
-                            {r.phase === "completed" ? "Wieder eingestellt" : r.phase}
+                            {r.phase === "completed"
+                              ? "Wieder eingestellt"
+                              : r.phase === "skipped" && completedRelist(jobs, r.listing.id)
+                                ? "Bereits abgeschlossen"
+                                : r.phase === "review"
+                                  ? "Prüfung nötig"
+                                  : r.phase}
                           </span>
                         </div>
                         <div className="relister-history-meta">
@@ -526,9 +558,26 @@ export default function ReLister() {
                               <span>Neue Artikelnummer nicht verfügbar</span>
                             )}
                           </div>
+                        ) : r.phase === "skipped" && completedRelist(jobs, r.listing.id) ? (
+                          <div className="relister-history-result">
+                            <strong>Dieser Artikel wurde bereits in einem anderen Auftrag neu eingestellt.</strong>
+                            <a
+                              href={`https://www.ebay.de/itm/${encodeURIComponent(completedRelist(jobs, r.listing.id)!.newId!)}`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Aktuelles Listing ansehen · {completedRelist(jobs, r.listing.id)!.newId}
+                            </a>
+                          </div>
                         ) : (
                           <span className="relister-history-status">
-                            {r.error ? `Fehler: ${r.error}` : `Status: ${r.phase}`}
+                            {r.error === "Unveränderliche Sicherung bereits vorhanden."
+                              ? "Erneute Prüfung fehlgeschlagen: Die vorhandene Bildsicherung wurde nicht wiederverwendet. Bitte nach dem Update erneut prüfen."
+                              : r.error
+                                ? `Fehler: ${r.error}`
+                                : r.phase === "review"
+                                  ? "Manuelle Prüfung erforderlich"
+                                  : `Status: ${r.phase}`}
                           </span>
                         )}
                       </div>
