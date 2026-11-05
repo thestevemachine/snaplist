@@ -148,7 +148,7 @@ export default function ReLister() {
       else if (action === "confirm") setPreview(undefined);
       await load();
       setMessage(
-        action === "confirm"
+        action === "confirm" || action === "start"
           ? "Auftrag ausdrücklich freigegeben. Die Hintergrundverarbeitung übernimmt."
           : "Gespeichert.",
       );
@@ -172,13 +172,13 @@ export default function ReLister() {
         <strong className="relister-status">
           {jobs.some(
             (j) =>
-              j.mode === "live" &&
+              j.mode === "live" && j.confirmed && !j.paused &&
               j.rows.some(
                 (r) => !["completed", "review", "skipped"].includes(r.phase),
               ),
           )
             ? "Ein bestätigter Auftrag läuft im Hintergrund. Fortschritt unten prüfen."
-            : "Jeder Auftrag wird zuerst vollständig gesichert und geprüft. Erst deine ausdrückliche Bestätigung startet die Änderung am eBay-Angebot."}
+            : "Snaplist sichert und prüft die ausgewählten Angebote. Nach bestandener Prüfung beendet Snaplist das jeweilige Original und erstellt das neue eBay-Angebot."}
         </strong>
       </p>
       <p className="relister-intro">
@@ -374,9 +374,9 @@ export default function ReLister() {
           <button
             className="relister-primary"
             disabled={busy || !selection.length || Boolean(percentError)}
-            onClick={() => action("preview", { ids: selection, percent })}
+            onClick={() => action(seller === "SIMULATION" ? "preview" : "start", { ids: selection, percent })}
           >
-            Vorbereitung und Vorschau starten
+            {seller === "SIMULATION" ? "Simulation vorbereiten" : "Ausgewählte Angebote jetzt neu einstellen"}
           </button>
         </p>
       </section>
