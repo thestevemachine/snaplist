@@ -18,7 +18,7 @@ import { usageTotals } from "@/lib/ai-costs";
 import { withPublicationIdentity } from "@/lib/publication-identity";
 import { migrateContentGroup } from "@/lib/listing-content-rules";
 import { CATEGORY_FIELDS_VERSION } from "@/lib/ebay/category-fields";
-import { applyBatchSkus } from "@/lib/batch-sku";
+import { applyBatchSkus, batchSkuSuggestion, rememberBatchSku } from "@/lib/batch-sku";
 
 import {
   useCallback,
@@ -608,6 +608,36 @@ export default function Home() {
           : g,
       ),
     );
+
+  const splitPhotos = (groupId: string, afterIndex: number) => {
+    const current = groupsRef.current;
+    const group = current.find((item) => item.id === groupId);
+    if (!group || readOnly || queueBusy.current || inFlight.current.has(groupId) ||
+        group.status === "writing" || group.postStatus === "posted" ||
+        group.postStatus === "posting" || group.publicationAttemptSku ||
+        (group.cloudBatchId && !group.listing && group.status !== "error") ||
+        afterIndex < 0 || afterIndex >= group.photoIds.length - 1) return;
+    const first: ItemGroup = {
+      id: group.id,
+      name: group.name,
+      sku: group.sku,
+      photoIds: group.photoIds.slice(0, afterIndex + 1),
+      status: "idle",
+      shipping: group.shipping,
+      usage: group.usage,
+    };
+    const second: ItemGroup = {
+      id: newId(),
+      name: `${group.name} · Teil 2`,
+      sku: "",
+      photoIds: group.photoIds.slice(afterIndex + 1),
+      status: "idle",
+      shipping: group.shipping,
+    };
+    const next = current.flatMap((item) => item.id === groupId ? [first, second] : [item]);
+    groupsRef.current = next;
+    setGroups(next);
+  };
 
   const movePhoto = (photoId: string, toGroupId: string | "orphans") => {
     setGroups((prev) =>
@@ -1390,6 +1420,12 @@ export default function Home() {
       return;
     try {
       await clearDraft();
+      if (!batchSkuSuggestion()) {
+        const numbered = groups.filter((group) => /\d$/.test(group.sku.trim()));
+        const first = numbered[0];
+        const last = numbered.at(-1);
+        if (first && last) rememberBatchSku(groups[0].id, first.sku, last.sku);
+      }
       setPhotos([]);
       setGroups([]);
       setSortUsage([]);
@@ -1725,6 +1761,8 @@ export default function Home() {
           onRename={rename}
           onMovePhoto={movePhoto}
           onReorderPhoto={reorderPhoto}
+          onSplitPhoto={splitPhotos}
+          splitDisabled={busy}
           onDeleteGroup={deleteGroup}
           onAddGroup={addGroup}
           onWriteAll={writeAll}
@@ -1753,6 +1791,8 @@ export default function Home() {
               throw new Error("Bitte die laufende Veröffentlichung abwarten.");
             const current = groupsRef.current;
             const next = applyBatchSkus(current, first);
+            const assigned = next.filter((group, index) => group !== current[index]);
+            if (assigned.length) rememberBatchSku(current.find(group => group.photoIds.length)!.id, first.trim(), assigned.at(-1)!.sku);
             groupsRef.current = next;
             setGroups(next);
             return next.filter((g, i) => g !== current[i]).length;
@@ -1790,7 +1830,13 @@ export default function Home() {
           <>
             <h2 id="publication-heading">Veröffentlichung bestätigen</h2>
             <p>{publicationConfirmation.listing?.title}</p>
-            <p>SKU: {publicationConfirmation.sku}</p>
+            <p>SKU: {publicationConfirmation.sku} · {publicationConfirmation.photoIds.length} Fotos</p>
+            <div className="board-thumbs" aria-label="Fotos für eBay">
+              {publicationConfirmation.photoIds.map((id, index) => {
+                const photo = photoById(id);
+                return photo && <img key={id} src={photo.previewUrl} alt={index === 0 ? "Titelbild" : `Foto ${index + 1}`} width={80} height={64} style={{ objectFit: "contain" }} />;
+              })}
+            </div>
             <p>
               Hauptkategorie:{" "}
               {publicationConfirmation.preparation?.categoryName ||
@@ -1822,6 +1868,7 @@ export default function Home() {
               ))}
               <dt>Zustandshinweis</dt><dd>{publicationConfirmation.listing?.condition_notes}</dd>
             </dl>
+            <details><summary>Beschreibung ansehen</summary><p style={{ whiteSpace: "pre-wrap" }}>{publicationConfirmation.listing?.description}</p></details>
             <p>
               Das Angebot ist danach öffentlich und kann gekauft werden, auch
               bei hohem Preis. Es ist kein Entwurf.
