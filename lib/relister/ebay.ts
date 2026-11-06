@@ -122,6 +122,14 @@ export function normalize(i: Data, seller: string): Listing {
     predecessors: [],
   };
 }
+export function availableQuantity(i: Data): number | null {
+  const total = i.Quantity;
+  const sold = i.SellingStatus?.QuantitySold;
+  if (total == null || sold == null || !/^\d+$/.test(String(total)) || !/^\d+$/.test(String(sold))) return null;
+  const quantity = Number(total) - Number(sold);
+  return Number.isSafeInteger(Number(total)) && Number.isSafeInteger(Number(sold)) && quantity >= 0
+    ? quantity : null;
+}
 export function publicationPayload(i: Data): Payload {
   // First supported contract: single-item GTC listings using seller policies.
   const required = [
@@ -299,6 +307,8 @@ export function publicationPayload(i: Data): Payload {
           },
         }
       : {};
+  const quantity = availableQuantity(i);
+  if (quantity === null || quantity < 1) throw Error("Verfügbarer eBay-Bestand nicht eindeutig oder leer.");
   return {
     ...optional,
     ...offerSettings,
@@ -309,7 +319,7 @@ export function publicationPayload(i: Data): Payload {
     Currency: "EUR",
     ListingType: "FixedPriceItem",
     ListingDuration: "GTC",
-    Quantity: 1,
+    Quantity: quantity,
     StartPrice: String(i.StartPrice?.["#text"] ?? i.StartPrice),
     PrimaryCategory: { CategoryID: String(i.PrimaryCategory.CategoryID) },
     ConditionID: String(i.ConditionID),
