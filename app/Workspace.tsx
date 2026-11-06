@@ -426,14 +426,14 @@ export default function Home() {
   // ── Upload ──────────────────────────────────────────────
   const addFiles = useCallback(
     async (fileList: FileList | File[] | null) => {
-      if (!fileList || fileList.length === 0 || importing.current) return 0;
+      if (!fileList || fileList.length === 0 || importing.current) return [];
       setError(null);
       const files = Array.from(fileList)
         .filter((f) => f.type.startsWith("image/"))
         .sort((a, b) => a.name.localeCompare(b.name, "de", { numeric: true }));
       if (files.length === 0) {
         setError("Those didn't look like photos. Use JPG, PNG, or WebP.");
-        return 0;
+        return [];
       }
       importing.current = true;
       setQuoteRevision(n=>n+1);
@@ -457,10 +457,10 @@ export default function Home() {
         const resized = result.values;
         if (result.errors.length) setError(result.errors.join("; "));
         setPhotos((prev) => [...prev, ...resized].slice(0, MAX_PHOTOS));
-        return resized.length;
+        return resized;
       } catch (e) {
         setError((e as Error).message);
-        return 0;
+        return [];
       } finally {
         importing.current = false;
         setImportProgress("");
@@ -732,6 +732,7 @@ export default function Home() {
             ? {
                 ...g,
                 status: "writing",
+                cameraDraft: g.cameraDraft ? "started" : undefined,
                 error: undefined,
                 verificationMessage: undefined,
                 preparationError: undefined,
@@ -884,6 +885,48 @@ export default function Home() {
     },
     [photoMap],
   );
+
+  const cameraWorkers = useRef(new Set<string>());
+  const [cameraWorkerRevision, refreshCameraWorkers] = useState(0);
+  useEffect(() => {
+    if (!restored || readOnly) return;
+    const slots = Math.max(0, 2 - cameraWorkers.current.size);
+    const pending = groups.filter((group) =>
+      group.cameraDraft === "queued" && group.status === "idle" &&
+      !cameraWorkers.current.has(group.id) && !inFlight.current.has(group.id),
+    ).slice(0, slots);
+    for (const group of pending) {
+      cameraWorkers.current.add(group.id);
+      void writeGroup(group.id).finally(() => {
+        cameraWorkers.current.delete(group.id);
+        refreshCameraWorkers((revision) => revision + 1);
+      });
+    }
+  }, [groups, restored, readOnly, writeGroup, cameraWorkerRevision]);
+
+  const hasCameraDrafts = groups.some((group) => group.cameraDraft);
+  const cameraAssignedPhotos = new Set(
+    groups.filter((group) => group.cameraDraft).flatMap((group) => group.photoIds),
+  );
+
+  function finishCameraArticle(ids: string[]) {
+    const assigned = new Set(groupsRef.current.flatMap((group) => group.photoIds));
+    const photoIds = ids.filter((id) => photoMap.has(id) && !assigned.has(id));
+    if (!photoIds.length) return false;
+    const id = newId();
+    setGroups((previous) => [...previous, {
+      id, sku: "", name: `Brille ${previous.length + 1}`,
+      photoIds, status: "idle", cameraDraft: "queued",
+    }]);
+    return true;
+  }
+
+  function openCameraDrafts() {
+    if (!groupsRef.current.some((group) => group.cameraDraft)) return;
+    const assigned = new Set(groupsRef.current.flatMap((group) => group.photoIds));
+    setOrphanIds(photos.filter((photo) => !photo.separator && !assigned.has(photo.id)).map((photo) => photo.id));
+    setStep("listings");
+  }
 
   const reanalyzeAll = async () => {
     const ids = groupsRef.current
@@ -1511,7 +1554,13 @@ export default function Home() {
             <CameraCapture
               remaining={MAX_PHOTOS - photos.length}
               disabled={sorting || Boolean(importProgress)}
-              onCapture={async (file) => (await addFiles([file])) === 1}
+              onCapture={async (file) => (await addFiles([file]))[0]?.id}
+              onFinishArticle={finishCameraArticle}
+              onClose={openCameraDrafts}
+              draftProgress={hasCameraDrafts ? {
+                ready: groups.filter((group) => group.cameraDraft && group.status === "done").length,
+                total: groups.filter((group) => group.cameraDraft).length,
+              } : undefined}
             />
             {photos.some(photo=>photo.separator) && <p className="separator-note">Trennbilder markiert: direkt aufteilen oder die KI innerhalb der Abschnitte sortieren lassen. Die KI behält Fotos mit Brille.</p>}
             {importProgress && <p aria-live="polite">{importProgress}</p>}
@@ -1522,11 +1571,11 @@ export default function Home() {
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <button type="button" className="photo-separator-target" aria-pressed={Boolean(p.separator)}
                       aria-label={`Foto ${photos.indexOf(p)+1} ${p.separator ? "als normales Foto verwenden" : "als Trennbild markieren"}`}
-                      disabled={sorting || Boolean(importProgress)}
+                      disabled={cameraAssignedPhotos.has(p.id) || sorting || Boolean(importProgress)}
                       onClick={()=>setPhotos(prev=>prev.map(photo=>photo.id===p.id ? {...photo,separator:!photo.separator,separatorManual:true,skuMarker:undefined} : photo))}>
                       <img src={p.previewUrl} alt={p.separator ? "Trennbild" : ""} />
                     </button>
-                    <button type="button" className="separator-toggle" aria-pressed={Boolean(p.separator)} disabled={sorting || Boolean(importProgress)}
+                    <button type="button" className="separator-toggle" aria-pressed={Boolean(p.separator)} disabled={cameraAssignedPhotos.has(p.id) || sorting || Boolean(importProgress)}
                       aria-label={p.separator ? "Trennbild als normales Foto verwenden" : "Als Trennbild markieren"}
                       onClick={()=>setPhotos(prev=>prev.map(photo=>photo.id===p.id ? {...photo,separator:!photo.separator,separatorManual:true,skuMarker:undefined} : photo))}>
                       {p.skuMarker ? `SKU ${p.skuMarker}` : p.separator ? "Trennbild" : "Trennen"}
@@ -1534,6 +1583,7 @@ export default function Home() {
                     <button
                       type="button"
                       aria-label="Foto entfernen"
+                      disabled={cameraAssignedPhotos.has(p.id)}
                       onClick={() => removePhoto(p.id)}
                     >
                       ✕
@@ -1548,6 +1598,9 @@ export default function Home() {
               style={{ borderTop: "none", paddingTop: 0 }}
             >
               <ModelSelector />
+              {hasCameraDrafts ? (
+                <button type="button" className="btn btn-primary" onClick={openCameraDrafts}>Zu den Entwürfen</button>
+              ) : <>
               <button
                 type="button"
                 className="btn btn-ghost"
@@ -1596,6 +1649,7 @@ export default function Home() {
                   <>🔀 {photos.length || ""} Fotos mit KI sortieren</>
                 )}
               </button>
+              </>}
             </div>
 
             {error && (

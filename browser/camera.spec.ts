@@ -66,3 +66,85 @@ test("leaving the upload step releases the camera without dropping the saved ima
  await page.getByRole("button",{name:"Diese Fotos gehören zu einem Artikel"}).click();
  expect(await page.evaluate(()=>(window as any).cameraStream.getTracks().every((t:MediaStreamTrack)=>t.readyState==="ended"))).toBe(true);
 });
+
+test("landscape fullscreen zoom saves the cropped photo in the Snaplist workspace", async ({ page }) => {
+  await setup(page);
+  await page.getByRole("button", { name: "Kamera im Vollbild öffnen" }).click();
+  await page.setViewportSize({ width: 844, height: 390 });
+  const video = page.getByLabel("Live-Kamerabild");
+  const shutter = page.getByRole("button", { name: "Foto aufnehmen", exact: true });
+  await expect(page.getByRole("button", { name: "Vollbild verlassen" })).toBeVisible();
+  await expect(shutter).toBeInViewport();
+  await expect(shutter).toHaveCSS("border-top-left-radius", "50%");
+  const frame = (await video.boundingBox())!;
+  const button = (await shutter.boundingBox())!;
+  expect(button.x).toBeGreaterThan(frame.x);
+  expect(button.x + button.width).toBeLessThanOrEqual(frame.x + frame.width);
+  const touch = (type: string, pointerId: number, clientX: number) =>
+    video.dispatchEvent(type, { pointerType: "touch", pointerId, clientX, clientY: 100 });
+  await touch("pointerdown", 1, 100);
+  await touch("pointerdown", 2, 150);
+  await touch("pointermove", 2, 200);
+  await touch("pointerup", 1, 100);
+  await touch("pointerup", 2, 200);
+  await expect(page.getByRole("slider", { name: "Kamera-Zoom" })).toHaveValue("2");
+  await shutter.click();
+  await expect(page.getByText(/1 Fotos aufgenommen/)).toBeVisible();
+  await page.getByRole("button", { name: "Fertig · Kamera schließen" }).click();
+  await expect(page.locator(".thumb")).toHaveCount(1);
+  const dimensions = await page.evaluate(async () => {
+    const open = indexedDB.open("listing-writer-drafts");
+    const db = await new Promise<IDBDatabase>(resolve => open.onsuccess = () => resolve(open.result));
+    const result = db.transaction("assets").objectStore("assets").getAll();
+    const assets = await new Promise<{ original: Blob }[]>(resolve => result.onsuccess = () => resolve(result.result));
+    db.close();
+    const image = await createImageBitmap(assets[0].original);
+    const dimensions = [image.width, image.height];
+    image.close();
+    return dimensions;
+  });
+  expect(dimensions).toEqual([800, 600]);
+  await expect(page.getByRole("status").filter({hasText:"Auf diesem Gerät gespeichert"})).toBeVisible();
+  await page.reload();
+  await expect(page.locator(".thumb")).toHaveCount(1);
+});
+
+test("finished glasses start separate drafts while the camera remains open", async ({ page }) => {
+  await setup(page);
+  const groups: number[] = [];
+  let finishAnalysis!: () => void;
+  const gate = new Promise<void>((resolve) => { finishAnalysis = resolve; });
+  await page.route("**/api/analyze", async (route) => {
+    const photos = route.request().postDataJSON().images.length;
+    groups.push(photos);
+    await gate;
+    await route.fulfill({ json: { ok: true, listing: {
+      title: `Testbrille mit ${photos} Foto(s)`, description: "Eine Testbrille", item_specifics: {},
+    } } });
+  });
+  await page.route("**/api/ebay/prepare", (route) =>
+    route.fulfill({ json: { ok: true, listing: route.request().postDataJSON().listing } }));
+  await page.getByRole("button", { name: "Kamera im Vollbild öffnen" }).click();
+  const shutter = page.getByRole("button", { name: "Foto aufnehmen", exact: true });
+  const next = page.getByRole("button", { name: "Brille fertig → nächste" });
+  await shutter.click();
+  await expect(page.getByText(/1 Fotos aufgenommen/)).toBeVisible();
+  await shutter.click();
+  await expect(page.getByText(/2 Fotos aufgenommen/)).toBeVisible();
+  await next.click();
+  await expect(next).toBeDisabled();
+  await expect.poll(() => groups).toEqual([2]);
+  await expect(page.getByRole("button", { name: "Vollbild verlassen" })).toBeVisible();
+  await shutter.click();
+  await expect(page.getByText(/3 Fotos aufgenommen/)).toBeVisible();
+  await next.click();
+  await expect.poll(() => groups).toEqual([2, 1]);
+  finishAnalysis();
+  await expect(page.getByText("2 von 2 Entwürfen fertig")).toBeVisible();
+  await page.getByRole("button", { name: "Fertig · Kamera schließen" }).click();
+  await expect(page.getByRole("heading", { name: "Deine Angebote" })).toBeVisible();
+  await expect.poll(() => page.locator(".title-input").evaluateAll((fields) =>
+    fields.map((field) => (field as HTMLTextAreaElement).value).sort(),
+  )).toEqual(["Testbrille mit 1 Foto(s)", "Testbrille mit 2 Foto(s)"]);
+  expect(groups).toEqual([2, 1]);
+});

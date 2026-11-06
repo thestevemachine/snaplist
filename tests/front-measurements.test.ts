@@ -297,7 +297,7 @@ it("retains contours and image dimensions until a manual reference arrives, then
  l.frontMeasurement=calculateFrontMeasurement(observation(),sizes,l);
  expect(l.frontMeasurement.status).toBe("unavailable");
  expect(l.frontMeasurement.imageSize).toEqual(sizes[0]);
- const meta=[{name:"Glashöhe",mode:"FREE_TEXT" as const,cardinality:"SINGLE" as const,required:false,values:[]}];
+ const meta=[{name:"Glashöhe",mode:"FREE_TEXT" as const,cardinality:"SINGLE" as const,required:false,usage:"OPTIONAL" as const,values:[]}];
  const patch=manualLensWidth(l,"50",meta);
  expect(patch.frontMeasurement).toMatchObject({lensHeightMm:40,totalWidthMm:180,referenceSource:"manual"});
  expect(patch.item_specifics?.Glashöhe).toBe("40 mm");

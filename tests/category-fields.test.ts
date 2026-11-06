@@ -189,6 +189,6 @@ it("defaults unknown sunglasses lenses to grey and omits optional magnification,
 it("treats Nylor as Halbrand rather than Randlos or Vollrand",async()=>{
  const {expandEyewearFeatures}=await import("@/lib/ebay/category-fields");
  const aspects={Fassungsart:["Nylor"],Besonderheiten:["Randlos","Vollrand"]};
- expandEyewearFeatures(aspects,[{name:"Besonderheiten",mode:"SELECTION_ONLY",required:false,cardinality:"MULTI",values:["Randlos","Vollrand","Halbrand","Halbrahmen"]}]);
+ expandEyewearFeatures(aspects,[{name:"Besonderheiten",mode:"SELECTION_ONLY",required:false,usage:"OPTIONAL" as const,cardinality:"MULTI",values:["Randlos","Vollrand","Halbrand","Halbrahmen"]}]);
  expect(aspects.Besonderheiten).toEqual(["Halbrand","Halbrahmen"]);
 });
