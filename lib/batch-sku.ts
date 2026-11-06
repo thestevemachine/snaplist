@@ -1,5 +1,30 @@
 import type { ItemGroup } from "./types";
 import { skuSchema } from "./validation";
+import { workspaceStorageKey } from "./workspace-scope";
+
+const continuationKey = () => workspaceStorageKey("snaplist:last-batch-sku");
+
+export function batchSkuSuggestion(batchId?: string): string {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(continuationKey()) ?? "null");
+    const value = saved?.batchId === batchId && batchId ? saved?.first : saved?.next;
+    return typeof value === "string" && skuSchema.safeParse(value).success ? value : "";
+  } catch {
+    return "";
+  }
+}
+
+export function rememberBatchSku(batchId: string, first: string, last: string) {
+  const match = last.trim().match(/^(.*?)(\d+)$/);
+  if (!match) return;
+  const next = match[1] + (BigInt(match[2]) + 1n).toString().padStart(match[2].length, "0");
+  if (!skuSchema.safeParse(next).success) return;
+  try {
+    window.localStorage.setItem(continuationKey(), JSON.stringify({ batchId, first, next }));
+  } catch {
+    // The current draft still keeps its assigned SKUs if local storage is blocked.
+  }
+}
 
 export const canNumberSku = (g: ItemGroup) =>
   g.photoIds.length > 0 &&
