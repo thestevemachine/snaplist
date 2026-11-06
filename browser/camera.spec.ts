@@ -69,13 +69,17 @@ test("leaving the upload step releases the camera without dropping the saved ima
 
 test("landscape fullscreen zoom saves the cropped photo in the Snaplist workspace", async ({ page }) => {
   await setup(page);
-  await page.getByRole("button", { name: "Kamera öffnen · mehrere Fotos aufnehmen" }).click();
-  await page.getByRole("button", { name: "Vollbild", exact: true }).click();
+  await page.getByRole("button", { name: "Kamera im Vollbild öffnen" }).click();
   await page.setViewportSize({ width: 844, height: 390 });
   const video = page.getByLabel("Live-Kamerabild");
   const shutter = page.getByRole("button", { name: "Foto aufnehmen", exact: true });
+  await expect(page.getByRole("button", { name: "Vollbild verlassen" })).toBeVisible();
   await expect(shutter).toBeInViewport();
-  expect((await shutter.boundingBox())!.x).toBeGreaterThan((await video.boundingBox())!.x);
+  await expect(shutter).toHaveCSS("border-top-left-radius", "50%");
+  const frame = (await video.boundingBox())!;
+  const button = (await shutter.boundingBox())!;
+  expect(button.x).toBeGreaterThan(frame.x);
+  expect(button.x + button.width).toBeLessThanOrEqual(frame.x + frame.width);
   const touch = (type: string, pointerId: number, clientX: number) =>
     video.dispatchEvent(type, { pointerType: "touch", pointerId, clientX, clientY: 100 });
   await touch("pointerdown", 1, 100);

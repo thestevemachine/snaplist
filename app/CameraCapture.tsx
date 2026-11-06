@@ -28,7 +28,6 @@ export function CameraCapture({
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(0);
 
-  const viewfinder = useRef<HTMLDivElement>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [cameraZoom, setCameraZoom] = useState(1);
@@ -64,33 +63,16 @@ export function CameraCapture({
     if (fingers.current.delete(event.pointerId)) pinch.current = null;
   }
 
-  function leaveFullscreen() {
-    if (viewfinder.current && document.fullscreenElement === viewfinder.current)
-      void document.exitFullscreen().catch(() => {});
-    setFullscreen(false);
-  }
-
-  function toggleFullscreen() {
-    if (fullscreen) return leaveFullscreen();
-    setFullscreen(true);
-    void viewfinder.current?.requestFullscreen?.().catch(() => {});
-  }
-
   useEffect(() => {
     if (!fullscreen) return;
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const onExit = () => {
-      if (!document.fullscreenElement) setFullscreen(false);
-    };
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") leaveFullscreen();
+      if (event.key === "Escape") setFullscreen(false);
     };
-    document.addEventListener("fullscreenchange", onExit);
     window.addEventListener("keydown", onKey);
     return () => {
       document.body.style.overflow = overflow;
-      document.removeEventListener("fullscreenchange", onExit);
       window.removeEventListener("keydown", onKey);
     };
   }, [fullscreen]);
@@ -120,7 +102,7 @@ export function CameraCapture({
   }, [stream, supportsZoom, zoom]);
 
   function stop() {
-    leaveFullscreen();
+    setFullscreen(false);
     fingers.current.clear();
     pinch.current = null;
     request.current++;
@@ -159,7 +141,7 @@ export function CameraCapture({
     };
   }, [stream]);
 
-  async function start() {
+  async function start(openFullscreen = false) {
     setError("");
     if (!navigator.mediaDevices?.getUserMedia) {
       setError(
@@ -186,6 +168,7 @@ export function CameraCapture({
       setCameraZoom(readCameraZoom(track));
       currentStream.current = next;
       setStream(next);
+      setFullscreen(openFullscreen);
     } catch (cause) {
       if (id !== request.current) return;
       const name = cause instanceof DOMException ? cause.name : "";
@@ -229,22 +212,43 @@ export function CameraCapture({
       setBusy(false);
     }
   }
+  const shutterLabel = busy ? "Foto wird gespeichert…" : "Foto aufnehmen";
+  const shutter = (
+    <button
+      className="btn camera-shutter"
+      type="button"
+      aria-label={shutterLabel}
+      disabled={!ready || adjusting || busy || disabled || remaining < 1}
+      onClick={() => void capture()}
+    >
+      <span>{shutterLabel}</span>
+    </button>
+  );
   return (
     <section className="camera-capture" aria-label="Serienaufnahme">
       {!stream && !opening && (
-        <button
-          className="btn btn-ghost"
-          type="button"
-          disabled={disabled || remaining < 1}
-          onClick={() => void start()}
-        >
-          Kamera öffnen · mehrere Fotos aufnehmen
-        </button>
+        <div className="camera-entry">
+          <button
+            className="btn btn-ghost"
+            type="button"
+            disabled={disabled || remaining < 1}
+            onClick={() => void start()}
+          >
+            Kamera öffnen · mehrere Fotos aufnehmen
+          </button>
+          <button
+            className="btn"
+            type="button"
+            disabled={disabled || remaining < 1}
+            onClick={() => void start(true)}
+          >
+            Kamera im Vollbild öffnen
+          </button>
+        </div>
       )}
       {opening && <p role="status">Kamera wird geöffnet…</p>}
       {stream && (
         <div
-          ref={viewfinder}
           className={
             fullscreen
               ? "camera-viewfinder camera-fullscreen"
@@ -267,24 +271,35 @@ export function CameraCapture({
             onPointerUp={releaseFinger}
             onPointerCancel={releaseFinger}
           >
-            <video
-              ref={video}
-              autoPlay
-              muted
-              playsInline
-              aria-label="Live-Kamerabild"
-              onCanPlay={() => setReady(true)}
-              style={{
-                transform: `scale(${crop})`,
-                clipPath: `inset(${(1 - 1 / crop) * 50}%)`,
-              }}
-            />
+            <div className="camera-frame">
+              <video
+                ref={video}
+                autoPlay
+                muted
+                playsInline
+                aria-label="Live-Kamerabild"
+                onResize={(event) => {
+                  const element = event.currentTarget;
+                  if (element.videoWidth && element.videoHeight)
+                    element.parentElement?.style.setProperty(
+                      "--camera-aspect",
+                      String(element.videoWidth / element.videoHeight),
+                    );
+                }}
+                onCanPlay={() => setReady(true)}
+                style={{
+                  transform: `scale(${crop})`,
+                  clipPath: `inset(${(1 - 1 / crop) * 50}%)`,
+                }}
+              />
+              {fullscreen && shutter}
+            </div>
           </div>
           <div className="camera-actions">
             <button
               className="btn btn-ghost"
               type="button"
-              onClick={toggleFullscreen}
+              onClick={() => setFullscreen(!fullscreen)}
             >
               {fullscreen ? "Vollbild verlassen" : "Vollbild"}
             </button>
@@ -307,16 +322,6 @@ export function CameraCapture({
               />
             </label>
             <button
-              className="btn"
-              type="button"
-              disabled={
-                !ready || adjusting || busy || disabled || remaining < 1
-              }
-              onClick={() => void capture()}
-            >
-              {busy ? "Foto wird gespeichert…" : "Foto aufnehmen"}
-            </button>
-            <button
               className="btn btn-ghost"
               type="button"
               disabled={busy}
@@ -324,6 +329,7 @@ export function CameraCapture({
             >
               Fertig · Kamera schließen
             </button>
+            {!fullscreen && shutter}
             <p aria-live="polite">
               {saved} Fotos aufgenommen ·{" "}
               {remaining > 0
