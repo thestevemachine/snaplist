@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type PointerEvent } from "react";
 import {
   applyCameraZoom,
   exposure,
+  frameRotation,
   openCameraStream,
   readCameraZoom,
 } from "@/lib/camera";
@@ -30,6 +31,30 @@ export function CameraCapture({
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [opening, setOpening] = useState(false);
   const [ready, setReady] = useState(false);
+  const [orientation, setOrientation] = useState<{
+    rotation: number;
+    landscape: boolean;
+  }>();
+  const frame = useRef<HTMLDivElement>(null);
+
+  function updateOrientation() {
+    const element = video.current;
+    if (!element?.videoWidth) return;
+    const rotation = frameRotation(element);
+    const width = frame.current?.clientWidth ?? 0;
+    const height = frame.current?.clientHeight ?? 0;
+    const landscape =
+      fullscreen && width && height
+        ? width >= height
+        : rotation
+          ? element.videoHeight >= element.videoWidth
+          : element.videoWidth >= element.videoHeight;
+    setOrientation((old) =>
+      old?.rotation === rotation && old.landscape === landscape
+        ? old
+        : { rotation, landscape },
+    );
+  }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(0);
@@ -130,6 +155,7 @@ export function CameraCapture({
     setStream(null);
     setOpening(false);
     setReady(false);
+    setOrientation(undefined);
   }
   useEffect(() => {
     const pause = () => {
@@ -159,6 +185,24 @@ export function CameraCapture({
       element.srcObject = null;
     };
   }, [stream]);
+
+  useEffect(() => {
+    if (!stream) return;
+    const observer = new ResizeObserver(updateOrientation);
+    if (frame.current) observer.observe(frame.current);
+    const media = window.matchMedia("(orientation: landscape)");
+    media.addEventListener("change", updateOrientation);
+    const screenOrientation = screen.orientation;
+    screenOrientation?.addEventListener("change", updateOrientation);
+    window.addEventListener("orientationchange", updateOrientation);
+    updateOrientation();
+    return () => {
+      observer.disconnect();
+      media.removeEventListener("change", updateOrientation);
+      screenOrientation?.removeEventListener("change", updateOrientation);
+      window.removeEventListener("orientationchange", updateOrientation);
+    };
+  }, [stream, fullscreen]);
 
   async function start(openFullscreen = false) {
     setError("");
@@ -216,7 +260,17 @@ export function CameraCapture({
     setBusy(true);
     setError("");
     try {
-      const blob = await exposure(element, stream, crop);
+      const aspect =
+        fullscreen && frame.current?.clientHeight
+          ? frame.current.clientWidth / frame.current.clientHeight
+          : undefined;
+      const blob = await exposure(
+        element,
+        stream,
+        crop,
+        frameRotation(element),
+        aspect,
+      );
       const file = new File([blob], `snaplist-${Date.now()}.jpg`, {
         type: "image/jpeg",
       });
@@ -293,26 +347,36 @@ export function CameraCapture({
             onPointerUp={releaseFinger}
             onPointerCancel={releaseFinger}
           >
-            <div className="camera-frame">
+            <div ref={frame} className="camera-frame">
+              {orientation && (
+                <span className="camera-orientation" role="status">
+                  {orientation.landscape ? "Querformat" : "Hochformat"}
+                </span>
+              )}
               <video
                 ref={video}
                 autoPlay
                 muted
                 playsInline
                 aria-label="Live-Kamerabild"
-                onResize={(event) => {
-                  const element = event.currentTarget;
-                  if (element.videoWidth && element.videoHeight)
-                    element.parentElement?.style.setProperty(
-                      "--camera-aspect",
-                      String(element.videoWidth / element.videoHeight),
-                    );
+                onResize={updateOrientation}
+                onCanPlay={() => {
+                  setReady(true);
+                  updateOrientation();
                 }}
-                onCanPlay={() => setReady(true)}
-                style={{
-                  transform: `scale(${crop})`,
-                  clipPath: `inset(${(1 - 1 / crop) * 50}%)`,
-                }}
+                className={
+                  orientation?.rotation ? "camera-video-rotated" : undefined
+                }
+                style={
+                  fullscreen
+                    ? {
+                        transform: `rotate(${orientation?.rotation ?? 0}deg) scale(${crop})`,
+                      }
+                    : {
+                        transform: `scale(${crop})`,
+                        clipPath: `inset(${(1 - 1 / crop) * 50}%)`,
+                      }
+                }
               />
               {fullscreen && shutter}
             </div>

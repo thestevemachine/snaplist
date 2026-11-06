@@ -75,14 +75,33 @@ export async function applyCameraZoom(
   return readCameraZoom(track);
 }
 
+export function frameRotation(video: HTMLVideoElement) {
+  if (!navigator.maxTouchPoints || !video.videoWidth || !video.videoHeight)
+    return 0;
+  const landscape = window.matchMedia("(orientation: landscape)").matches;
+  if (landscape === video.videoWidth >= video.videoHeight) return 0;
+  // Older iPhones expose the rotation direction through window.orientation.
+  const angle = screen.orientation?.angle || Number(window.orientation) || 0;
+  // Screen angles are counterclockwise, while CSS and canvas are clockwise.
+  return angle === 270 || angle === -90 ? 90 : -90;
+}
+
 type Still = new (track: MediaStreamTrack) => { takePhoto(): Promise<Blob> };
 export async function exposure(
   video: HTMLVideoElement,
   stream: MediaStream,
   zoom = 1,
+  rotation = 0,
+  aspect?: number,
 ) {
   const Capture = (window as Window & { ImageCapture?: Still }).ImageCapture;
-  if (Capture && zoom === 1) {
+  if (
+    Capture &&
+    zoom === 1 &&
+    !rotation &&
+    !aspect &&
+    !navigator.maxTouchPoints
+  ) {
     try {
       return await new Capture(stream.getVideoTracks()[0]).takePhoto();
     } catch {
@@ -92,21 +111,23 @@ export async function exposure(
   if (!video.videoWidth || !video.videoHeight)
     throw new Error("Kamera ist noch nicht bereit.");
   const canvas = document.createElement("canvas");
-  canvas.width = Math.round(video.videoWidth / zoom);
-  canvas.height = Math.round(video.videoHeight / zoom);
+  const { videoWidth, videoHeight } = video;
+  const width = rotation ? videoHeight : videoWidth;
+  const height = rotation ? videoWidth : videoHeight;
+  const ratio = aspect && aspect > 0 ? aspect : width / height;
+  canvas.width = Math.max(
+    1,
+    Math.round(Math.min(width, height * ratio) / zoom),
+  );
+  canvas.height = Math.max(
+    1,
+    Math.round(Math.min(height, width / ratio) / zoom),
+  );
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Videobild konnte nicht gelesen werden.");
-  ctx.drawImage(
-    video,
-    (video.videoWidth - canvas.width) / 2,
-    (video.videoHeight - canvas.height) / 2,
-    canvas.width,
-    canvas.height,
-    0,
-    0,
-    canvas.width,
-    canvas.height,
-  );
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate((rotation * Math.PI) / 180);
+  ctx.drawImage(video, -videoWidth / 2, -videoHeight / 2);
   return new Promise<Blob>((resolve, reject) =>
     canvas.toBlob(
       (blob) =>

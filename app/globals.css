@@ -2596,17 +2596,48 @@ textarea.title-input {
   inset: 0;
   border-radius: 0;
 }
-.camera-fullscreen .camera-frame {
+.camera-frame {
   position: relative;
-  width: min(100%, calc(100dvh * var(--camera-aspect, 1.333)));
+}
+.camera-fullscreen .camera-frame {
+  width: 100%;
+  height: 100%;
+  container-type: size;
 }
 .camera-capture .camera-fullscreen video {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
   width: 100%;
-  max-height: 100dvh;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: cover;
+  border-radius: 0;
+}
+.camera-capture .camera-fullscreen .camera-video-rotated {
+  width: 100cqh;
+  height: 100cqw;
+}
+.camera-orientation {
+  position: absolute;
+  z-index: 3;
+  top: max(.5rem, env(safe-area-inset-top));
+  right: max(.5rem, env(safe-area-inset-right));
+  padding: .2rem .5rem;
+  border-radius: 1rem;
+  color: white;
+  background: rgb(0 0 0 / 65%);
+  font-size: .75rem;
+  pointer-events: none;
 }
 .camera-fullscreen .camera-actions {
   position: absolute;
-  inset: max(.5rem, env(safe-area-inset-top)) .5rem auto;
+  inset: max(2rem, env(safe-area-inset-top)) auto auto max(.5rem, env(safe-area-inset-left));
+  width: min(12rem, 48vw);
+  gap: .25rem;
+  padding: .35rem;
   margin: 0;
   align-items: center;
   background: rgb(0 0 0 / 72%);
@@ -2614,6 +2645,17 @@ textarea.title-input {
 }
 .camera-fullscreen .camera-actions p {
   flex-basis: 100%;
+  margin: .15rem 0;
+  font-size: .72rem;
+}
+.camera-fullscreen .camera-actions button {
+  min-height: 36px;
+  padding: .3rem .45rem;
+  font-size: .78rem;
+}
+.camera-fullscreen .camera-zoom {
+  font-size: .75rem;
+  width: 100%;
 }
 .camera-fullscreen .camera-shutter {
   position: absolute;
@@ -2640,7 +2682,7 @@ textarea.title-input {
 @media (orientation: landscape) {
   .camera-fullscreen .camera-actions {
     inset: 0 auto 0 max(.5rem, env(safe-area-inset-left));
-    width: clamp(9rem, 22vw, 13rem);
+    width: clamp(7rem, 16vw, 10rem);
     display: flex;
     flex-direction: column;
     flex-wrap: nowrap;

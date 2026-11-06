@@ -1,17 +1,18 @@
 import {test,expect,Page} from "@playwright/test";
-async function setup(page:Page, denied=false) {
+async function setup(page:Page, denied=false, portraitStream=false) {
  let writes=0;
  await page.route("**/api/**",route=>{
   if(route.request().method()==="POST") writes++;
   const url=route.request().url();
   return route.fulfill({json:url.includes("/api/models") ? {sortModels:[],analysisModels:[]} : {ok:true,connected:false}});
  });
- await page.addInitScript(({denied})=>{
+ await page.addInitScript(({denied, portraitStream})=>{
+  if (portraitStream) Object.defineProperty(navigator, "maxTouchPoints", {value: 5});
   let stream:MediaStream;
   Object.defineProperty(navigator.mediaDevices,"getUserMedia",{configurable:true,value:async(constraints:MediaStreamConstraints)=>{
    (window as any).cameraConstraints=constraints;
    if(denied) throw new DOMException("Denied","NotAllowedError");
-   const canvas=document.createElement("canvas");canvas.width=1600;canvas.height=1200;
+   const canvas=document.createElement("canvas");canvas.width=portraitStream ? 1200 : 1600;canvas.height=portraitStream ? 1600 : 1200;
    const ctx=canvas.getContext("2d")!;ctx.fillStyle="#ddd";ctx.fillRect(0,0,1600,1200);ctx.fillStyle="#111";ctx.fillText("Brillen-Testfoto",200,300);
    stream=canvas.captureStream(10);
    const timer=setInterval(()=>{ctx.fillRect(1,1,5,5)},50);
@@ -20,7 +21,7 @@ async function setup(page:Page, denied=false) {
    (window as any).cameraStream=stream;
    return stream;
   }});
- },{denied});
+ },{denied, portraitStream});
  await page.setViewportSize({width:390,height:844});
  await page.goto("/");
  await expect(page.getByRole("status").filter({hasText:"Auf diesem Gerät gespeichert"})).toBeVisible();
@@ -68,15 +69,18 @@ test("leaving the upload step releases the camera without dropping the saved ima
 });
 
 test("landscape fullscreen zoom saves the cropped photo in the Snaplist workspace", async ({ page }) => {
-  await setup(page);
+  await setup(page, false, true);
   await page.getByRole("button", { name: "Kamera im Vollbild öffnen" }).click();
+  await expect(page.getByText("Hochformat", { exact: true })).toBeVisible();
   await page.setViewportSize({ width: 844, height: 390 });
+  await expect(page.getByText("Querformat", { exact: true })).toBeVisible();
+  await expect(page.locator(".camera-preview")).toHaveCSS("width", "844px");
   const video = page.getByLabel("Live-Kamerabild");
   const shutter = page.getByRole("button", { name: "Foto aufnehmen", exact: true });
   await expect(page.getByRole("button", { name: "Vollbild verlassen" })).toBeVisible();
   await expect(shutter).toBeInViewport();
   await expect(shutter).toHaveCSS("border-top-left-radius", "50%");
-  const frame = (await video.boundingBox())!;
+  const frame = (await page.locator(".camera-preview").boundingBox())!;
   const button = (await shutter.boundingBox())!;
   expect(button.x).toBeGreaterThan(frame.x);
   expect(button.x + button.width).toBeLessThanOrEqual(frame.x + frame.width);
@@ -103,7 +107,7 @@ test("landscape fullscreen zoom saves the cropped photo in the Snaplist workspac
     image.close();
     return dimensions;
   });
-  expect(dimensions).toEqual([800, 600]);
+  expect(dimensions).toEqual([800, 370]);
   await expect(page.getByRole("status").filter({hasText:"Auf diesem Gerät gespeichert"})).toBeVisible();
   await page.reload();
   await expect(page.locator(".thumb")).toHaveCount(1);
