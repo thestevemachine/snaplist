@@ -2659,12 +2659,12 @@ textarea.title-input {
 }
 .camera-fullscreen .camera-shutter {
   position: absolute;
-  bottom: .75rem;
+  bottom: calc(max(.75rem, env(safe-area-inset-bottom)) + 2.375rem);
   left: 50%;
   transform: translateX(-50%);
   z-index: 3;
-  width: 64px;
-  height: 64px;
+  width: 78px;
+  height: 78px;
   padding: 0;
   border: 4px solid white;
   outline: 2px solid #222;
@@ -2691,7 +2691,7 @@ textarea.title-input {
   }
   .camera-fullscreen .camera-shutter {
     top: 50%;
-    right: max(.75rem, env(safe-area-inset-right));
+    right: calc(max(.75rem, env(safe-area-inset-right)) + 2.375rem);
     bottom: auto;
     left: auto;
     transform: translateY(-50%);
