@@ -27,6 +27,8 @@ function postcheckNote(row: JobRow) {
   if (row.phase !== "review" || !row.newId) return undefined;
   if (row.error === "Nachprüfung abweichend: Angebot.StartPrice.")
     return `Nachprüfung: Beim Abgleich mit eBay gab es eine Abweichung beim Startpreis. Vorgesehen waren ${eur(row.targetCents)}.`;
+  if (row.error?.includes("Angebot.SecondaryCategory") || row.error?.includes("Angebot.PrimaryCategory"))
+    return "Bitte die eBay-Kategorien prüfen. Beim Abgleich nach dem Einstellen gab es eine Abweichung.";
   return row.error ?? "Nachprüfung konnte nicht bestätigt werden.";
 }
 
