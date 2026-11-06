@@ -172,6 +172,7 @@ export function ListingsView(props: ListingsViewProps) {
     <section className="panel" aria-labelledby="listings-heading">
       <div className="result-head">
         <h3 id="listings-heading">Deine Angebote</h3>
+        <button type="button" className="btn btn-ghost" disabled={active} onClick={onBack}>← Zur Bilderansicht</button>
         <span className="badge">
           {done}/{groups.length} Entwürfe erstellt · {ready.length} bereit ·{" "}
           {posted} veröffentlicht
