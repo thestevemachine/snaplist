@@ -151,7 +151,6 @@ export function publicationPayload(i: Data): Payload {
       "DiscountPriceInfo",
       "ListingEnhancement",
       "SubTitle",
-      "SecondaryCategory",
     ].filter((k) => Boolean(i[k])),
     ...[
       "ShippingDiscountProfileID",
@@ -200,6 +199,12 @@ export function publicationPayload(i: Data): Payload {
   if (offer !== undefined && !["true", "false", true, false].includes(offer))
     throw Error("Preisvorschlagseinstellungen unklar.");
   const optional: Partial<Payload> = {};
+  if (i.SecondaryCategory != null) {
+    const categoryId = String(i.SecondaryCategory.CategoryID ?? "");
+    if (!/^[1-9]\d*$/.test(categoryId))
+      throw Error("Zweite eBay-Kategorie hat keine gültige Kennung.");
+    optional.SecondaryCategory = { CategoryID: categoryId };
+  }
   const regulatory = regulatoryPayload(i.Regulatory);
   if (regulatory !== undefined) optional.Regulatory = regulatory;
   if (i.InventoryTrackingMethod !== undefined) {
