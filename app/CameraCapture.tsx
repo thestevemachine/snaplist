@@ -12,10 +12,16 @@ export function CameraCapture({
   remaining,
   disabled,
   onCapture,
+  onFinishArticle,
+  onClose,
+  draftProgress,
 }: {
   remaining: number;
   disabled: boolean;
-  onCapture: (file: File) => Promise<boolean>;
+  onCapture: (file: File) => Promise<string | undefined>;
+  onFinishArticle: (photoIds: string[]) => boolean;
+  onClose: () => void;
+  draftProgress?: { ready: number; total: number };
 }) {
   const video = useRef<HTMLVideoElement>(null);
   const currentStream = useRef<MediaStream | null>(null);
@@ -27,6 +33,19 @@ export function CameraCapture({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(0);
+  const articlePhotos = useRef<string[]>([]);
+  const [articleCount, setArticleCount] = useState(0);
+
+  function finishArticle() {
+    if (capturing.current || !articlePhotos.current.length) return;
+    if (!onFinishArticle(articlePhotos.current)) {
+      setError("Für diese Brille sind keine neuen Fotos mehr verfügbar.");
+      return;
+    }
+    articlePhotos.current = [];
+    setArticleCount(0);
+    setError("");
+  }
 
   const [fullscreen, setFullscreen] = useState(false);
   const [zoom, setZoom] = useState(1);
@@ -201,7 +220,10 @@ export function CameraCapture({
       const file = new File([blob], `snaplist-${Date.now()}.jpg`, {
         type: "image/jpeg",
       });
-      if (!(await onCapture(file))) throw Error();
+      const photoId = await onCapture(file);
+      if (!photoId) throw Error();
+      articlePhotos.current.push(photoId);
+      setArticleCount(articlePhotos.current.length);
       setSaved((value) => value + 1);
     } catch {
       setError(
@@ -325,11 +347,27 @@ export function CameraCapture({
               className="btn btn-ghost"
               type="button"
               disabled={busy}
-              onClick={stop}
+              onClick={() => {
+                stop();
+                onClose();
+              }}
             >
               Fertig · Kamera schließen
             </button>
+            <button
+              className="btn btn-primary"
+              type="button"
+              disabled={busy || disabled || !articleCount}
+              onClick={finishArticle}
+            >
+              Brille fertig → nächste
+            </button>
             {!fullscreen && shutter}
+            {draftProgress && (
+              <p role="status">
+                {draftProgress.ready} von {draftProgress.total} Entwürfen fertig
+              </p>
+            )}
             <p aria-live="polite">
               {saved} Fotos aufgenommen ·{" "}
               {remaining > 0

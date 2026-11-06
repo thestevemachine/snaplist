@@ -108,3 +108,43 @@ test("landscape fullscreen zoom saves the cropped photo in the Snaplist workspac
   await page.reload();
   await expect(page.locator(".thumb")).toHaveCount(1);
 });
+
+test("finished glasses start separate drafts while the camera remains open", async ({ page }) => {
+  await setup(page);
+  const groups: number[] = [];
+  let finishAnalysis!: () => void;
+  const gate = new Promise<void>((resolve) => { finishAnalysis = resolve; });
+  await page.route("**/api/analyze", async (route) => {
+    const photos = route.request().postDataJSON().images.length;
+    groups.push(photos);
+    await gate;
+    await route.fulfill({ json: { ok: true, listing: {
+      title: `Testbrille mit ${photos} Foto(s)`, description: "Eine Testbrille", item_specifics: {},
+    } } });
+  });
+  await page.route("**/api/ebay/prepare", (route) =>
+    route.fulfill({ json: { ok: true, listing: route.request().postDataJSON().listing } }));
+  await page.getByRole("button", { name: "Kamera im Vollbild öffnen" }).click();
+  const shutter = page.getByRole("button", { name: "Foto aufnehmen", exact: true });
+  const next = page.getByRole("button", { name: "Brille fertig → nächste" });
+  await shutter.click();
+  await expect(page.getByText(/1 Fotos aufgenommen/)).toBeVisible();
+  await shutter.click();
+  await expect(page.getByText(/2 Fotos aufgenommen/)).toBeVisible();
+  await next.click();
+  await expect(next).toBeDisabled();
+  await expect.poll(() => groups).toEqual([2]);
+  await expect(page.getByRole("button", { name: "Vollbild verlassen" })).toBeVisible();
+  await shutter.click();
+  await expect(page.getByText(/3 Fotos aufgenommen/)).toBeVisible();
+  await next.click();
+  await expect.poll(() => groups).toEqual([2, 1]);
+  finishAnalysis();
+  await expect(page.getByText("2 von 2 Entwürfen fertig")).toBeVisible();
+  await page.getByRole("button", { name: "Fertig · Kamera schließen" }).click();
+  await expect(page.getByRole("heading", { name: "Deine Angebote" })).toBeVisible();
+  await expect.poll(() => page.locator(".title-input").evaluateAll((fields) =>
+    fields.map((field) => (field as HTMLTextAreaElement).value).sort(),
+  )).toEqual(["Testbrille mit 1 Foto(s)", "Testbrille mit 2 Foto(s)"]);
+  expect(groups).toEqual([2, 1]);
+});

@@ -120,6 +120,7 @@ export interface CompsSummary {
 }
 
 export interface ItemGroup {
+  cameraDraft?: "queued" | "started";
   analysisModel?: string;
   comparisons?: {
     id: string;
