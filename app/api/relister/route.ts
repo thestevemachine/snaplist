@@ -140,7 +140,7 @@ async function handle(req: NextRequest) {
       );
       if (selected.some((l: unknown) => !l))
         throw Error("Auswahl nicht im Verkäuferbestand.");
-      const conflicts = selected.flatMap((listing: any) =>
+      const conflicts = direct ? [] : selected.flatMap((listing: any) =>
         exclusions(
           listing,
           c.seller,
@@ -152,7 +152,7 @@ async function handle(req: NextRequest) {
           { ok: false, error: conflicts.join("; ") },
           { status: 400 },
         );
-      const job = preview(account.id, c.seller, selected, body.percent);
+      const job = preview(account.id, c.seller, selected, body.percent, direct);
       if (direct) {
         if (c.seller === "SIMULATION") throw Error("Für Testdaten bitte den Probelauf verwenden.");
         job.mode = "live";
