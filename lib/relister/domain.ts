@@ -58,6 +58,8 @@ export type Payload = {
   Quantity: 1;
   StartPrice: string;
   PrimaryCategory: { CategoryID: string };
+  SecondaryCategory?: { CategoryID: string };
+  CategoryMappingAllowed?: boolean;
   ConditionID: string;
   ConditionDescription?: string;
   ItemSpecifics: { NameValueList: { Name: string; Value: string[] }[] };
@@ -172,7 +174,15 @@ export function exclusions(
   target = l.priceCents,
 ): string[] {
   const reasons: string[] = [];
-  if (l.blockingReason) reasons.push(l.blockingReason);
+  if (l.blockingReason) {
+    // Cached catalog entries can still contain the old category restriction.
+    const prefix = "Nicht unterstützte Einstellungen: ";
+    if (l.blockingReason.startsWith(prefix)) {
+      const unsupported = l.blockingReason.slice(prefix.length).replace(/\.$/, "")
+        .split(", ").filter((setting) => setting !== "SecondaryCategory");
+      if (unsupported.length) reasons.push(`${prefix}${unsupported.join(", ")}.`);
+    } else reasons.push(l.blockingReason);
+  }
   if (l.seller !== seller) reasons.push("Anderes Verkäuferkonto");
   if (l.site !== "Germany") reasons.push("Kein deutsches Originalangebot");
   if (!l.active) reasons.push("Nicht aktiv");
