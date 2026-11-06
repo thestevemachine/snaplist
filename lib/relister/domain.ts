@@ -55,7 +55,7 @@ export type Payload = {
   Currency: "EUR";
   ListingType: "FixedPriceItem";
   ListingDuration: "GTC";
-  Quantity: 1;
+  Quantity: number;
   StartPrice: string;
   PrimaryCategory: { CategoryID: string };
   SecondaryCategory?: { CategoryID: string };
@@ -187,8 +187,9 @@ export function exclusions(
   if (l.site !== "Germany") reasons.push("Kein deutsches Originalangebot");
   if (!l.active) reasons.push("Nicht aktiv");
   if (l.type !== "FixedPriceItem") reasons.push("Kein Festpreisangebot");
-  if (l.quantity !== 1 || l.sold !== 0)
-    reasons.push("Bestand/Verkäufe nicht sicher für Einzelstück geeignet");
+  if (l.quantity === null || !Number.isSafeInteger(l.quantity) || l.quantity < 1 ||
+      l.sold === null || !Number.isSafeInteger(l.sold) || l.sold < 0)
+    reasons.push("Verfügbarer Bestand oder Verkaufszahl bei eBay nicht eindeutig");
   if (l.variations) reasons.push("Varianten werden nicht unterstützt");
   if (l.management !== "trading")
     reasons.push("Verwaltungsweg nicht als Trading bestätigt");
