@@ -164,7 +164,9 @@ export async function advance(
       const fresh = await adapter.read(row.listing.id);
       if (
         exclusions(fresh, job.seller, row.targetCents).length ||
-        fresh.priceCents !== row.originalCents
+        fresh.priceCents !== row.originalCents ||
+        fresh.quantity !== row.backup?.listing.quantity ||
+        fresh.sold !== row.backup?.listing.sold
       )
         throw Error(
           "Status, Bestand oder Preis geändert: neue Vorschau erforderlich.",
@@ -199,7 +201,7 @@ export async function advance(
       if (!(await adapter.ended(row.listing.id)))
         throw new TemporaryError("Ende noch nicht bestätigt.");
       const after = await adapter.read(row.listing.id);
-      if (after.sold !== 0 || after.quantity !== 1)
+      if (after.sold !== row.backup?.listing.sold || after.quantity !== row.backup?.listing.quantity)
         throw Error("Verkauf/Bestandsänderung im Übergang: manuelle Prüfung.");
       transition(row, "ended", "Ende bestätigt");
       await repo.save(job);
@@ -223,11 +225,12 @@ export async function advance(
           old.active ||
           old.seller !== job.seller ||
           old.site !== "Germany" ||
-          old.sold !== 0 ||
-          old.quantity !== 1
+          old.sold !== row.backup?.listing.sold ||
+          old.quantity !== row.backup?.listing.quantity ||
+          (row.outgoing ?? row.backup?.payload)?.Quantity !== old.quantity
         )
           throw Error(
-            "Ursprungsangebot vor Erstellung nicht sicher beendet/verkaufsfrei.",
+            "Ursprungsangebot vor Erstellung nicht sicher beendet oder Bestand seit der Sicherung geändert.",
           );
       }
       const found = row.createAttempted
