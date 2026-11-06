@@ -16,6 +16,7 @@ export function preview(
   seller: string,
   listings: Listing[],
   percent: unknown,
+  deferEligibility = false,
 ): Job {
   percentUnits(percent);
   if (
@@ -25,9 +26,16 @@ export function preview(
   )
     throw Error("1 bis 100 verschiedene Angebote auswählen.");
   const rows = listings.map((listing) => {
-    const target = reducedPrice(listing.priceCents, percent);
-    const reasons = exclusions(listing, seller, target);
-    if (reasons.length) throw Error(`${listing.id}: ${reasons.join("; ")}`);
+    let target = 0;
+    try {
+      target = reducedPrice(listing.priceCents, percent);
+    } catch (error) {
+      if (!deferEligibility) throw error;
+    }
+    if (!deferEligibility) {
+      const reasons = exclusions(listing, seller, target);
+      if (reasons.length) throw Error(`${listing.id}: ${reasons.join("; ")}`);
+    }
     return {
       id: randomUUID(),
       listing,
