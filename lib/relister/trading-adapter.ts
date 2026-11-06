@@ -39,6 +39,7 @@ export function payloadXml(payload: Payload, uuid?: string) {
   return new XMLBuilder({ ignoreAttributes: false }).build({
     Item: {
       ...payload,
+      ...(payload.SecondaryCategory ? { CategoryMappingAllowed: false } : {}),
       ...(uuid ? { UUID: uuid, ApplicationData: uuid } : {}),
     },
   });
@@ -229,6 +230,10 @@ export class TradingAdapter implements Adapter {
       payloadXml(payload, uuid),
     );
     assertTradingSuccess(r);
+    if (payload.SecondaryCategory && list<any>(r.Errors).some((warning) =>
+      /categor|kategor/i.test([warning.ShortMessage, warning.LongMessage,
+        ...list<any>(warning.ErrorParameters).map((parameter) => parameter.Value)].join(" ")),
+    )) throw Error("eBay meldet bei der Vorprüfung ein Problem mit den beiden Kategorien.");
     const fees = list<any>(r.Fees?.Fee);
     if (!fees.length) throw Error("Gebührenangabe fehlt.");
     let feeCents = 0;
