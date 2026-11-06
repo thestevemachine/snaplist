@@ -26,7 +26,7 @@ const publicationFinished = (row: JobRow) =>
 function postcheckNote(row: JobRow) {
   if (row.phase !== "review" || !row.newId) return undefined;
   if (row.error === "Nachprüfung abweichend: Angebot.StartPrice.")
-    return `Nachprüfung: eBay meldete eine Abweichung beim Startpreis. Vorgesehen waren ${eur(row.targetCents)}.`;
+    return `Nachprüfung: Beim Abgleich mit eBay gab es eine Abweichung beim Startpreis. Vorgesehen waren ${eur(row.targetCents)}.`;
   return row.error ?? "Nachprüfung konnte nicht bestätigt werden.";
 }
 
