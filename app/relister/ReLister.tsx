@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { apiPost } from "@/lib/api-client";
 import {
   filtered,
-  quickSelect,
   exclusions,
   reducedPrice,
   type Listing,
@@ -73,6 +72,7 @@ export default function ReLister() {
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false),
     [starting, setStarting] = useState(false),
+    [syncRequested, setSyncRequested] = useState(false),
     [startError, setStartError] = useState(""),
     [startedJob, setStartedJob] = useState<Job>(),
     [retryingJob, setRetryingJob] = useState<string>(),
@@ -164,6 +164,7 @@ export default function ReLister() {
 
   async function action(action: string, extra: Record<string, unknown> = {}) {
     setBusy(true);
+    if (action === "sync") setSyncRequested(true);
     if (action === "start") {
       setStarting(true);
       setStartError("");
@@ -196,6 +197,7 @@ export default function ReLister() {
     } finally {
       setBusy(false);
       setStarting(false);
+      setSyncRequested(false);
       setRetryingJob(undefined);
     }
   }
@@ -249,19 +251,26 @@ export default function ReLister() {
           </button>
         </div>
         <p>
-          {syncing
+          {syncRequested && !syncing ? "Abruf wird gestartet …" : syncing
             ? sync.document.stage === "pages"
               ? `Die ältesten Angebote werden geladen; ${sync.document.items?.length ?? 0} vorgemerkt. Die gespeicherte Liste bleibt sichtbar.`
               : `Prüfung der 25 ältesten Angebote: ${sync.document.cursor} von ${sync.document.items?.length ?? 0} geprüft. Die gespeicherte Liste bleibt sichtbar.`
             : (sync?.document.error ?? "")}
         </p>
+        {(syncing || syncRequested) && (
+          <progress
+            aria-label="Fortschritt beim Aktualisieren der Angebote"
+            {...(syncing && sync.document.stage === "details" && sync.document.items?.length
+              ? { value: sync.document.cursor, max: sync.document.items.length }
+              : {})}
+          />
+        )}
         <p className="relister-safety-note">
           Der Katalog enthält nur die 25 ältesten Angebote und wird etwa alle 6
           Stunden im Hintergrund aktualisiert. Vor jedem Eingriff prüft
-          Snaplist das ausgewählte Angebot direkt bei eBay: aktiv, unverkauft,
-          Einzelstück und unveränderter Preis. Nach dem Beenden bestätigt es
-          nochmals, dass das Original inaktiv und unverkauft ist. Bei
-          Abweichungen oder unklarem Status wird die Neuerstellung gestoppt.
+          Snaplist das ausgewählte Angebot direkt bei eBay. Es übernimmt den
+          verfügbaren Restbestand und prüft nach dem Beenden, ob Bestand und
+          Verkaufszahl mit der Sicherung übereinstimmen.
         </p>
         <p>
           Aufrufe: Nicht verfügbar. Seitenaufrufe, Suchimpressionen und
@@ -284,7 +293,7 @@ export default function ReLister() {
           {[1, 5, 20, 25].map((n) => (
             <button
               key={n}
-              onClick={() => setSelection(quickSelect(rows, seller, n))}
+              onClick={() => setSelection(rows.slice(0, n).map((row) => row.id))}
             >
               Erste {n} auswählen
             </button>
@@ -365,7 +374,6 @@ export default function ReLister() {
                       <input
                         type="checkbox"
                         aria-label={`${l.title} auswählen`}
-                        disabled={Boolean(reasons.length)}
                         checked={selection.includes(l.id)}
                         onChange={(e) =>
                           setSelection((v) =>
