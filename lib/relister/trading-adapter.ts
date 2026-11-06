@@ -2,7 +2,7 @@ import sharp from "sharp";
 import { XMLBuilder } from "fast-xml-parser";
 import { assertTradingSuccess, tradingCall, list, xml } from "../ebay/trading";
 import { uploadOnePhoto } from "../ebay/photo-upload";
-import { normalize, publicationPayload } from "./ebay";
+import { availableQuantity, normalize, publicationPayload } from "./ebay";
 import { fetchImage } from "./images";
 import { secureBackup, restoreImages, type BackupStorage } from "./backup";
 import {
@@ -137,11 +137,7 @@ export class TradingAdapter implements Adapter {
   async read(id: string) {
     const raw = await this.raw(id),
       l = normalize(raw, "");
-    l.quantity =
-      raw.Quantity !== undefined &&
-      raw.SellingStatus?.QuantitySold !== undefined
-        ? Number(raw.Quantity) - Number(raw.SellingStatus.QuantitySold)
-        : null;
+    l.quantity = availableQuantity(raw);
     let blockingReason: string | undefined;
     try {
       publicationPayload(raw);
@@ -176,13 +172,17 @@ export class TradingAdapter implements Adapter {
       };
     if (listing.priceCents !== row.originalCents)
       throw Error("Preis seit Vorschau geändert.");
+    const payload = publicationPayload(raw);
+    if (payload.Quantity !== listing.quantity ||
+        Number(raw.SellingStatus?.QuantitySold) !== listing.sold)
+      throw Error("Bestand oder Verkäufe haben sich während der Sicherung geändert.");
     return secureBackup(
       {
         account,
         rowId: (row as Row & { backupNamespace?: string }).backupNamespace ?? row.id,
         seller: this.seller,
         listing,
-        payload: publicationPayload(raw),
+        payload,
         targetCents: row.targetCents,
         settingsSnapshot: settings(raw),
       },
@@ -262,8 +262,7 @@ export class TradingAdapter implements Adapter {
   async ended(id: string) {
     const raw = await this.raw(id);
     return (
-      ["Ended", "Completed"].includes(raw.SellingStatus?.ListingStatus) &&
-      Number(raw.SellingStatus?.QuantitySold) === 0
+      ["Ended", "Completed"].includes(raw.SellingStatus?.ListingStatus)
     );
   }
   async reconcile(uuid: string): Promise<string | null | "unknown"> {
@@ -301,11 +300,11 @@ export class TradingAdapter implements Adapter {
     if (
       payload.Site !== "Germany" ||
       payload.Currency !== "EUR" ||
-      payload.Quantity !== 1 ||
+      !Number.isSafeInteger(payload.Quantity) || payload.Quantity < 1 ||
       payload.ListingType !== "FixedPriceItem"
     )
       throw Error(
-        "Veröffentlichungspayload nicht für deutschen Einzelartikel geeignet.",
+        "Veröffentlichungspayload nicht für deutsches Festpreisangebot geeignet.",
       );
     if (!/^[A-F0-9]{32}$/.test(uuid))
       throw Error("Wiederholungskennung ungültig.");
@@ -325,7 +324,7 @@ export class TradingAdapter implements Adapter {
       actual.site !== "Germany" ||
       !actual.active ||
       actual.priceCents !== target ||
-      actual.quantity !== 1 ||
+      actual.quantity !== (payload ?? backup.payload).Quantity ||
       actual.currency !== "EUR"
     )
       return false;
