@@ -34,6 +34,8 @@ export function CameraCapture({
   const [orientation, setOrientation] = useState<{
     rotation: number;
     landscape: boolean;
+    previewWidth: number;
+    previewHeight: number;
   }>();
   const frame = useRef<HTMLDivElement>(null);
 
@@ -49,10 +51,13 @@ export function CameraCapture({
         : rotation
           ? element.videoHeight >= element.videoWidth
           : element.videoWidth >= element.videoHeight;
+    const scale = Math.min((rotation ? height : width) / element.videoWidth, (rotation ? width : height) / element.videoHeight);
+    const previewWidth = element.videoWidth * scale;
+    const previewHeight = element.videoHeight * scale;
     setOrientation((old) =>
-      old?.rotation === rotation && old.landscape === landscape
+      old?.rotation === rotation && old.landscape === landscape && old.previewWidth === previewWidth && old.previewHeight === previewHeight
         ? old
-        : { rotation, landscape },
+        : { rotation, landscape, previewWidth, previewHeight },
     );
   }
   const [busy, setBusy] = useState(false);
@@ -260,15 +265,13 @@ export function CameraCapture({
     setBusy(true);
     setError("");
     try {
-      const aspect =
-        fullscreen && frame.current?.clientHeight
-          ? frame.current.clientWidth / frame.current.clientHeight
-          : undefined;
+      const rotation = frameRotation(element);
+      const aspect = rotation ? element.videoHeight / element.videoWidth : element.videoWidth / element.videoHeight;
       const blob = await exposure(
         element,
         stream,
         crop,
-        frameRotation(element),
+        rotation,
         aspect,
       );
       const file = new File([blob], `snaplist-${Date.now()}.jpg`, {
@@ -370,7 +373,11 @@ export function CameraCapture({
                 style={
                   fullscreen
                     ? {
+                        width: orientation?.previewWidth || undefined,
+                        height: orientation?.previewHeight || undefined,
+                        objectFit: "contain",
                         transform: `rotate(${orientation?.rotation ?? 0}deg) scale(${crop})`,
+                        clipPath: `inset(${(1 - 1 / crop) * 50}%)`,
                       }
                     : {
                         transform: `scale(${crop})`,
