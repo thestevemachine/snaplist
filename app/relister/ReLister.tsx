@@ -18,13 +18,25 @@ const dateTime = (value?: string) => {
     timeStyle: "short",
   });
 };
+type JobRow = Job["rows"][number];
+
+const publicationFinished = (row: JobRow) =>
+  row.phase === "completed" || (row.phase === "review" && Boolean(row.newId));
+
+function postcheckNote(row: JobRow) {
+  if (row.phase !== "review" || !row.newId) return undefined;
+  if (row.error === "Nachprüfung abweichend: Angebot.StartPrice.")
+    return `Nachprüfung: eBay meldete eine Abweichung beim Startpreis. Vorgesehen waren ${eur(row.targetCents)}.`;
+  return row.error ?? "Nachprüfung konnte nicht bestätigt werden.";
+}
+
 const completedRelist = (jobs: Job[], listingId: string) =>
   jobs
     .flatMap((job) => job.rows)
     .find(
       (row) =>
         row.listing.id === listingId &&
-        row.phase === "completed" &&
+        publicationFinished(row) &&
         Boolean(row.newId),
     );
 const phaseLabel: Record<Job["rows"][number]["phase"], string> = {
@@ -423,10 +435,10 @@ export default function ReLister() {
               {currentJob.rows.map((row) => (
                 <li key={row.id}>
                   {row.listing.title} · {row.newId && row.phase === "review"
-                    ? "Neu erstellt, Nachprüfung offen"
+                    ? "Abgeschlossen · neu eingestellt"
                     : row.phase === "ready" ? "Vorprüfung bestanden" : phaseLabel[row.phase]}
                   {row.newId && <> · <a href={`https://www.ebay.de/itm/${encodeURIComponent(row.newId)}`}>Neues Angebot</a></>}
-                  {row.error && <> · {row.error}</>}
+                  {(postcheckNote(row) ?? row.error) && <> · {postcheckNote(row) ?? row.error}</>}
                 </li>
               ))}
             </ul>
@@ -475,11 +487,11 @@ export default function ReLister() {
           </p>
         )}
         {jobs.slice(0, 14).map((j, index) => {
-          const completed = j.rows.filter((r) => r.phase === "completed").length;
+          const completed = j.rows.filter(publicationFinished).length;
           const completedEarlier = j.rows.filter(
             (r) => r.phase === "skipped" && Boolean(completedRelist(jobs, r.listing.id)),
           ).length;
-          const needsReview = j.rows.filter((r) => r.phase === "review").length;
+          const needsReview = j.rows.filter((r) => r.phase === "review" && !r.newId).length;
           const skipped = j.rows.filter(
             (r) => r.phase === "skipped" && !completedRelist(jobs, r.listing.id),
           ).length;
@@ -574,7 +586,7 @@ export default function ReLister() {
                   )}
                 {j.rows.map((r) => (
                   <article
-                    className={`relister-history-row${r.phase === "completed" ? " is-completed" : ""}`}
+                    className={`relister-history-row${publicationFinished(r) ? " is-completed" : ""}`}
                     key={r.id}
                   >
                     <div className="relister-history-preview">
@@ -587,9 +599,9 @@ export default function ReLister() {
                       <div className="relister-history-main">
                         <div className="relister-history-title-line">
                           <strong>{r.listing.title}</strong>
-                          <span className={`relister-phase-badge${r.phase === "completed" ? " is-completed" : ""}`}>
-                            {r.phase === "completed"
-                              ? "Wieder eingestellt"
+                          <span className={`relister-phase-badge${publicationFinished(r) ? " is-completed" : ""}`}>
+                            {publicationFinished(r)
+                              ? "Abgeschlossen · neu eingestellt"
                               : r.phase === "skipped" && completedRelist(jobs, r.listing.id)
                                 ? "Bereits abgeschlossen"
                                 : r.phase === "review"
@@ -602,11 +614,11 @@ export default function ReLister() {
                           <span>Ursprünglich eingestellt: {dateTime(r.listing.started)}</span>
                           <span>{eur(r.originalCents)} → {eur(r.targetCents)}</span>
                         </div>
-                        {r.phase === "completed" ? (
+                        {publicationFinished(r) ? (
                           <div className="relister-history-result">
                             <strong>
                               Neu eingestellt am{" "}
-                              {dateTime(r.history.slice().reverse().find((h) => h.phase === "completed")?.at)}
+                              {dateTime(r.history.slice().reverse().find((h) => h.phase === "created" || h.phase === "completed")?.at)}
                             </strong>
                             {r.newId ? (
                               <a
@@ -619,6 +631,7 @@ export default function ReLister() {
                             ) : (
                               <span>Neue Artikelnummer nicht verfügbar</span>
                             )}
+                            {postcheckNote(r) && <small>{postcheckNote(r)}</small>}
                           </div>
                         ) : r.phase === "skipped" && completedRelist(jobs, r.listing.id) ? (
                           <div className="relister-history-result">
