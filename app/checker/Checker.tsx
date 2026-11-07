@@ -341,6 +341,13 @@ export default function Checker({
       <div className="checker-toolbar" aria-label="Fotos verwalten">
         <button
           className="btn btn-primary"
+          disabled={!totalPhotos}
+          onClick={() => void save(allGroups.flatMap((group) => group.photos))}
+        >
+          Alle Fotos in Mediathek speichern ({totalPhotos})
+        </button>
+        <button
+          className="btn btn-primary"
           disabled={!totalPhotos || exporting}
           onClick={() =>
             void downloadPhotos(allGroups, "reseller-checker-alle-fotos.zip")

@@ -390,3 +390,71 @@ test("clearing discards queued articles and ignores a late response", async ({
   ).toHaveValue(result.title);
   expect(calls).toBe(2);
 });
+
+test("top media-library button shares original photos from every article together", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "canShare", { value: () => true });
+    Object.defineProperty(navigator, "share", {
+      value: async (data: { files: File[] }) => {
+        (
+          window as unknown as {
+            sharedPhotos: { name: string; size: number }[];
+          }
+        ).sharedPhotos = data.files.map((file) => ({
+          name: file.name,
+          size: file.size,
+        }));
+      },
+    });
+  });
+  await page.route("**/api/checker", (route) =>
+    route.fulfill({ json: { result, usage: [] } }),
+  );
+  await page.goto("/checker");
+  for (const names of [["front.png", "back.png"], ["next.png"]]) {
+    await page
+      .getByLabel("Fotos auswählen")
+      .setInputFiles(
+        names.map((name) => ({ name, mimeType: "image/png", buffer: png })),
+      );
+    await expect(
+      page.getByRole("button", {
+        name: "Artikel fertig → Entwurf erstellen",
+        exact: true,
+      }),
+    ).toBeEnabled();
+    await page
+      .getByRole("button", {
+        name: "Artikel fertig → Entwurf erstellen",
+        exact: true,
+      })
+      .click();
+  }
+  await expect(page.getByRole("article")).toHaveCount(2);
+  await page
+    .getByRole("button", {
+      name: "Alle Fotos in Mediathek speichern (3)",
+      exact: true,
+    })
+    .click();
+  expect(
+    await page.evaluate(
+      () =>
+        (
+          window as unknown as {
+            sharedPhotos: { name: string; size: number }[];
+          }
+        ).sharedPhotos,
+    ),
+  ).toEqual(
+    ["front.png", "back.png", "next.png"].map((name) => ({
+      name,
+      size: png.length,
+    })),
+  );
+  await expect(
+    page.getByRole("status").filter({ hasText: "Bilder sichern" }),
+  ).toBeVisible();
+});
