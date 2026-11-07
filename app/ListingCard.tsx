@@ -1,4 +1,6 @@
 "use client";
+import { StorytellingControls } from "./StorytellingControls";
+import { usesEyewearDefaults } from "@/lib/listing-mode";
 import {EyewearMeasurements} from "./EyewearMeasurements";
 import { issueField, focusReviewField } from "@/lib/review-navigation";
 import { manualLensWidth } from "@/lib/manual-lens-width";
@@ -458,7 +460,13 @@ export function ListingCard({
           )}
           {isGlasses(listing) && <EyewearMeasurements listing={listing} meta={group.preparation?.aspects ?? []} onEdit={patch=>onEdit(group.id,patch)} />}
           <div className="result-field">
+            {!usesEyewearDefaults(listing) && <StorytellingControls
+              group={group} photoById={photoById}
+              onEdit={(patch) => onEdit(group.id, patch)}
+              onGroupEdit={(patch) => onGroupEdit(group.id, patch)}
+            />}
             <label htmlFor={`description-${group.id}`}>Beschreibung</label>
+            {!usesEyewearDefaults(listing) && <small>Allgemeiner Artikel · KI-Beschreibung. Unsichere Merkmale sind zur Prüfung markiert.</small>}
             <textarea
               id={`description-${group.id}`}
               className={!listing.description.trim() ? "missing-required-control" : undefined}
