@@ -17,7 +17,17 @@ type Item = {
   error?: string;
   usage?: AiUsage[];
 };
-export default function Checker() {
+export default function Checker({
+  standalone = false,
+  enabled = true,
+  connectionVersion = "",
+}: {
+  standalone?: boolean;
+  enabled?: boolean;
+  connectionVersion?: string;
+}) {
+  const connection = useRef({ enabled, connectionVersion });
+  connection.current = { enabled, connectionVersion };
   const [photos, setPhotos] = useState<Photo[]>([]);
   const pending = useRef<Photo[]>([]);
   const [items, setItems] = useState<Item[]>([]);
@@ -69,7 +79,8 @@ export default function Checker() {
   function run(item: Item) {
     if (running.current.has(item.id)) return;
     running.current.add(item.id);
-    const model = getAnalysisModel() ?? undefined;
+    const model = standalone ? undefined : (getAnalysisModel() ?? undefined);
+    const queuedConnection = connectionVersion;
     queue.current = queue.current.then(async () => {
       if (!alive.current) {
         running.current.delete(item.id);
@@ -81,14 +92,29 @@ export default function Checker() {
         ),
       );
       try {
-        const response = await apiPost("/api/checker", {
+        if (
+          standalone &&
+          (!connection.current.enabled ||
+            connection.current.connectionVersion !== queuedConnection)
+        )
+          throw Error(
+            "KI-Zugang geändert oder entfernt. Bitte bewusst erneut erstellen.",
+          );
+        const payload = {
           images: item.photos.map((p) => ({
             mediaType: "image/jpeg",
             data: p.data,
           })),
           notes: item.notes,
           model,
-        });
+        };
+        const response = standalone
+          ? await fetch("/api/reseller-checker", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            })
+          : await apiPost("/api/checker", payload);
         const body = await response.json();
         if (!response.ok)
           throw Error(body.error ?? "Erstellung fehlgeschlagen.");
@@ -123,7 +149,7 @@ export default function Checker() {
     });
   }
   function finish() {
-    if (loading || !pending.current.length) return false;
+    if (!enabled || loading || !pending.current.length) return false;
     const item: Item = {
       id: crypto.randomUUID(),
       photos: [...pending.current],
@@ -228,10 +254,13 @@ export default function Checker() {
   return (
     <main className="checker">
       <header>
-        <p>SNAPLIST · Privater Verkauf</p>
+        <p>{standalone ? "Privater Verkauf" : "SNAPLIST · Privater Verkauf"}</p>
         <h1>Checker</h1>
         <p>Fotografieren. Artikel abschließen. Für Vinted kopieren.</p>
       </header>
+      {!enabled && (
+        <p role="status">Bitte oben zuerst deinen KI-Zugang speichern.</p>
+      )}
       <section className="checker-card">
         <h2>Aktueller Artikel</h2>
         <p>
@@ -255,7 +284,7 @@ export default function Checker() {
         <CameraCapture
           articleLabel="Artikel"
           remaining={12 - photos.length}
-          disabled={loading}
+          disabled={loading || !enabled}
           onCapture={add}
           onFinishArticle={() => finish()}
           onClose={() => {}}
@@ -276,13 +305,13 @@ export default function Checker() {
         </label>
         <button
           className="btn btn-primary"
-          disabled={loading || !photos.length}
+          disabled={!enabled || loading || !photos.length}
           onClick={() => finish()}
         >
           Artikel fertig → Entwurf erstellen
         </button>
         <p>
-          Pro Artikel startet ein KI-Aufruf mit deinem SnapList-Modell; dabei
+          Pro Artikel startet ein KI-Aufruf mit deinem gewählten Modell; dabei
           entstehen Anbieter-Kosten. Du kannst währenddessen den nächsten
           Artikel fotografieren.
         </p>
@@ -318,6 +347,7 @@ export default function Checker() {
                 <p role="alert">{item.error}</p>
                 <button
                   className="btn"
+                  disabled={!enabled}
                   onClick={() => {
                     setItems((old) =>
                       old.map((i) =>

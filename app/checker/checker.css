@@ -68,3 +68,18 @@
     padding: 16px 12px 48px;
   }
 }
+
+.checker-field select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #9eb5af;
+  border-radius: 8px;
+  font: inherit;
+  box-sizing: border-box;
+}
+.reseller-settings {
+  padding-bottom: 0;
+}
+.reseller-settings + main.checker {
+  padding-top: 0;
+}
