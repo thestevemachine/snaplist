@@ -5,6 +5,7 @@ import type { ShippingSelection } from "./validation";
 // Python script's analyze_photos(), plus the routed profile.
 
 export interface ListingResult {
+  storytelling?: import("./storytelling").StorytellingSettings;
   eyewear_kind?: "optical" | "sunglasses" | "uncertain" | "not_eyewear";
   classification_note?: string;
   content_rules_version?: number;
@@ -120,6 +121,7 @@ export interface CompsSummary {
 }
 
 export interface ItemGroup {
+  cameraDraft?: "queued" | "started";
   analysisModel?: string;
   comparisons?: {
     id: string;

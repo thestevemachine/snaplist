@@ -1,3 +1,4 @@
+import { isEyewearCase } from "./listing-mode";
 import { cleanListingText } from "./listing-content-rules";
 import type { ListingResult } from "./types";
 import type { AspectMeta } from "./ebay/taxonomy";
@@ -12,8 +13,9 @@ export function componentFrameColors(l: ListingResult): string[] {
 }
 export const GLASSES_RULES_VERSION = 5;
 export function isGlasses(l: ListingResult) {
+  if (isEyewearCase(l) || l.eyewear_kind === "not_eyewear") return false;
   return (
-    (l.eyewear_kind !== undefined && l.eyewear_kind !== "not_eyewear") ||
+    l.eyewear_kind !== undefined ||
     isSunglasses(l) ||
     /\b(brille[n]?|brillenfassung(?:en)?|eyeglasses|eyeglass|spectacles)\b/i.test(
       [l.title, l.item_type, l.category_hint].join(" "),

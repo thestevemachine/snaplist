@@ -10,7 +10,7 @@ it("maps measured 144 mm and 28 mm into exact eBay ranges without nearest-size g
  expect(measurementChoice(["140-150 mm","145-155 mm"],148)).toBeUndefined();
 });
 it("uses actual category names for manual and calculated height/frame width and creates no alias",()=>{
- const meta:AspectMeta[]=[{name:"Rahmenbreite",mode:"SELECTION_ONLY",required:false,cardinality:"SINGLE",values:["140-149 mm"]},{name:"Glashöhe",mode:"FREE_TEXT",dataType:"NUMBER",required:false,cardinality:"SINGLE",values:[]}];
+ const meta:AspectMeta[]=[{name:"Rahmenbreite",mode:"SELECTION_ONLY",required:false,usage:"OPTIONAL" as const,cardinality:"SINGLE",values:["140-149 mm"]},{name:"Glashöhe",mode:"FREE_TEXT",dataType:"NUMBER",required:false,usage:"OPTIONAL" as const,cardinality:"SINGLE",values:[]}];
  const l={title:"Brille",description:"",eyewear:{fields:{lensWidth:{value:"51",source:"manual" as const}},warnings:[]},frontMeasurement:{method:"front-photo-ratio-v1" as const,status:"estimated" as const,photoIndex:1,reasons:[],lensHeightMm:28,totalWidthMm:144}};
  expect(frontMeasurementFields(l,meta)?.item_specifics).toEqual({Rahmenbreite:"140-149 mm",Glashöhe:"28"});
  const p=manualEyewearMeasurement(l,"Gesamtbreite","144",meta);expect(p.item_specifics).toEqual({Rahmenbreite:"140-149 mm"});

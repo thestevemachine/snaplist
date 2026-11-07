@@ -1,4 +1,6 @@
 "use client";
+import { StorytellingControls } from "./StorytellingControls";
+import { usesEyewearDefaults } from "@/lib/listing-mode";
 import {EyewearMeasurements} from "./EyewearMeasurements";
 import { issueField, focusReviewField } from "@/lib/review-navigation";
 import { manualLensWidth } from "@/lib/manual-lens-width";
@@ -92,7 +94,7 @@ export function ListingCard({
   onPost,
   onSaveDraft,
 }: ListingCardProps) {
-  const [open, setOpen] = useState(detailCommand?.revision ? detailCommand.open : group.postStatus!=="posted");
+  const [open, setOpen] = useState(detailCommand?.open ?? false);
   useEffect(()=>{if(detailCommand?.revision)setOpen(detailCommand.open)},[detailCommand?.revision,detailCommand?.open]);
   useEffect(() => { if (group.postStatus === "posted") setOpen(false); }, [group.id, group.postStatus]);
   const [analysisHint, setAnalysisHint] = useState("");
@@ -208,6 +210,13 @@ export function ListingCard({
             <a className="posted-summary-link" href={`https://www.ebay.de/itm/${group.listingId}`} target="_blank" rel="noopener noreferrer" onClick={event=>event.stopPropagation()}>Angebot bei eBay öffnen ↗</a>
           )}
         </div>
+        {!open && group.status === "done" && listing && group.postStatus !== "posted" && (
+          <button type="button" className="btn btn-primary"
+            disabled={!ebayConnected || group.postStatus === "posting" || draftIssues(group).length > 0}
+            onClick={(event) => { event.stopPropagation(); onPost(group.id); }}>
+            {group.postStatus === "posting" ? "Anfrage läuft…" : "Veröffentlichen…"}
+          </button>
+        )}
         {group.status === "error" ? (
           <button
             type="button"
@@ -233,6 +242,7 @@ export function ListingCard({
       {(open || group.postStatus !== "posted") && listing && group.status === "done" && (
         <fieldset
           className="listing-card-body"
+          style={open ? undefined : { display: "none" }}
           disabled={
             savingDraft ||
             group.postStatus === "posted" ||
@@ -450,7 +460,13 @@ export function ListingCard({
           )}
           {isGlasses(listing) && <EyewearMeasurements listing={listing} meta={group.preparation?.aspects ?? []} onEdit={patch=>onEdit(group.id,patch)} />}
           <div className="result-field">
+            {!usesEyewearDefaults(listing) && <StorytellingControls
+              group={group} photoById={photoById}
+              onEdit={(patch) => onEdit(group.id, patch)}
+              onGroupEdit={(patch) => onGroupEdit(group.id, patch)}
+            />}
             <label htmlFor={`description-${group.id}`}>Beschreibung</label>
+            {!usesEyewearDefaults(listing) && <small>Allgemeiner Artikel · KI-Beschreibung. Unsichere Merkmale sind zur Prüfung markiert.</small>}
             <textarea
               id={`description-${group.id}`}
               className={!listing.description.trim() ? "missing-required-control" : undefined}

@@ -1,3 +1,4 @@
+import { storytellingSettingsSchema } from "./storytelling";
 import {measurementPhotoSchema} from "./measurement-photos";
 import { z } from "zod";
 import { frontMeasurementSchema } from "./front-measurements";
@@ -17,6 +18,7 @@ export const CONDITIONS = [
   "FOR_PARTS_OR_NOT_WORKING",
 ] as const;
 export const listingSchema = z.object({
+  storytelling: storytellingSettingsSchema.optional(),
   eyewear_kind: z
     .enum(["optical", "sunglasses", "uncertain", "not_eyewear"])
     .optional(),

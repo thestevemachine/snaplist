@@ -376,7 +376,7 @@ it("uses Gemini Flash-Lite when no model was chosen and forwards a bounded selle
 });
 
 it("exposes Gemini Flash-Lite as the single default for both selectors without a Claude key", async () => {
-  const data=await (await modelOptions()).json();
+  const data=await (await modelOptions(new NextRequest("http://localhost/api/models"))).json();
   for(const key of ["sortModels","analysisModels"]) {
     expect(data[key].filter((m: {isDefault:boolean}) => m.isDefault).map((m:{id:string})=>m.id)).toEqual(["gemini-3.5-flash-lite"]);
     expect(data[key].some((m:{id:string})=>m.id.startsWith("claude"))).toBe(true);
@@ -384,7 +384,7 @@ it("exposes Gemini Flash-Lite as the single default for both selectors without a
   expect(fetchMock).not.toHaveBeenCalled();
 });
 it("marks stage-specific OpenAI recommendations without changing the Gemini default",async()=>{
- const data=await (await modelOptions()).json();
+ const data=await (await modelOptions(new NextRequest("http://localhost/api/models"))).json();
  expect(data.sortModels.filter((m:{recommended?:boolean})=>m.recommended).map((m:{id:string})=>m.id)).toEqual(["gpt-6-luna"]);
  expect(data.analysisModels.filter((m:{recommended?:boolean})=>m.recommended).map((m:{id:string})=>m.id)).toEqual(["gpt-6.1-terra"]);
  expect(data.analysisModels.find((m:{id:string})=>m.id==="gpt-6.1-terra").provider).toBe("openai");expect(fetchMock).not.toHaveBeenCalled();

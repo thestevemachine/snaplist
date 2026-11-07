@@ -1,3 +1,4 @@
+import { usesEyewearDefaults } from "./listing-mode";
 import type { ListingResult } from "./types";
 import type { AspectMeta } from "./ebay/taxonomy";
 
@@ -26,6 +27,23 @@ export function applyListingDefaults(
       listing.estimates = { ...listing.estimates };
       delete listing.estimates["Size Type"];
     }
+  }
+  if (!usesEyewearDefaults(listing) && !listing.ebay_condition) {
+    const used = [
+      [3000, "USED_EXCELLENT"],
+      [5000, "USED_GOOD"],
+      [3010, "PRE_OWNED_FAIR"],
+      [6000, "USED_ACCEPTABLE"],
+      [4000, "USED_VERY_GOOD"],
+      [2990, "PRE_OWNED_EXCELLENT"],
+    ] as const;
+    const selected = used.find(([id]) => acceptedIds.has(id));
+    if (listing.condition === "FOR_PARTS_OR_NOT_WORKING" && acceptedIds.has(7000)) {
+      listing.ebay_condition = "FOR_PARTS_OR_NOT_WORKING";
+    } else if (selected) {
+      listing.ebay_condition = selected[1];
+    }
+    return;
   }
   // 2990 is Pre-owned Excellent. 3000 must not be used as a substitute:
   // in these clothing categories it means Pre-owned Good.
