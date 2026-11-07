@@ -43,3 +43,12 @@ Prüfung: 14 gezielte Tests bestehen, darunter Verschlüsselung, Ablauf, Zweckbi
 
 
 Die separate Sitzung wird bei jedem erneuten Öffnen mit gültigem Zugang auf weitere 30 Tage verlängert. Cookie und verschlüsselte Ablaufzeit werden gemeinsam erneuert; abgelaufene Sitzungen werden nicht wiederbelebt. Schlüsselentfernung und Löschung von Browserdaten beenden die Speicherung auf diesem Browser weiterhin.
+
+
+## Fotos herunterladen und Arbeitsfläche leeren
+
+Beide Checker-Ansichten bieten oben einen Gesamtdownload aller aktuell geladenen Originalfotos als ZIP, einschließlich des noch nicht abgeschlossenen Artikels. Unterordner trennen Artikel; nummerierte Dateinamen verhindern Kollisionen. Jede Artikelkarte bietet zusätzlich einen eigenen ZIP-Download und weiterhin Teilen/Mediathek sowie Einzelbild-Speicherung. ZIP wird lokal ohne zusätzliche Abhängigkeiten erzeugt; bis zu 65535 Einträge und unter 4 GiB (ZIP32), ansonsten artikelweise exportieren.
+
+Der rote Button „Alles leeren“ entfernt Fotos, Artikel und Notizen aus dem aktuellen Reiter, schließt die Kamera und verwirft noch wartende Aufträge. Der KI-Zugang bleibt erhalten. Verspätete Antworten oder Bildverarbeitungsergebnisse werden über eine Generationskennung ignoriert. Bereits gestartete Anbieteraufrufe können trotz abgebrochener Browseranfrage noch abgerechnet werden.
+
+Prüfung: Produktionsbuild und Typprüfung erfolgreich, sechs Browserabläufe bestanden, einschließlich Gesamtexport, Artikel-ZIP, leeren während laufender Erstellung, Warteschlangen-Verwerfung und Erhalt des KI-Zugangs. Beide heruntergeladenen ZIP-Dateien mit Python zipfile auf Integrität und byte-identische Originalbilder kontrolliert. Keine bezahlten KI-Aufrufe.

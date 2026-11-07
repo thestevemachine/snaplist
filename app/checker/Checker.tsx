@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { photoZip } from "@/lib/checker-zip";
 import { CameraCapture } from "../CameraCapture";
 import { resizeImage } from "@/lib/resize";
 import { apiPost } from "@/lib/api-client";
@@ -35,23 +36,30 @@ export default function Checker({
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
   const queue = useRef(Promise.resolve());
+  const generation = useRef(0);
+  const [screen, setScreen] = useState(0);
+  const [exporting, setExporting] = useState(false);
+  const controllers = useRef(new Set<AbortController>());
   const alive = useRef(true);
   const running = useRef(new Set<string>());
   useEffect(() => {
     alive.current = true;
     return () => {
       alive.current = false;
+      generation.current++;
+      controllers.current.forEach((c) => c.abort());
     };
   }, []);
   function updatePending(next: Photo[]) {
     pending.current = next;
     setPhotos(next);
   }
-  async function add(file: File) {
+  async function add(file: File, expected = generation.current) {
+    if (expected !== generation.current) return;
     if (pending.current.length >= 12)
       throw Error("Maximal zwölf Fotos pro Artikel.");
     const image = await resizeImage(file);
-    if (!alive.current) return;
+    if (!alive.current || expected !== generation.current) return;
     if (pending.current.length >= 12)
       throw Error("Maximal zwölf Fotos pro Artikel.");
     const photo = {
@@ -64,16 +72,21 @@ export default function Checker({
     return photo.id;
   }
   async function upload(files: File[]) {
+    const expected = generation.current;
     setLoading(true);
     setNotice("");
     try {
-      for (const file of files) await add(file);
+      for (const file of files) {
+        if (expected !== generation.current) break;
+        await add(file, expected);
+      }
     } catch (e) {
+      if (expected !== generation.current) return;
       setNotice(
         e instanceof Error ? e.message : "Foto konnte nicht gelesen werden.",
       );
     } finally {
-      setLoading(false);
+      if (expected === generation.current) setLoading(false);
     }
   }
   function run(item: Item) {
@@ -81,8 +94,9 @@ export default function Checker({
     running.current.add(item.id);
     const model = standalone ? undefined : (getAnalysisModel() ?? undefined);
     const queuedConnection = connectionVersion;
+    const expected = generation.current;
     queue.current = queue.current.then(async () => {
-      if (!alive.current) {
+      if (!alive.current || expected !== generation.current) {
         running.current.delete(item.id);
         return;
       }
@@ -91,6 +105,8 @@ export default function Checker({
           i.id === item.id ? { ...i, status: "working", error: undefined } : i,
         ),
       );
+      const controller = new AbortController();
+      controllers.current.add(controller);
       try {
         if (
           standalone &&
@@ -111,6 +127,7 @@ export default function Checker({
         const response = standalone
           ? await fetch("/api/reseller-checker", {
               method: "POST",
+              signal: controller.signal,
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(payload),
             })
@@ -119,7 +136,7 @@ export default function Checker({
         if (!response.ok)
           throw Error(body.error ?? "Erstellung fehlgeschlagen.");
         const result = checkerResultSchema.parse(body.result);
-        if (alive.current)
+        if (alive.current && expected === generation.current)
           setItems((old) =>
             old.map((i) =>
               i.id === item.id
@@ -128,7 +145,7 @@ export default function Checker({
             ),
           );
       } catch (e) {
-        if (alive.current)
+        if (alive.current && expected === generation.current)
           setItems((old) =>
             old.map((i) =>
               i.id === item.id
@@ -144,6 +161,7 @@ export default function Checker({
             ),
           );
       } finally {
+        controllers.current.delete(controller);
         running.current.delete(item.id);
       }
     });
@@ -202,6 +220,68 @@ export default function Checker({
         );
     }
   }
+  function clearScreen() {
+    generation.current++;
+    controllers.current.forEach((c) => c.abort());
+    controllers.current.clear();
+    running.current.clear();
+    queue.current = Promise.resolve();
+    updatePending([]);
+    setItems([]);
+    setNotes("");
+    setLoading(false);
+    setExporting(false);
+    setScreen((v) => v + 1);
+    setNotice(
+      "Fotos und Entwürfe aus diesem Reiter entfernt. Dein KI-Zugang bleibt gespeichert.",
+    );
+  }
+  function download(blob: Blob, name: string) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = name;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+  async function downloadPhotos(
+    groups: { folder: string; photos: Photo[] }[],
+    name: string,
+  ) {
+    if (exporting) return;
+    const expected = generation.current;
+    setExporting(true);
+    setNotice("");
+    try {
+      const entries = groups.flatMap((g) =>
+        g.photos.map((photo, index) => ({
+          name: `${g.folder}/${String(index + 1).padStart(2, "0")}-${photo.file.name.replace(/[\\/:*?"<>|]/g, "_")}`,
+          blob: photo.file,
+        })),
+      );
+      const zip = await photoZip(entries);
+      if (expected !== generation.current) return;
+      download(zip, name);
+      setNotice(`${entries.length} Originalfotos als ZIP heruntergeladen.`);
+    } catch (error) {
+      if (expected === generation.current)
+        setNotice(
+          error instanceof Error ? error.message : "Download fehlgeschlagen.",
+        );
+    } finally {
+      if (expected === generation.current) setExporting(false);
+    }
+  }
+  const allGroups = [
+    ...items.map((item, index) => ({
+      folder: `artikel-${String(index + 1).padStart(3, "0")}`,
+      photos: item.photos,
+    })),
+    { folder: "aktueller-artikel", photos },
+  ];
+  const totalPhotos = allGroups.reduce((n, g) => n + g.photos.length, 0);
   function previews(list: Photo[], removable = false) {
     return (
       <div className="checker-photos">
@@ -258,6 +338,26 @@ export default function Checker({
         <h1>{standalone ? "Reseller Checker" : "Checker"}</h1>
         <p>Fotografieren. Artikel abschließen. Für Vinted kopieren.</p>
       </header>
+      <div className="checker-toolbar" aria-label="Fotos verwalten">
+        <button
+          className="btn btn-primary"
+          disabled={!totalPhotos || exporting}
+          onClick={() =>
+            void downloadPhotos(allGroups, "reseller-checker-alle-fotos.zip")
+          }
+        >
+          {exporting
+            ? "ZIP wird erstellt…"
+            : `Alle Fotos herunterladen (${totalPhotos})`}
+        </button>
+        <button
+          className="btn checker-clear"
+          disabled={!totalPhotos && !items.length && !loading}
+          onClick={clearScreen}
+        >
+          Alles leeren
+        </button>
+      </div>
       {!enabled && (
         <p role="status">
           Bitte zuerst{" "}
@@ -285,6 +385,7 @@ export default function Checker({
           />
         </label>
         <CameraCapture
+          key={screen}
           articleLabel="Artikel"
           remaining={12 - photos.length}
           disabled={loading || !enabled}
@@ -337,7 +438,24 @@ export default function Checker({
               className="btn btn-ghost"
               onClick={() => void save(item.photos)}
             >
-              Alle Bilder speichern / teilen
+              Bilder in Mediathek speichern / teilen
+            </button>
+            <button
+              className="btn"
+              disabled={exporting}
+              onClick={() =>
+                void downloadPhotos(
+                  [
+                    {
+                      folder: `artikel-${String(index + 1).padStart(3, "0")}`,
+                      photos: item.photos,
+                    },
+                  ],
+                  `reseller-checker-artikel-${index + 1}.zip`,
+                )
+              }
+            >
+              Artikel-Fotos herunterladen
             </button>
             {item.status === "queued" && (
               <p role="status">Wartet auf Erstellung…</p>

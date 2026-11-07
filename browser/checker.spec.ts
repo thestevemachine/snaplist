@@ -252,6 +252,9 @@ test("standalone URL saves one private model, survives reload and isolates other
     path: "test-results/reseller-checker-mobile.png",
     fullPage: true,
   });
+  await page.getByRole("button", { name: "Alles leeren", exact: true }).click();
+  await expect(page.getByRole("article")).toHaveCount(0);
+  await expect(page.getByText("Eingerichtet:")).toBeVisible();
   await page.getByText("KI-Einstellungen ändern", { exact: true }).click();
   await page
     .getByRole("button", { name: "KI-Zugang entfernen", exact: true })
@@ -268,4 +271,122 @@ test("standalone URL saves one private model, survives reload and isolates other
       (c) => c.name === "reseller_checker_session",
     ),
   ).toBe(false);
+});
+
+test("download all originals including the current article and clear the workspace", async ({
+  page,
+}, testInfo) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "canShare", { value: () => false });
+  });
+  await page.route("**/api/checker", (route) =>
+    route.fulfill({ json: { result, usage: [] } }),
+  );
+  await page.goto("/checker");
+  const upload = page.getByLabel("Fotos auswählen");
+  await upload.setInputFiles([
+    { name: "same.png", mimeType: "image/png", buffer: png },
+    { name: "back.png", mimeType: "image/png", buffer: png },
+  ]);
+  await expect(page.getByRole("img")).toHaveCount(2);
+  await page
+    .getByRole("button", {
+      name: "Artikel fertig → Entwurf erstellen",
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByRole("article").getByLabel("Titel", { exact: true }),
+  ).toHaveValue(result.title);
+  await upload.setInputFiles({
+    name: "same.png",
+    mimeType: "image/png",
+    buffer: png,
+  });
+  await expect(page.getByRole("img")).toHaveCount(3);
+  const perArticle = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Artikel-Fotos herunterladen", exact: true })
+    .click();
+  const article = await perArticle;
+  expect(article.suggestedFilename()).toBe("reseller-checker-artikel-1.zip");
+  await article.saveAs(testInfo.outputPath("article.zip"));
+  const allPhotos = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Alle Fotos herunterladen (3)", exact: true })
+    .click();
+  const all = await allPhotos;
+  expect(all.suggestedFilename()).toBe("reseller-checker-alle-fotos.zip");
+  await all.saveAs(testInfo.outputPath("all.zip"));
+  await page.getByRole("button", { name: "Alles leeren", exact: true }).click();
+  await expect(page.getByRole("img")).toHaveCount(0);
+  await expect(page.getByRole("article")).toHaveCount(0);
+  await expect(page.getByLabel("Angaben zum Artikel")).toHaveValue("");
+  await expect(
+    page.getByRole("button", {
+      name: "Alle Fotos herunterladen (0)",
+      exact: true,
+    }),
+  ).toBeDisabled();
+});
+
+test("clearing discards queued articles and ignores a late response", async ({
+  page,
+}) => {
+  let calls = 0;
+  let release!: () => void;
+  const blocked = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/checker", async (route) => {
+    calls++;
+    if (calls === 1) await blocked;
+    await route.fulfill({ json: { result, usage: [] } });
+  });
+  await page.goto("/checker");
+  for (let i = 0; i < 2; i++) {
+    await page.getByLabel("Fotos auswählen").setInputFiles({
+      name: `photo-${i}.png`,
+      mimeType: "image/png",
+      buffer: png,
+    });
+    await expect(
+      page.getByRole("button", {
+        name: "Artikel fertig → Entwurf erstellen",
+        exact: true,
+      }),
+    ).toBeEnabled();
+    await page
+      .getByRole("button", {
+        name: "Artikel fertig → Entwurf erstellen",
+        exact: true,
+      })
+      .click();
+  }
+  await expect(page.getByRole("article")).toHaveCount(2);
+  expect(calls).toBe(1);
+  await page.getByRole("button", { name: "Alles leeren", exact: true }).click();
+  const late = page.waitForResponse("**/api/checker");
+  release();
+  await late;
+  await expect(page.getByRole("article")).toHaveCount(0);
+  await page
+    .getByLabel("Fotos auswählen")
+    .setInputFiles({ name: "new.png", mimeType: "image/png", buffer: png });
+  await expect(
+    page.getByRole("button", {
+      name: "Artikel fertig → Entwurf erstellen",
+      exact: true,
+    }),
+  ).toBeEnabled();
+  await page
+    .getByRole("button", {
+      name: "Artikel fertig → Entwurf erstellen",
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByRole("article").getByLabel("Titel", { exact: true }),
+  ).toHaveValue(result.title);
+  expect(calls).toBe(2);
 });
