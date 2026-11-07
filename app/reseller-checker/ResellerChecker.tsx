@@ -170,12 +170,13 @@ export default function ResellerChecker() {
               </>
             )}
             <p>
-              Der Schlüssel wird verschlüsselt für höchstens 30 Tage in diesem
-              Browser hinterlegt und danach nicht angezeigt. Auf einem anderen
-              Gerät ist eine erneute Eingabe nötig. Personen mit Zugriff auf
-              diesen Browser können den gespeicherten Zugang nutzen. Ein
-              geteilter API-Schlüssel wird weiterhin über das Guthaben seines
-              Besitzers abgerechnet.
+              Der Schlüssel bleibt verschlüsselt in diesem Browser gespeichert
+              und wird nicht angezeigt. Bei jedem erneuten Öffnen verlängert
+              sich die Frist auf 30 Tage. Nach 30 Tagen ohne Öffnen ist eine
+              erneute Eingabe nötig. Auf einem anderen Gerät ist eine erneute
+              Eingabe nötig. Personen mit Zugriff auf diesen Browser können den
+              gespeicherten Zugang nutzen. Ein geteilter API-Schlüssel wird
+              weiterhin über das Guthaben seines Besitzers abgerechnet.
             </p>
           </details>
           {saved && (

@@ -32,6 +32,14 @@ export async function createResellerSession(model: string, key: string) {
     refreshExpiresAt: session.expires,
   });
 }
+export async function renewResellerSession(session: ResellerSession) {
+  if (session.expires <= Date.now()) throw Error("Expired session");
+  const renewed = { ...session, expires: Date.now() + RESELLER_TTL * 1000 };
+  return sealConnection({
+    refreshToken: JSON.stringify(renewed),
+    refreshExpiresAt: renewed.expires,
+  });
+}
 export async function readResellerSession(
   value: string | undefined,
 ): Promise<ResellerSession | null> {

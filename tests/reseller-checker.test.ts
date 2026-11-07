@@ -47,8 +47,30 @@ beforeEach(() => {
     }),
   );
 });
-afterEach(() => vi.unstubAllEnvs());
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+});
 describe("isolated reseller credentials", () => {
+  it("renews a valid session for 30 days on reopening without reviving expired sessions", async () => {
+    const start = Date.now();
+    const now = vi.spyOn(Date, "now").mockReturnValue(start);
+    const original = await createResellerSession(model, key);
+    const before = (await readResellerSession(original))!;
+    now.mockReturnValue(start + 20 * 86400000);
+    const response = await GET(req("/session", "GET", {}, original));
+    const cookie = response.cookies.get(RESELLER_COOKIE)!;
+    expect(cookie.maxAge).toBe(30 * 86400);
+    const renewed = (await readResellerSession(cookie.value))!;
+    expect(renewed.expires).toBe(start + 50 * 86400000);
+    expect(renewed.id).toBe(before.id);
+    expect(renewed.key).toBe(key);
+    now.mockReturnValue(start + 31 * 86400000);
+    const expired = await GET(req("/session", "GET", {}, original));
+    expect(await expired.json()).toEqual({ configured: false, model: null });
+    expect(expired.cookies.get(RESELLER_COOKIE)).toBeUndefined();
+    expect(mock.handler).not.toHaveBeenCalled();
+  });
   it("accepts the real same-origin host behind a Next proxy, rejects foreign origins", () => {
     const request = new NextRequest(
       "http://localhost:3194/api/reseller-checker",

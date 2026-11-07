@@ -5,6 +5,7 @@ import { rateLimitRequest } from "@/lib/api-guard";
 import {
   createResellerSession,
   readResellerSession,
+  renewResellerSession,
   RESELLER_COOKIE,
   RESELLER_TTL,
 } from "@/lib/reseller-session";
@@ -18,10 +19,21 @@ export async function GET(req: NextRequest) {
   const session = await readResellerSession(
     req.cookies.get(RESELLER_COOKIE)?.value,
   );
-  return privateJson({
+  const res = privateJson({
     configured: Boolean(session),
     model: session?.model ?? null,
   });
+  if (session) {
+    const sealed = await renewResellerSession(session);
+    res.cookies.set(RESELLER_COOKIE, sealed, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/api/reseller-checker",
+      maxAge: RESELLER_TTL,
+    });
+  }
+  return res;
 }
 export async function POST(req: NextRequest) {
   const limited = rateLimitRequest(req);
