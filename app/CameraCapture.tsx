@@ -16,7 +16,9 @@ export function CameraCapture({
   onFinishArticle,
   onClose,
   draftProgress,
+  articleLabel = "Brille",
 }: {
+  articleLabel?: string;
   remaining: number;
   disabled: boolean;
   onCapture: (file: File) => Promise<string | undefined>;
@@ -69,7 +71,7 @@ export function CameraCapture({
   function finishArticle() {
     if (capturing.current || !articlePhotos.current.length) return;
     if (!onFinishArticle(articlePhotos.current)) {
-      setError("Für diese Brille sind keine neuen Fotos mehr verfügbar.");
+      setError(`Für diesen Artikel sind keine neuen Fotos mehr verfügbar.`);
       return;
     }
     articlePhotos.current = [];
@@ -431,7 +433,7 @@ export function CameraCapture({
               disabled={busy || disabled || !articleCount}
               onClick={finishArticle}
             >
-              Brille fertig → nächste
+              {articleLabel} fertig → nächste
             </button>
             {!fullscreen && shutter}
             {draftProgress && (
