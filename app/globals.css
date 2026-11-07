@@ -2701,3 +2701,25 @@ textarea.title-input {
     flex: 0 0 auto;
   }
 }
+
+/* Optional general-item description editor. */
+.storytelling-controls {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid var(--line, #ddd8cf);
+  border-radius: 14px;
+  background: var(--surface, #f5f3ed);
+}
+.storytelling-controls label { display: grid; gap: 0.5rem; }
+.storytelling-controls .storytelling-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-weight: 600;
+}
+.storytelling-toggle input { width: auto; flex: 0 0 auto; }
+.storytelling-controls textarea { width: 100%; min-width: 0; box-sizing: border-box; }
+.storytelling-controls small { line-height: 1.5; color: var(--muted, #6b6259); }
+.storytelling-controls button { justify-self: start; max-width: 100%; white-space: normal; }
