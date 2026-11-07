@@ -1,3 +1,4 @@
+import AppNavigation from "./AppNavigation";
 import { pageAccount } from "@/lib/accounts/server";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
@@ -28,11 +29,7 @@ export default async function RootLayout({
         data-account={account?.id}
         data-account-owner={account?.owner ? "true" : undefined}
       >
-        <nav className="app-nav" aria-label="Anwendungsbereiche">
-          <a href="/">Snaplist</a>
-          <a href="/relister">Re-Lister</a>
-          <a href="/checker">Checker</a>
-        </nav>
+        <AppNavigation />
         {children}
       </body>
     </html>

@@ -29,3 +29,26 @@ npx playwright test --config playwright.checker.config.ts
 Die Browserkonfiguration verwendet einen lokal installierten Google Chrome. Die vorhandene ChatGPT-Node-Laufzeit verweigert native Module wegen macOS-Bibliothekssignaturen; mit einer separaten offiziellen Node.js-Laufzeit funktionieren die Tests.
 
 Offen: Kamera und Teilen-Menü/Mediathek auf einem echten iPhone sowie echte Anbieterantworten prüfen. Ergebnisse sind nur im geöffneten Reiter gespeichert. Keine Live-Vinted-Recherche, kein Deployment, keine Veröffentlichung und keine bezahlten KI-Testaufrufe durch die Entwicklung.
+
+
+## Separate URL: /reseller-checker
+
+Die separate Seite benötigt kein SnapList-Konto. Ein einziges Modell wird für sämtliche Checker-Aufgaben ausgewählt. Der passende API-Schlüssel muss vom Besucher eingegeben werden; die vorhandenen SnapList-Konten und Besitzer-Schlüssel werden dafür nicht verwendet.
+
+Technik: zweckgebundene AES-GCM-verschlüsselte Sitzung mit 30 Tagen Ablaufzeit, HttpOnly-/Secure-/SameSite=Strict-Cookie, nur unter `/api/reseller-checker`. Kein Schlüssel im localStorage, in Seiten-Props, URLs oder lesbaren Statusantworten. Nur die separate Sitzung autorisiert den separaten KI-Endpunkt. Er erzwingt das gespeicherte Modell und verwendet einen isolierten Kontext mit `owner:false` und ausschließlich dem eingegebenen Anbieter-Schlüssel. Bei deaktiviertem kontenfähigen Provider-Kontext wird der separate Endpunkt gesperrt, um jeden Rückfall auf Umgebungs-Schlüssel auszuschließen. Vorhandene Besitzer-Anmeldungen ersetzen die separate Sitzung nicht.
+
+Die öffentlichen Session-Endpoints starten keinen Anbieteraufruf. Schlüssel werden erst bei bewusster Erstellung genutzt. Entfernen löscht den Zugang aus dem aktuellen Browser, widerruft jedoch nicht den eigentlichen Anbieter-Schlüssel. Personen mit Zugriff auf diesen Browser können die Sitzung nutzen; Kopien eines gestohlenen Cookies bleiben bis zum Ablauf gültig. Ein an Familienmitglieder geteilter API-Schlüssel wird beim Schlüsselbesitzer abgerechnet. Die Website-URL enthält keinen Zugang.
+
+Prüfung: 14 gezielte Tests bestehen, darunter Verschlüsselung, Ablauf, Zweckbindung, manipulierte Cookies, Herkunftsprüfung, Besitzer-Isolation, erzwungene Modellwahl und Sperre des Legacy-Modus. Produktionsbuild inklusive Typprüfung erfolgreich. Drei bestehende Checker-Browserabläufe sowie der zusätzliche Ablauf für die separate URL erfolgreich: echten Session-Endpoint mit Testschlüssel speichern, neu laden, zweiten Browser getrennt halten, simulierten Entwurf erstellen, Zugang entfernen. Mobile Ansicht visuell kontrolliert. Keine kostenpflichtigen Anbieteraufrufe. Echtes iPhone-Teilen und echte Anbieterantworten bleiben gesondert zu prüfen.
+
+
+Die separate Sitzung wird bei jedem erneuten Öffnen mit gültigem Zugang auf weitere 30 Tage verlängert. Cookie und verschlüsselte Ablaufzeit werden gemeinsam erneuert; abgelaufene Sitzungen werden nicht wiederbelebt. Schlüsselentfernung und Löschung von Browserdaten beenden die Speicherung auf diesem Browser weiterhin.
+
+
+## Fotos herunterladen und Arbeitsfläche leeren
+
+Beide Checker-Ansichten bieten oben einen Gesamtdownload aller aktuell geladenen Originalfotos als ZIP, einschließlich des noch nicht abgeschlossenen Artikels. Unterordner trennen Artikel; nummerierte Dateinamen verhindern Kollisionen. Jede Artikelkarte bietet zusätzlich einen eigenen ZIP-Download und weiterhin Teilen/Mediathek sowie Einzelbild-Speicherung. ZIP wird lokal ohne zusätzliche Abhängigkeiten erzeugt; bis zu 65535 Einträge und unter 4 GiB (ZIP32), ansonsten artikelweise exportieren.
+
+Der rote Button „Alles leeren“ entfernt Fotos, Artikel und Notizen aus dem aktuellen Reiter, schließt die Kamera und verwirft noch wartende Aufträge. Der KI-Zugang bleibt erhalten. Verspätete Antworten oder Bildverarbeitungsergebnisse werden über eine Generationskennung ignoriert. Bereits gestartete Anbieteraufrufe können trotz abgebrochener Browseranfrage noch abgerechnet werden.
+
+Prüfung: Produktionsbuild und Typprüfung erfolgreich, sechs Browserabläufe bestanden, einschließlich Gesamtexport, Artikel-ZIP, leeren während laufender Erstellung, Warteschlangen-Verwerfung und Erhalt des KI-Zugangs. Beide heruntergeladenen ZIP-Dateien mit Python zipfile auf Integrität und byte-identische Originalbilder kontrolliert. Keine bezahlten KI-Aufrufe.
