@@ -201,6 +201,9 @@ test("standalone URL saves one private model, survives reload and isolates other
     .getByRole("button", { name: "KI-Zugang speichern", exact: true })
     .click();
   await expect(page.getByText("Eingerichtet:")).toBeVisible();
+  await expect(page.locator(".reseller-settings details")).not.toHaveAttribute(
+    "open",
+  );
   await expect(page.getByLabel("API-Schlüssel für")).toHaveValue("");
   const cookies = await page.context().cookies();
   const credential = cookies.find((c) => c.name === "reseller_checker_session");
@@ -220,13 +223,14 @@ test("standalone URL saves one private model, survives reload and isolates other
   await other.close();
   await page.reload();
   await expect(page.getByText("Eingerichtet:")).toBeVisible();
-  await page
-    .getByLabel("Fotos auswählen")
-    .setInputFiles({
-      name: "daughter.png",
-      mimeType: "image/png",
-      buffer: png,
-    });
+  await expect(page.locator(".reseller-settings details")).not.toHaveAttribute(
+    "open",
+  );
+  await page.getByLabel("Fotos auswählen").setInputFiles({
+    name: "daughter.png",
+    mimeType: "image/png",
+    buffer: png,
+  });
   await expect(page.getByRole("img")).toHaveCount(1);
   await page
     .getByRole("button", {
@@ -248,6 +252,7 @@ test("standalone URL saves one private model, survives reload and isolates other
     path: "test-results/reseller-checker-mobile.png",
     fullPage: true,
   });
+  await page.getByText("KI-Einstellungen ändern", { exact: true }).click();
   await page
     .getByRole("button", { name: "KI-Zugang entfernen", exact: true })
     .click();

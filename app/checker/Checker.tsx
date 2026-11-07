@@ -255,11 +255,14 @@ export default function Checker({
     <main className="checker">
       <header>
         <p>{standalone ? "Privater Verkauf" : "SNAPLIST · Privater Verkauf"}</p>
-        <h1>Checker</h1>
+        <h1>{standalone ? "Reseller Checker" : "Checker"}</h1>
         <p>Fotografieren. Artikel abschließen. Für Vinted kopieren.</p>
       </header>
       {!enabled && (
-        <p role="status">Bitte oben zuerst deinen KI-Zugang speichern.</p>
+        <p role="status">
+          Bitte zuerst{" "}
+          <a href="#ki-einstellungen">unten deinen KI-Zugang einrichten</a>.
+        </p>
       )}
       <section className="checker-card">
         <h2>Aktueller Artikel</h2>
