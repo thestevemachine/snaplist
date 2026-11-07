@@ -31,6 +31,7 @@ export default async function RootLayout({
         <nav className="app-nav" aria-label="Anwendungsbereiche">
           <a href="/">Snaplist</a>
           <a href="/relister">Re-Lister</a>
+          <a href="/checker">Checker</a>
         </nav>
         {children}
       </body>
