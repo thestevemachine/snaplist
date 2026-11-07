@@ -1,3 +1,4 @@
+import { usesEyewearDefaults } from "@/lib/listing-mode";
 import {removeLegacyWidthCorrection} from "@/lib/legacy-width-correction";
 import {recalculateStoredMeasurement} from "@/lib/front-measurements";
 import {measurementSafetyPatch} from "@/lib/measurement-safety";
@@ -337,7 +338,7 @@ export async function prepareListing(body: any, sealedConnection?: string) {
           if (listing.estimates)
             listing.estimates = categorySpecifics(listing.estimates, meta);
           // Default only an unset choice, never replace a reviewed grade.
-          if (listing.ebay_condition === undefined && conditions.some(c => c.value === "NEW_OTHER"))
+          if (usesEyewearDefaults(listing) && listing.ebay_condition === undefined && conditions.some(c => c.value === "NEW_OTHER"))
             listing.ebay_condition = "NEW_OTHER";
           // Preserve supported seller choices/defaults; never substitute another grade.
           if (!conditions.some((c) => c.value === listing.ebay_condition))
