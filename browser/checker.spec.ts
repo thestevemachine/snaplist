@@ -173,3 +173,99 @@ test("live camera groups successive articles while generation runs", async ({
     .click();
   await expect(page.getByLabel("Live-Kamerabild")).toHaveCount(0);
 });
+
+test("standalone URL saves one private model, survives reload and isolates other browsers", async ({
+  page,
+  browser,
+}) => {
+  let calls = 0;
+  await page.route("**/api/reseller-checker", (route) => {
+    calls++;
+    expect(route.request().postDataJSON().model).toBeUndefined();
+    return route.fulfill({ json: { result, usage: [] } });
+  });
+  await page.goto("/reseller-checker");
+  await expect(
+    page.getByRole("navigation", { name: "Anwendungsbereiche" }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("combobox")).toHaveCount(1);
+  await expect(
+    page.getByRole("button", {
+      name: "Artikel fertig → Entwurf erstellen",
+      exact: true,
+    }),
+  ).toBeDisabled();
+  const fakeKey = "daughter-browser-key-123456789";
+  await page.getByLabel("API-Schlüssel für").fill(fakeKey);
+  await page
+    .getByRole("button", { name: "KI-Zugang speichern", exact: true })
+    .click();
+  await expect(page.getByText("Eingerichtet:")).toBeVisible();
+  await expect(page.locator(".reseller-settings details")).not.toHaveAttribute(
+    "open",
+  );
+  await expect(page.getByLabel("API-Schlüssel für")).toHaveValue("");
+  const cookies = await page.context().cookies();
+  const credential = cookies.find((c) => c.name === "reseller_checker_session");
+  expect(credential?.httpOnly).toBe(true);
+  expect(credential?.path).toBe("/api/reseller-checker");
+  expect(credential?.value).not.toContain(fakeKey);
+  expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain(
+    fakeKey,
+  );
+  const other = await browser.newContext();
+  const otherPage = await other.newPage();
+  await otherPage.goto("http://127.0.0.1:3194/reseller-checker");
+  await expect(
+    otherPage.getByRole("button", { name: "KI-Zugang speichern", exact: true }),
+  ).toBeDisabled();
+  await expect(otherPage.getByText("Eingerichtet:")).toHaveCount(0);
+  await other.close();
+  await page.reload();
+  await expect(page.getByText("Eingerichtet:")).toBeVisible();
+  await expect(page.locator(".reseller-settings details")).not.toHaveAttribute(
+    "open",
+  );
+  await page.getByLabel("Fotos auswählen").setInputFiles({
+    name: "daughter.png",
+    mimeType: "image/png",
+    buffer: png,
+  });
+  await expect(page.getByRole("img")).toHaveCount(1);
+  await page
+    .getByRole("button", {
+      name: "Artikel fertig → Entwurf erstellen",
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByRole("article").getByLabel("Titel", { exact: true }),
+  ).toHaveValue(result.title);
+  expect(calls).toBe(1);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: "test-results/reseller-checker-mobile.png",
+    fullPage: true,
+  });
+  await page.getByText("KI-Einstellungen ändern", { exact: true }).click();
+  await page
+    .getByRole("button", { name: "KI-Zugang entfernen", exact: true })
+    .click();
+  await expect(page.getByText("Eingerichtet:")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", {
+      name: "Artikel fertig → Entwurf erstellen",
+      exact: true,
+    }),
+  ).toBeDisabled();
+  expect(
+    (await page.context().cookies()).some(
+      (c) => c.name === "reseller_checker_session",
+    ),
+  ).toBe(false);
+});

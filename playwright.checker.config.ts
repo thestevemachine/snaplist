@@ -22,6 +22,7 @@ export default defineConfig({
     reuseExistingServer: false,
     env: {
       APP_SECRET: "checker-local-test",
+      SESSION_SECRET: "reseller-browser-test-secret-minimum-32-chars",
       SNAPLIST_ACCOUNTS_ENABLED: "false",
     },
   },
