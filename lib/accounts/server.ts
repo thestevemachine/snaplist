@@ -1,3 +1,4 @@
+import {isMissingVaultObject} from "./vault-errors";
 import {createClient} from "@supabase/supabase-js";
 import {cookies} from "next/headers";
 import {NextRequest,NextResponse} from "next/server";
@@ -36,7 +37,7 @@ export async function authenticatedAccount(access?:string):Promise<AccountContex
  const result=await db.storage.from(VAULT_BUCKET).download(`${data.user.id}/credentials.json`);
  let secrets:Record<string,string>={};
  if(result.error) {
-  if(!["400","404"].includes(String((result.error as {statusCode?:string}).statusCode)))throw new Error("Account vault unavailable.");
+  if(!isMissingVaultObject(result.error))throw new Error("Account vault unavailable.");
  } else {
   const sealed=await result.data.text();const opened=await openConnection(sealed);
   if(!opened)throw new Error("Account credentials could not be decrypted.");
