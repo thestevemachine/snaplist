@@ -320,3 +320,13 @@ it("classifies sanitized image-upload failures without retrying authorization er
     ),
   ).rejects.toBeInstanceOf(TemporaryError);
 });
+it.each([["73.80", "73.8", 7380], ["45.00", "45", 4500]])("accepts equivalent eBay price precision %s and %s", async (requested, returned, cents) => {
+  const { adapter, payload, state } = fixture();
+  payload.StartPrice = requested;
+  state.newItem.StartPrice = returned;
+  const row = preview("account", "SIMULATION", [sampleListing(id)], 0).rows[0];
+  const backup = await new Simulation([row]).backup(row, "account");
+  expect(await adapter.compare("100000000002", backup, cents, payload)).toBe(true);
+  state.newItem.StartPrice = (cents / 100 + 0.01).toFixed(2);
+  expect(await adapter.compare("100000000002", backup, cents, payload)).toBe(false);
+});
