@@ -1,3 +1,4 @@
+import { isMissingVaultObject } from "../accounts/vault-errors";
 import { accountDb, VAULT_BUCKET, isOwner } from "../accounts/server";
 import { accountScope, type AccountContext } from "../accounts/context";
 import { openConnection, sellerAccessToken } from "../ebay/session";
@@ -26,7 +27,7 @@ export async function backgroundAccount(id: string): Promise<AccountContext> {
     secrets = JSON.parse(opened.refreshToken);
   } else if (
     file.error &&
-    !["400", "404"].includes(String((file.error as any).statusCode))
+    !isMissingVaultObject(file.error)
   )
     throw Error("Kontozugang nicht verfügbar.");
   return { id, email: user.email ?? "", owner: isOwner(user), secrets };
