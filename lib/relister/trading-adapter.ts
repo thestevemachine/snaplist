@@ -334,6 +334,14 @@ export class TradingAdapter implements Adapter {
       ...backup.payload,
       StartPrice: (target / 100).toFixed(2),
     };
+    // eBay may return 73.8 or 45 while our request uses 73.80 or 45.00.
+    // Normalize only equivalent, valid money values; the live price was also
+    // checked in cents above. Different or malformed prices must still fail.
+    const pricePattern = /^\d+(?:\.\d{1,2})?$/;
+    if (pricePattern.test(fields.StartPrice) && pricePattern.test(expected.StartPrice) &&
+        Number(fields.StartPrice) === Number(expected.StartPrice)) {
+      fields.StartPrice = expected.StartPrice;
+    }
     const diff = (a: any, b: any, path: string) => {
       if (digest(canonical(a)) === digest(canonical(b))) return;
       if (this.mismatches.length >= 16) return;
