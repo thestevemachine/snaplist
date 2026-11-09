@@ -7,11 +7,14 @@ import { getAnalysisModel } from "@/lib/model-preferences";
 import { checkerResultSchema, type CheckerResult } from "@/lib/checker";
 import type { AiUsage } from "@/lib/ai-usage";
 import "./checker.css";
+const PHOTO_RETENTION_MS = 24 * 60 * 60 * 1000;
+
 type Photo = { id: string; file: File; preview: string; data: string };
 type Item = {
   id: string;
   photos: Photo[];
   notes: string;
+  photosExpireAt?: number;
   status: "queued" | "working" | "ready" | "error";
   result?: CheckerResult;
   error?: string;
@@ -33,6 +36,29 @@ export default function Checker() {
       alive.current = false;
     };
   }, []);
+  useEffect(() => {
+    const nextExpiry = Math.min(...items.flatMap((item) =>
+      item.photos.length && item.photosExpireAt ? [item.photosExpireAt] : [],
+    ));
+    if (!Number.isFinite(nextExpiry)) return;
+
+    function expirePhotos() {
+      const now = Date.now();
+      setItems((previous) => previous.map((item) =>
+        item.photos.length && item.photosExpireAt && item.photosExpireAt <= now
+          ? { ...item, photos: [] }
+          : item,
+      ));
+    }
+
+    const timer = window.setTimeout(expirePhotos, Math.max(0, nextExpiry - Date.now()));
+    document.addEventListener("visibilitychange", expirePhotos);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", expirePhotos);
+    };
+  }, [items]);
+
   function updatePending(next: Photo[]) {
     pending.current = next;
     setPhotos(next);
@@ -97,7 +123,7 @@ export default function Checker() {
           setItems((old) =>
             old.map((i) =>
               i.id === item.id
-                ? { ...i, status: "ready", result, usage: body.usage }
+                ? { ...i, status: "ready", result, usage: body.usage, photosExpireAt: Date.now() + PHOTO_RETENTION_MS }
                 : i,
             ),
           );
@@ -287,7 +313,7 @@ export default function Checker() {
           Artikel fotografieren.
         </p>
         <p>
-          Fotos und Ergebnisse bleiben nur in diesem geöffneten Reiter erhalten.
+          Fotos werden 24 Stunden nach der Auswertung automatisch entfernt. Ergebnisse bleiben in diesem geöffneten Reiter erhalten.
           Vor Verlassen speichern oder kopieren. Zur Erstellung werden
           verkleinerte Fotos an deinen KI-Anbieter übertragen.
         </p>
@@ -306,19 +332,6 @@ export default function Checker() {
                 <button className="btn btn-ghost" onClick={() => void save(item.photos)}>
                   Alle Bilder speichern / teilen
                 </button>
-                {item.status === "ready" && (
-                  <button
-                    className="btn btn-ghost"
-                    onClick={() => {
-                      setItems((previous) => previous.map((entry) =>
-                        entry.id === item.id ? { ...entry, photos: [] } : entry,
-                      ));
-                      setNotice("Fotos dieses Artikels aus dem Checker entfernt.");
-                    }}
-                  >
-                    Bilder aus Checker entfernen
-                  </button>
-                )}
               </>
             )}
             {item.status === "queued" && (
