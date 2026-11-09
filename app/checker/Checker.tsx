@@ -300,13 +300,27 @@ export default function Checker() {
         {items.map((item, index) => (
           <article key={item.id} className="checker-card">
             <h3>Artikel {index + 1}</h3>
-            {previews(item.photos)}
-            <button
-              className="btn btn-ghost"
-              onClick={() => void save(item.photos)}
-            >
-              Alle Bilder speichern / teilen
-            </button>
+            {item.photos.length > 0 && (
+              <>
+                {previews(item.photos)}
+                <button className="btn btn-ghost" onClick={() => void save(item.photos)}>
+                  Alle Bilder speichern / teilen
+                </button>
+                {item.status === "ready" && (
+                  <button
+                    className="btn btn-ghost"
+                    onClick={() => {
+                      setItems((previous) => previous.map((entry) =>
+                        entry.id === item.id ? { ...entry, photos: [] } : entry,
+                      ));
+                      setNotice("Fotos dieses Artikels aus dem Checker entfernt.");
+                    }}
+                  >
+                    Bilder aus Checker entfernen
+                  </button>
+                )}
+              </>
+            )}
             {item.status === "queued" && (
               <p role="status">Wartet auf Erstellung…</p>
             )}
