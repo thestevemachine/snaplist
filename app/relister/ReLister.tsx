@@ -79,6 +79,13 @@ export default function ReLister() {
     [synced, setSynced] = useState(""),
     [sync, setSync] = useState<any>();
   const advancing = useRef(false);
+  const statusVersion = useRef<string | undefined>(undefined);
+  const browserRunner = useRef(false);
+  const [rowDetails, setRowDetails] = useState<Record<string, {
+    history: JobRow["history"];
+    backup?: { version: number; imageCount: number; digest: string };
+    error?: string;
+  }>>({});
   const currentJob = startedJob
     ? jobs.find((job) => job.id === startedJob.id) ?? startedJob
     : jobs.find((job) =>
@@ -105,6 +112,7 @@ export default function ReLister() {
     setSynced(data.catalog?.synced_at ?? "");
     setJobs(data.jobs ?? []);
     setSync(data.sync);
+    browserRunner.current = data.runner === "browser";
     const pending =
       data.sync?.pending ||
       (data.jobs ?? []).some(
@@ -129,19 +137,62 @@ export default function ReLister() {
       }
     }
   }
+  const hasRunningWork = syncing || [...jobs, ...(currentJob ? [currentJob] : [])].some((job) =>
+    job.confirmed && !job.paused && job.rows.some((row) =>
+      !["completed", "review", "skipped"].includes(row.phase) &&
+      !(job.mode === "dry-run" && row.phase === "ready"),
+    ),
+  );
+
   useEffect(() => {
-    let active = true;
-    const refresh = () =>
-      load().catch((e) => {
-        if (active) setMessage(e.message);
-      });
-    void refresh();
-    const timer = setInterval(refresh, 10000);
-    return () => {
-      active = false;
-      clearInterval(timer);
+    const refresh = () => { void load().catch((error) => setMessage(error.message)); };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") refresh();
     };
+    refresh();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
   }, []);
+
+  useEffect(() => {
+    if (!hasRunningWork) return;
+    let active = true;
+    let timer: ReturnType<typeof setTimeout>;
+    async function refreshStatus() {
+      try {
+        if (document.visibilityState === "visible") {
+          const response = await fetch("/api/relister?view=status", { cache: "no-store" });
+          const data = await response.json();
+          if (!data.ok) throw Error(data.error);
+          if (active && (browserRunner.current || statusVersion.current !== data.version)) {
+            await load();
+            statusVersion.current = data.version;
+          }
+        }
+      } catch (error) {
+        if (active) setMessage(error instanceof Error ? error.message : "Status nicht verfügbar.");
+      } finally {
+        if (active) timer = setTimeout(refreshStatus, 10000);
+      }
+    }
+    timer = setTimeout(refreshStatus, 10000);
+    return () => { active = false; clearTimeout(timer); };
+  }, [hasRunningWork]);
+
+  async function loadDetails(job: string, row: string) {
+    try {
+      const params = new URLSearchParams({ view: "details", job, row });
+      const response = await fetch(`/api/relister?${params}`, { cache: "no-store" });
+      const data = await response.json();
+      if (!data.ok) throw Error(data.error);
+      setRowDetails((previous) => ({ ...previous, [row]: data }));
+    } catch {
+      setRowDetails((previous) => ({ ...previous, [row]: {
+        history: [], error: "Details konnten nicht geladen werden. Bitte erneut öffnen.",
+      } }));
+    }
+  }
+
   async function confirmJob(job: Job, ready = job.rows) {
     if (job.mode === "simulation") {
       if (
@@ -669,7 +720,9 @@ export default function ReLister() {
                         )}
                       </div>
                     </div>
-                    <details className="relister-history-details">
+                    <details className="relister-history-details" onToggle={(event) => {
+                      if (event.currentTarget.open) void loadDetails(j.id, r.id);
+                    }}>
                       <summary>Auftragsdetails und Verlauf</summary>
                       <p>Alt: {r.listing.id} · Neu: {r.newId ?? "Noch nicht erstellt"}</p>
                       <p>
@@ -681,14 +734,15 @@ export default function ReLister() {
                         {r.feeCents === undefined ? "Noch nicht geprüft" : eur(r.feeCents)}
                         . Verkaufskosten und Kontingent separat beachten.
                       </p>
-                      {r.backup && (
+                      {rowDetails[r.id]?.backup && (
                         <p>
-                          Sicherung v{r.backup.version}: {r.backup.images.length} Bilddatei(en),
-                          SHA256 {r.backup.digest}
+                          Sicherung v{rowDetails[r.id].backup!.version}: {rowDetails[r.id].backup!.imageCount} Bilddatei(en),
+                          SHA256 {rowDetails[r.id].backup!.digest}
                         </p>
                       )}
+                      {rowDetails[r.id]?.error && <p role="status">{rowDetails[r.id].error}</p>}
                       <ol>
-                        {r.history.map((h, i) => (
+                        {rowDetails[r.id]?.history.map((h, i) => (
                           <li key={i}>{dateTime(h.at)}: {h.note}</li>
                         ))}
                       </ol>
