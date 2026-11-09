@@ -1,3 +1,5 @@
+import {cache} from "react";
+import {boundedFetch,withDeadline} from "../network";
 import {isMissingVaultObject} from "./vault-errors";
 import {createClient} from "@supabase/supabase-js";
 import {cookies} from "next/headers";
@@ -8,7 +10,7 @@ export const ACCESS="snaplist_access",REFRESH="snaplist_refresh";
 export function accountDb() {
  const url=process.env.SUPABASE_EU_URL, key=process.env.SUPABASE_EU_SECRET_KEY;
  if(!url || !key) throw new Error("Account database is not configured.");
- return createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
+ return createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{fetch:boundedFetch}});
 }
 export function sameOrigin(req:NextRequest) {
  const origin=req.headers.get("origin");
@@ -57,10 +59,15 @@ export function setSession(res:NextResponse,session:{access_token:string;refresh
  res.cookies.set(ACCESS,session.access_token,{...options,maxAge:session.expires_in});
  res.cookies.set(REFRESH,session.refresh_token,{...options,maxAge:30*86400});
 }
-export async function pageAccount() {
+export const pageAccount = cache(async (): Promise<AccountContext | null> => {
  if(!accountsEnabled()) return null;
- const jar=await cookies();return authenticatedAccount(jar.get(ACCESS)?.value);
-}
+ const jar=await cookies();
+ try {
+  return await withDeadline(8000, () => authenticatedAccount(jar.get(ACCESS)?.value));
+ } catch {
+  return null;
+ }
+});
 export function withAccount(handler:(req:NextRequest)=>Promise<Response>) {
  return async function(req:NextRequest):Promise<Response> {
   if(!accountsEnabled()) return handler(req);
