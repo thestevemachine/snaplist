@@ -1,3 +1,4 @@
+import AppNavigation from "./AppNavigation";
 import { pageAccount } from "@/lib/accounts/server";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#1d6b5f",
+  themeColor: "#f5f5f7",
 };
 
 export default async function RootLayout({
@@ -28,10 +29,7 @@ export default async function RootLayout({
         data-account={account?.id}
         data-account-owner={account?.owner ? "true" : undefined}
       >
-        <nav className="app-nav" aria-label="Anwendungsbereiche">
-          <a href="/">Snaplist</a>
-          <a href="/relister">Re-Lister</a>
-        </nav>
+        <AppNavigation />
         {children}
       </body>
     </html>
