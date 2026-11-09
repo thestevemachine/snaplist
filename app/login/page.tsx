@@ -2,7 +2,36 @@
 import {useEffect,useState,type FormEvent} from "react";
 export default function Login(){
  const [email,setEmail]=useState(""),[password,setPassword]=useState(""),[invite,setInvite]=useState(""),[message,setMessage]=useState(""),[busy,setBusy]=useState(false),[setup,setSetup]=useState(false),[code,setCode]=useState("");
- useEffect(()=>{setSetup(new URLSearchParams(location.search).get("setup")==="1");try{setCode(localStorage.getItem("listing-writer:access-code") || "");}catch{} const token=new URLSearchParams(location.hash.slice(1)).get("invite");if(token){setInvite(token);history.replaceState(null,"","/login");}else void fetch("/api/account",{method:"POST",headers:{"Content-Type":"application/json","x-snaplist-account":document.body.dataset.account ?? ""},body:JSON.stringify({action:"resume"})}).then(r=>{if(r.ok)location.replace("/");});},[]);
+ useEffect(() => {
+  setSetup(new URLSearchParams(location.search).get("setup") === "1");
+  try { setCode(localStorage.getItem("listing-writer:access-code") || ""); } catch {}
+  const token = new URLSearchParams(location.hash.slice(1)).get("invite");
+  if (token) {
+   setInvite(token);
+   history.replaceState(null, "", "/login");
+   return;
+  }
+  // An unavailable account service can send the next page back here.
+  // Avoid repeatedly rotating the refresh token in that redirect loop.
+  try {
+   const key = "snaplist:last-login-resume";
+   const now = Date.now();
+   if (now - Number(sessionStorage.getItem(key) ?? 0) < 60_000) return;
+   sessionStorage.setItem(key, String(now));
+  } catch {
+   return;
+  }
+  const request = new AbortController();
+  void fetch("/api/account", {
+   method: "POST",
+   headers: {"Content-Type": "application/json"},
+   body: JSON.stringify({action: "resume"}),
+   signal: request.signal,
+  }).then(response => {
+   if (response.ok && !request.signal.aborted) location.replace("/");
+  }).catch(() => {});
+  return () => request.abort();
+ }, []);
  async function submit(e:FormEvent){e.preventDefault();setBusy(true);setMessage("");try{
  const r=await fetch(setup ? "/api/account/setup" : "/api/account",{method:"POST",headers:{"Content-Type":"application/json","x-snaplist-account":document.body.dataset.account ?? ""},body:JSON.stringify(setup ? {password,code} : invite ? {action:"accept-invite",token:invite} : {action:"login",email,password})});const data=await r.json();if(!r.ok)throw new Error(data.error);location.assign("/");
  }catch(e){setMessage(e instanceof Error ? e.message : "Anmeldung fehlgeschlagen.");}finally{setBusy(false);}}
