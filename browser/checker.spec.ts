@@ -31,6 +31,7 @@ test("upload, article grouping, independent copy fields and original photo downl
     expect(body.images[0].mediaType).toBe("image/jpeg");
     await route.fulfill({ json: { result, usage: [] } });
   });
+  await page.clock.install();
   await page.goto("/checker");
   await expect(page.getByRole("navigation").getByRole("link")).toHaveCount(3);
   const upload = page.getByLabel("Fotos auswählen");
@@ -68,6 +69,9 @@ test("upload, article grouping, independent copy fields and original photo downl
     .getByRole("button", { name: "Foto 1 speichern", exact: true })
     .click();
   expect((await download).suggestedFilename()).toBe("front.png");
+  await page.clock.fastForward(24 * 60 * 60 * 1000);
+  await expect(first.getByRole("img")).toHaveCount(0);
+  await expect(first.getByLabel("Titel", { exact: true })).toHaveValue("Mein Hemd");
   await upload.setInputFiles({
     name: "next.png",
     mimeType: "image/png",
