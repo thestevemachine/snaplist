@@ -57,12 +57,46 @@ async function handle(req: NextRequest) {
       { status: 403 },
     );
   try {
-    if (req.method === "GET")
+    if (req.method === "GET") {
+      const params = req.nextUrl.searchParams;
+      if (params.get("view") === "status") {
+        const db = accountDb();
+        const [jobState, syncState] = await Promise.all([
+          db.from("relister_jobs").select("id,revision,pending").eq("account_id", account.id)
+            .order("created_at", { ascending: false }).limit(20),
+          db.from("relister_sync").select("updated_at,pending").eq("account_id", account.id).maybeSingle(),
+        ]);
+        if (jobState.error || syncState.error) throw Error("Status nicht verfügbar.");
+        return NextResponse.json({
+          ok: true,
+          version: JSON.stringify([jobState.data, syncState.data]),
+        }, { headers: { "Cache-Control": "private, no-store" } });
+      }
+      if (params.get("view") === "details") {
+        const job = await getJob(account.id, params.get("job") ?? "");
+        const row = job.rows.find((item) => item.id === params.get("row"));
+        if (!row) throw Error("Artikel nicht gefunden.");
+        return NextResponse.json({
+          ok: true,
+          history: row.history,
+          backup: row.backup && {
+            version: row.backup.version,
+            imageCount: row.backup.images.length,
+            digest: row.backup.digest,
+          },
+        }, { headers: { "Cache-Control": "private, no-store" } });
+      }
       return NextResponse.json(
         {
           ok: true,
           catalog: await catalog(account.id),
-          jobs: await jobs(account.id),
+          jobs: (await jobs(account.id)).map((job) => ({
+            ...job,
+            rows: job.rows.map(({ backup: _backup, outgoing: _outgoing, ...row }) => ({
+              ...row,
+              history: row.history.map(({ phase, at }) => ({ phase, at })),
+            })),
+          })),
           sync: (
             await accountDb()
               .from("relister_sync")
@@ -77,6 +111,7 @@ async function handle(req: NextRequest) {
         },
         { headers: { "Cache-Control": "private, no-store" } },
       );
+    }
     if (!sameOrigin(req))
       return NextResponse.json({ ok: false }, { status: 403 });
     const body = await req.json();
