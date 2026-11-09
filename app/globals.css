@@ -1,30 +1,26 @@
 :root {
-  /* Warm, friendly "kitchen-table reseller" palette — not a generic SaaS template. */
-  --color-bg: oklch(97.5% 0.012 95);
-  --color-bg-warm: oklch(95% 0.02 80);
-  --color-surface: oklch(99% 0.004 95);
-  --color-surface-sunk: oklch(96% 0.01 95);
-  --color-ink: oklch(28% 0.02 60);
-  --color-ink-soft: oklch(48% 0.02 60);
-  --color-ink-faint: oklch(64% 0.015 60);
+  --color-bg: #f5f5f7;
+  --color-bg-warm: #eeeef2;
+  --color-surface: #ffffff;
+  --color-surface-sunk: #eeeef2;
+  --color-ink: #1d1d1f;
+  --color-ink-soft: #515154;
+  --color-ink-faint: #636366;
+  --color-accent: #005ec7;
+  --color-accent-deep: #004b9f;
+  --color-accent-soft: #e5f0ff;
+  --color-gold: #996100;
+  --color-gold-soft: #fff4d8;
+  --color-border: #d6d6dc;
+  --color-danger: #b4232d;
+  --color-danger-soft: #fce9eb;
 
-  --color-accent: oklch(52% 0.1 175);
-  --color-accent-deep: oklch(42% 0.1 175);
-  --color-accent-soft: oklch(93% 0.04 175);
-  --color-gold: oklch(74% 0.13 75);
-  --color-gold-soft: oklch(93% 0.06 80);
-
-  --color-border: oklch(88% 0.012 80);
-  --color-danger: oklch(55% 0.18 25);
-  --color-danger-soft: oklch(94% 0.04 25);
-
-  --radius-sm: 8px;
-  --radius: 14px;
-  --radius-lg: 22px;
-
-  --shadow-sm: 0 1px 2px oklch(40% 0.02 60 / 0.06);
-  --shadow: 0 6px 20px oklch(40% 0.03 60 / 0.08);
-  --shadow-lg: 0 24px 60px oklch(40% 0.04 60 / 0.14);
+  --radius-sm: 10px;
+  --radius: 16px;
+  --radius-lg: 24px;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 5%);
+  --shadow: 0 4px 16px rgb(0 0 0 / 6%);
+  --shadow-lg: 0 20px 54px rgb(0 0 0 / 14%);
 
   --text-hero: clamp(2.1rem, 1.2rem + 3.4vw, 3.6rem);
   --space-section: clamp(2rem, 1rem + 4vw, 4rem);
@@ -33,9 +29,9 @@
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
 
   --font-sans:
-    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica,
+    -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, Helvetica,
     Arial, sans-serif;
-  --font-display: "Georgia", "Times New Roman", serif;
+  --font-display: var(--font-sans);
 }
 
 * {
@@ -51,14 +47,7 @@ body {
 body {
   font-family: var(--font-sans);
   color: var(--color-ink);
-  background:
-    radial-gradient(120% 80% at 100% 0%, var(--color-bg-warm), transparent 60%),
-    radial-gradient(
-      100% 70% at 0% 0%,
-      var(--color-accent-soft),
-      transparent 55%
-    ),
-    var(--color-bg);
+  background: var(--color-bg);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   line-height: 1.55;
@@ -2100,26 +2089,70 @@ textarea.title-input {
   border-color: transparent;
   box-shadow: none;
 }
-.app-nav {
-  width: min(1440px, calc(100% - 48px));
-  margin: 0 auto;
-  padding: 1rem 0;
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
+.app-chrome {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 8px max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left));
+  background: rgb(245 245 247 / 94%);
   border-bottom: 1px solid var(--color-border);
+  backdrop-filter: blur(18px);
+}
+
+.app-nav {
+  width: fit-content;
+  max-width: 100%;
+  margin: auto;
+  padding: 4px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  border-radius: var(--radius);
+  background: var(--color-surface-sunk);
 }
 
 .app-nav a {
-  color: var(--color-accent-deep);
-  font-weight: 650;
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  padding: 0.35rem clamp(0.45rem, 2vw, 1.4rem);
+  border-radius: var(--radius-sm);
+  color: var(--color-ink-soft);
+  font-weight: 600;
+  text-align: center;
   text-decoration: none;
-  text-underline-offset: 0.2em;
 }
 
-.app-nav a:hover,
-.app-nav a:focus-visible {
-  text-decoration: underline;
+.app-nav a:hover {
+  background: var(--color-accent-soft);
+}
+
+.app-nav a[aria-current="page"] {
+  color: var(--color-accent-deep);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+:where(a, button, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+html {
+  scroll-padding-top: 80px;
+}
+
+@media (pointer: coarse) {
+  .btn, .relister-page button, .checker-field input {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .app-chrome {
+    background: var(--color-bg);
+    backdrop-filter: none;
+  }
 }
 
 .relister-page {
@@ -2536,13 +2569,8 @@ textarea.title-input {
     flex-direction: column;
   }
 
-  .app-nav,
   .relister-page {
     width: calc(100% - 28px);
-  }
-
-  .app-nav {
-    gap: 1rem;
   }
 
   .relister-price-options {
