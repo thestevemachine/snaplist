@@ -1,3 +1,4 @@
+import { GENERAL_LISTING_PROMPT, usesEyewearDefaults } from "@/lib/listing-mode";
 import {readMeasurementPhotos} from "@/lib/measurement-photos";
 import {boxSizePatch} from "@/lib/eyewear-measurements";
 import { titanEvidencePatch } from "@/lib/titan-evidence";
@@ -205,7 +206,7 @@ async function handle(input: unknown) {
       (EBAY_MARKETPLACE_ID === "EBAY_DE"
         ? GERMAN_LISTING_PROMPT + INSCRIPTION_PROMPT + CLASSIFICATION_PROMPT
         : "") +
-      FRONT_MEASUREMENT_PROMPT;
+      FRONT_MEASUREMENT_PROMPT + GENERAL_LISTING_PROMPT;
 
     // One paid analysis attempt; never retry or upgrade models automatically.
     let lastErr: unknown = null;
@@ -329,6 +330,14 @@ async function handle(input: unknown) {
         }
         Object.assign(listing, titanEvidencePatch(listing));
         listing.description = cleanGeneratedDescription(listing.description);
+        if (!usesEyewearDefaults(listing)) {
+          listing.eyewear_kind = "not_eyewear";
+          if (listing.condition !== "FOR_PARTS_OR_NOT_WORKING") listing.condition = "GOOD";
+          if (!listing.condition_notes?.trim() || /^Ungetragen ohne Etui/i.test(listing.condition_notes))
+            listing.condition_notes = "Gebraucht.";
+          delete listing.eyewear;
+          delete listing.frontMeasurement;
+        }
         listing.item_profile = profile;
         listing.evidence = Object.fromEntries(
           supported.map((s: any) => [s.name, s.photoIndices]),

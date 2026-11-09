@@ -2,7 +2,7 @@ import {it,expect} from "vitest";
 import {mapEyewear} from "@/lib/eyewear-inscriptions";
 import {manualLensWidth} from "@/lib/manual-lens-width";
 import type {AspectMeta} from "@/lib/ebay/taxonomy";
-const meta:AspectMeta={name:"Glasbreite",mode:"FREE_TEXT",cardinality:"SINGLE",values:["50 mm"],required:false};
+const meta:AspectMeta={name:"Glasbreite",mode:"FREE_TEXT",cardinality:"SINGLE",values:["50 mm"],required:false,usage:"OPTIONAL" as const};
 it("records a manual optical lens width even without taxonomy and transfers to real free-text category fields",()=>{
  const l={title:"Brille",description:"Original",item_specifics:{Glasbreite:"50 mm"},evidence:{Glasbreite:[1]},estimates:{Glasbreite:90}};
  const patch=manualLensWidth(l,"46",[meta]);

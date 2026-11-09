@@ -244,11 +244,12 @@ export function ShopSettings({
                 </label>
               ))}
               <p>
-                <strong>Vorgaben für neue Brillen:</strong> Neu ohne Etikett ·
+                <strong>Vorgaben für neue Brillen und Etuis:</strong> Neu ohne Etikett ·
                 EAN: Nicht zutreffend. In jeder Karte änderbar.
+                <br />Andere Artikel erhalten eine KI-Beschreibung und standardmäßig den Zustand Gebraucht. Die Geschichte lässt sich pro Artikel einschalten.
               </p>
               <label style={{ display: "block" }}>
-                Beschreibungsvorlage (Deutsch / Englisch)
+                Beschreibungsvorlage für Brillen und Etuis (Deutsch / Englisch)
                 <textarea
                   aria-label="Beschreibungsvorlage"
                   rows={12}
@@ -291,9 +292,9 @@ export function ShopSettings({
                 </button>
               </p>
               <p>
-                Die folgende Aktion ersetzt Zustand, EAN und ausgewählte
+                Bei Brillen und Etuis ersetzt diese Aktion Zustand und EAN. Ausgewählte
                 Rahmenbedingungen in allen unveröffentlichten Karten. Eine
-                ausgefüllte Beschreibungsvorlage wird ebenfalls übernommen.
+                Brillen- oder Etui-Beschreibungsvorlagen werden ebenfalls übernommen. Andere Artikel behalten ihre KI-Beschreibung.
                 Bereits veröffentlichte Angebote bleiben unverändert.
               </p>
               <button

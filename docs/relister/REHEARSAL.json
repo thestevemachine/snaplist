@@ -1,0 +1,107 @@
+{
+  "mode": "SIMULATED – NO EBAY CALLS",
+  "stages": "selection → discount → real fixture image backup → simulated verification → simulated end → simulated create → simulated postcheck",
+  "partialFailure": "create response lost; durable job reloaded; existing new ID reconciled",
+  "passed": true,
+  "rows": [
+    {
+      "oldId": "100000000001",
+      "newId": "SIM-C5D3653C1C454C4C8507246F3DC0B150",
+      "original": 4999,
+      "percent": "6",
+      "target": 4699,
+      "history": [
+        {
+          "at": "2026-11-03T21:47:36.408Z",
+          "phase": "backed_up",
+          "note": "Daten und Bilddateien gesichert"
+        },
+        {
+          "at": "2026-11-03T21:47:36.408Z",
+          "phase": "verified",
+          "note": "Nicht veröffentlichende Vorprüfung erfolgreich"
+        },
+        {
+          "at": "2026-11-03T21:47:36.409Z",
+          "phase": "ready",
+          "note": "Bereit"
+        },
+        {
+          "at": "2026-11-03T21:47:36.409Z",
+          "phase": "end_requested",
+          "note": "Simulierte Beendigung angefordert"
+        },
+        {
+          "at": "2026-11-03T21:47:36.409Z",
+          "phase": "ended",
+          "note": "Ende bestätigt"
+        },
+        {
+          "at": "2026-11-03T21:47:36.409Z",
+          "phase": "create_requested",
+          "note": "Simulierte Erstellung angefordert"
+        },
+        {
+          "at": "2026-11-03T21:47:36.410Z",
+          "phase": "created",
+          "note": "Neue Artikelnummer bestätigt"
+        },
+        {
+          "at": "2026-11-03T21:47:36.410Z",
+          "phase": "completed",
+          "note": "Simulierte Nachprüfung erfolgreich; alte/neue Artikelnummer gespeichert"
+        }
+      ]
+    },
+    {
+      "oldId": "100000000002",
+      "newId": "SIM-D5B9547D05B44BADBF55DCC93F010BA8",
+      "original": 4999,
+      "percent": "6",
+      "target": 4699,
+      "history": [
+        {
+          "at": "2026-11-03T21:47:36.410Z",
+          "phase": "backed_up",
+          "note": "Daten und Bilddateien gesichert"
+        },
+        {
+          "at": "2026-11-03T21:47:36.410Z",
+          "phase": "verified",
+          "note": "Nicht veröffentlichende Vorprüfung erfolgreich"
+        },
+        {
+          "at": "2026-11-03T21:47:36.411Z",
+          "phase": "ready",
+          "note": "Bereit"
+        },
+        {
+          "at": "2026-11-03T21:47:36.411Z",
+          "phase": "end_requested",
+          "note": "Simulierte Beendigung angefordert"
+        },
+        {
+          "at": "2026-11-03T21:47:36.411Z",
+          "phase": "ended",
+          "note": "Ende bestätigt"
+        },
+        {
+          "at": "2026-11-03T21:47:36.411Z",
+          "phase": "create_requested",
+          "note": "Simulierte Erstellung angefordert"
+        },
+        {
+          "at": "2026-11-03T21:47:36.411Z",
+          "phase": "created",
+          "note": "Neue Artikelnummer bestätigt"
+        },
+        {
+          "at": "2026-11-03T21:47:36.411Z",
+          "phase": "completed",
+          "note": "Simulierte Nachprüfung erfolgreich; alte/neue Artikelnummer gespeichert"
+        }
+      ]
+    }
+  ],
+  "digest": "dda7c3f49f836570a6ebbf4c110a1ea7655fabee93542d6fcadb4b22958a03e9"
+}

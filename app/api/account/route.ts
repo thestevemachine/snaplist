@@ -22,6 +22,9 @@ export async function POST(req:NextRequest) {
   if(body.action==="login" || body.action==="accept-invite") {
    const db=accountDb();
    const result=body.action==="login" ? await db.auth.signInWithPassword(z.object({email:z.string().email().max(254),password:z.string().min(1).max(256)}).parse(body)) : await db.auth.verifyOtp({token_hash:z.string().min(20).max(512).parse(body.token),type:"invite"});
+   if (result.error && (!result.error.status || result.error.status >= 500)) {
+    return NextResponse.json({ok:false,error:"Der Anmeldedienst antwortet gerade nicht. Bitte versuche es gleich erneut."},{status:503});
+   }
    const session=result.data.session;
    if(result.error || !session || !await authenticatedAccount(session.access_token)) return NextResponse.json({ok:false,error:"Anmeldung fehlgeschlagen. Einladung oder Zugangsdaten prüfen."},{status:401});
    const res=NextResponse.json({ok:true});setSession(res,session);return res;

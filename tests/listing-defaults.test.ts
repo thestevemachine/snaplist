@@ -12,7 +12,7 @@ const meta: AspectMeta[] = [
     cardinality: "SINGLE",
   },
 ];
-it("fills the seller's Regular and exact Pre-owned Excellent defaults", () => {
+it("defaults ordinary articles to used without claiming excellent condition", () => {
   const l: ListingResult = {
     title: "Shirt",
     description: "",
@@ -21,8 +21,8 @@ it("fills the seller's Regular and exact Pre-owned Excellent defaults", () => {
   };
   applyListingDefaults(l, meta, new Set([2990, 3000]));
   expect(l.item_specifics?.["Size Type"]).toBe("Regular");
-  expect(l.ebay_condition).toBe("PRE_OWNED_EXCELLENT");
-  expect(l.condition).toBe("EXCELLENT");
+  expect(l.ebay_condition).toBe("USED_EXCELLENT");
+  expect(l.condition).toBe("GOOD");
   expect(l.evidence?.["Size Type"]).toBeUndefined();
 });
 it("preserves a seller's alternate size and new-condition choice on repeated preparation", () => {
@@ -41,6 +41,6 @@ it("preserves a seller's alternate size and new-condition choice on repeated pre
 it("does not relabel Good as Excellent or add unsupported size types", () => {
   const l: ListingResult = { title: "Item", description: "" };
   applyListingDefaults(l, [], new Set([3000]));
-  expect(l.ebay_condition).toBeUndefined();
+  expect(l.ebay_condition).toBe("USED_EXCELLENT");
   expect(l.item_specifics).toBeUndefined();
 });

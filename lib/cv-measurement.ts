@@ -2,6 +2,13 @@ import {z} from 'zod';
 import {lensReference} from './lens-reference';
 import type {ListingResult,ItemGroup} from './types';
 import type {FrontMeasurement} from './front-measurements';
+export const WIDTH_RANGE_NOTE = "Gesamtbreite außerhalb des üblichen Bereichs (130–143 mm). Grobe Schätzung, bitte nachmessen.";
+
+export function automaticFrameWidth(raw: number, lensWidth?: number, bridgeWidth?: number) {
+  if (raw >= 130 && raw <= 143) return { mm: Math.round(raw), fallback: false };
+  const fromBox = 2 * (lensWidth ?? 0) + (bridgeWidth ?? 0) + 12;
+  return { mm: lensWidth && bridgeWidth && fromBox >= 130 && fromBox <= 143 ? Math.round(fromBox) : 137, fallback: true };
+}
 export const CV_VERSION='opencv-browser-v8.1';
 const point=z.tuple([z.number().finite().min(0).max(1),z.number().finite().min(0).max(1)]);
 export const cvPointsSchema=z.object({left_left:point,left_right:point,left_top:point,left_bottom:point,right_left:point,right_right:point,right_top:point,right_bottom:point,outer_left:point.optional(),outer_right:point.optional()});
@@ -29,7 +36,7 @@ export function cvMeasurement(record:CvRecord,listing:ListingResult,photoIndex:n
  if(failures.length){result.reasons.push(...failures.map(s=>'Referenzprüfung: '+s));return result}
  const height=(heights[0]+heights[1])/2*scale;if(height<10||height>90)return result;
  result.lensHeightMm=Math.round(height);result.lensWidthPx=(widths[0]+widths[1])/2;result.lensHeightPx=(heights[0]+heights[1])/2;
- if(p.outer_left&&p.outer_right){const span=q('outer_right')[0]-q('outer_left')[0],total=span*scale;if(total>=80&&total<=220&&q('outer_left')[0]<q('left_left')[0]&&q('outer_right')[0]>q('right_right')[0]){result.totalWidthMm=Math.round(total);result.totalWidthPx=span}}
+ if(p.outer_left&&p.outer_right){const span=q('outer_right')[0]-q('outer_left')[0],total=span*scale;if(q('outer_left')[0]<q('left_left')[0]&&q('outer_right')[0]>q('right_right')[0]){const width=automaticFrameWidth(total,ref.mm,bridgeKnown?bridgeMm:undefined);result.totalWidthMm=width.mm;result.totalWidthPx=span;if(width.fallback)result.reasons.push(WIDTH_RANGE_NOTE)}}
  // Keep the read/confirmed bridge as authority; don't publish a second inferred bridge.
  result.status='uncertain';return result;
 }

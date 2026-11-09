@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, Fragment } from "react";
-import { planBatchSkus } from "@/lib/batch-sku";
+import { batchSkuSuggestion, planBatchSkus } from "@/lib/batch-sku";
 import { draftIssues } from "@/lib/client-review";
 import { ListingCard } from "./ListingCard";
 import { downloadFile, listingsToCsv, listingsToJson } from "@/lib/export";
@@ -61,6 +61,7 @@ export function ListingsView(props: ListingsViewProps) {
   } = props;
   const [firstSku, setFirstSku] = useState("");
   const [skuMessage, setSkuMessage] = useState("");
+  useEffect(() => setFirstSku(batchSkuSuggestion(groups[0]?.id)), []);
   let skuPreview = "";
   if (firstSku.trim()) {
     try {
@@ -71,7 +72,7 @@ export function ListingsView(props: ListingsViewProps) {
     }
   }
   const [table, setTable] = useState(false);
-  const [allDetails,setAllDetails]=useState<{open:boolean;revision:number}>({open:true,revision:0});
+  const [allDetails,setAllDetails]=useState<{open:boolean;revision:number}>({open:false,revision:0});
   const [filter, setFilter] = useState("all");
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -171,6 +172,7 @@ export function ListingsView(props: ListingsViewProps) {
     <section className="panel" aria-labelledby="listings-heading">
       <div className="result-head">
         <h3 id="listings-heading">Deine Angebote</h3>
+        <button type="button" className="btn btn-ghost" disabled={active} onClick={onBack}>← Zur Bilderansicht</button>
         <span className="badge">
           {done}/{groups.length} Entwürfe erstellt · {ready.length} bereit ·{" "}
           {posted} veröffentlicht
@@ -603,7 +605,7 @@ export function ListingsView(props: ListingsViewProps) {
           disabled={active}
           onClick={onBack}
         >
-          ← Back to items
+          ← Zur Bilderansicht
         </button>
         <button
           type="button"

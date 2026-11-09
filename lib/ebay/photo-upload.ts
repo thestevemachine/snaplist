@@ -3,7 +3,15 @@ const BASE="https://apim.ebay.com/commerce/media/v1_beta/image";
 export type PhotoUploadResult={url:string|null;error?:string;retryable?:boolean};
 function imageUrl(value:unknown):string|null {
  if(typeof value!=="string")return null;
- try{const u=new URL(value);return u.protocol==="https:" && !u.username && !u.password && (u.hostname==="ebayimg.com" || u.hostname.endsWith(".ebayimg.com")) ? u.href : null;}catch{return null;}
+ try{
+  const u=new URL(value);
+  if(u.protocol!=="https:" || u.username || u.password || (u.hostname!=="ebayimg.com" && !u.hostname.endsWith(".ebayimg.com")))return null;
+  // EPS has multiple renditions for one upload. The create response can point
+  // at a 400px preview even when the supplied original is larger. Select the
+  // 1600px rendition; EPS keeps the actual source dimensions when smaller.
+  u.pathname=u.pathname.replace(/\/s-l\d+(?=\.[a-z0-9]+$)/i,"/s-l1600");
+  return u.href;
+ }catch{return null;}
 }
 function failure(status:number,body:any):PhotoUploadResult {
  const codes=(Array.isArray(body?.errors)?body.errors:[]).map((e:any)=>String(e.errorId)).filter((v:string)=>/^\d{1,12}$/.test(v));

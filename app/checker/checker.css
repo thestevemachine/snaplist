@@ -1,0 +1,70 @@
+.checker {
+  max-width: 960px;
+  margin: auto;
+  padding: 24px 16px 72px;
+}
+.checker h1 {
+  font-size: 2.5rem;
+}
+.checker-card {
+  padding: 24px;
+  margin: 24px 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+.checker-field {
+  display: grid;
+  gap: 8px;
+  margin: 18px 0;
+  font-weight: 600;
+}
+.checker-field input,
+.checker-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font: inherit;
+}
+.checker-photos {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 12px 0;
+}
+.checker-photos figure {
+  flex: 0 0 140px;
+  margin: 0;
+}
+.checker-photos img {
+  width: 140px;
+  height: 140px;
+  object-fit: contain;
+  background: var(--color-surface-sunk);
+  border-radius: 10px;
+}
+.checker-photos button {
+  font-size: 0.8rem;
+  width: 100%;
+  margin-top: 6px;
+}
+.checker-card > .btn {
+  margin: 4px 8px 4px 0;
+}
+.checker p {
+  line-height: 1.6;
+}
+.checker .camera-capture {
+  margin-top: 16px;
+}
+@media (max-width: 600px) {
+  .checker-card {
+    padding: 16px;
+  }
+  .checker {
+    padding: 16px 12px 48px;
+  }
+}

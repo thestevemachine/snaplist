@@ -10,6 +10,8 @@ interface ReviewBoardProps {
   onRename: (groupId: string, name: string) => void;
   onMovePhoto: (photoId: string, toGroupId: string | "orphans") => void;
   onReorderPhoto: (groupId: string, fromIndex: number, toIndex: number) => void;
+  onSplitPhoto: (groupId: string, afterIndex: number) => void;
+  splitDisabled: boolean;
   onDeleteGroup: (groupId: string) => void;
   onAddGroup: () => void;
   onWriteAll: () => void;
@@ -110,12 +112,16 @@ function PhotoGrid({
   photoById,
   onMovePhoto,
   onReorderPhoto,
+  onSplitPhoto,
+  splitDisabled,
 }: {
   group: ItemGroup;
   groups: ItemGroup[];
   photoById: ReviewBoardProps["photoById"];
   onMovePhoto: ReviewBoardProps["onMovePhoto"];
   onReorderPhoto: ReviewBoardProps["onReorderPhoto"];
+  onSplitPhoto: ReviewBoardProps["onSplitPhoto"];
+  splitDisabled: boolean;
 }) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
@@ -128,8 +134,8 @@ function PhotoGrid({
   return (
     <div className="board-thumbs">
       {group.photoIds.map((pid, i) => (
+        <div key={pid}>
         <Thumb
-          key={pid}
           photoId={pid}
           groupId={group.id}
           groups={groups}
@@ -157,6 +163,12 @@ function PhotoGrid({
             },
           }}
         />
+        {!splitDisabled && i < group.photoIds.length - 1 && (
+          <button type="button" className="btn btn-ghost" onClick={() => onSplitPhoto(group.id, i)}>
+            Danach trennen
+          </button>
+        )}
+        </div>
       ))}
     </div>
   );
@@ -170,6 +182,8 @@ export function ReviewBoard({
   onMovePhoto,
   onReorderPhoto,
   onDeleteGroup,
+  onSplitPhoto,
+  splitDisabled,
   onAddGroup,
   onWriteAll,
   onBack,
@@ -188,7 +202,7 @@ export function ReviewBoard({
         Prüfe die Zuordnung. Du kannst Artikel umbenennen und Fotos neu
         anordnen. Das erste Foto wird das eBay-Titelbild. Über das Menü unter
         einem Foto kannst du es einem anderen Artikel zuordnen. Erstelle
-        anschließend die Entwürfe.
+        anschließend die Entwürfe. „Danach trennen“ teilt die Fotos dauerhaft in zwei Artikel.
       </p>
 
       <div className="board">
@@ -222,6 +236,8 @@ export function ReviewBoard({
                 photoById={photoById}
                 onMovePhoto={onMovePhoto}
                 onReorderPhoto={onReorderPhoto}
+                onSplitPhoto={onSplitPhoto}
+                splitDisabled={splitDisabled || group.postStatus === "posted" || Boolean(group.publicationAttemptSku) || Boolean(group.cloudBatchId && !group.listing && group.status !== "error")}
               />
             )}
           </article>

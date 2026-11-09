@@ -1,3 +1,4 @@
+import { usesEyewearDefaults } from "./listing-mode";
 import {workspaceStorageKey} from "./workspace-scope";
 import { z } from "zod";
 import type { AccountOptions } from "./ebay/publish";
@@ -65,6 +66,16 @@ export function applyShopListing(
   settings: ShopPreferences,
   baseDescription = listing.description,
 ): ListingResult {
+  if (!usesEyewearDefaults(listing)) {
+    const legacyDefault = /^Ungetragen ohne Etui(?:,? ohne Demoscheiben)?$/i.test(listing.condition_notes?.trim() ?? "");
+    return {
+      ...listing,
+      description: baseDescription,
+      condition: legacyDefault ? "GOOD" : listing.condition ?? "GOOD",
+      ebay_condition: legacyDefault ? undefined : listing.ebay_condition,
+      condition_notes: legacyDefault ? "Gebraucht." : listing.condition_notes || "Gebraucht.",
+    };
+  }
   const description = settings.descriptionTemplate.trim()
     ? settings.descriptionTemplate.replace(
         /\{\{(beschreibung|titel)\}\}/g,
@@ -96,7 +107,9 @@ export function applyShopGroup(
     group.postStatus === "posting"
   )
     return group;
-  const base = group.shopBaseDescription ?? group.listing.description;
+  const base = usesEyewearDefaults(group.listing)
+    ? group.shopBaseDescription ?? group.listing.description
+    : group.listing.description;
   const listing = applyShopListing(
     group.listing,
     settings,

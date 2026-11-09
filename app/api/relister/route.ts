@@ -1,0 +1,342 @@
+import { randomUUID } from "node:crypto";
+import { after, NextRequest, NextResponse } from "next/server";
+import { withAccount, sameOrigin, accountDb } from "@/lib/accounts/server";
+import { currentAccount, accountsEnabled } from "@/lib/accounts/context";
+import { guardApiRequest } from "@/lib/api-guard";
+import {
+  enabled,
+  catalog,
+  saveCatalog,
+  jobs,
+  insert,
+  getJob,
+  command,
+  repository,
+} from "@/lib/relister/store";
+import { preview, processJob } from "@/lib/relister/jobs";
+import { reader } from "@/lib/relister/ebay";
+import { syncStep } from "@/lib/relister/sync";
+import { exclusions, reducedPrice, type Job } from "@/lib/relister/domain";
+import { sampleListing } from "@/lib/relister/simulation";
+import { backgroundReady, wakeRelister } from "@/lib/relister/worker";
+export const maxDuration = 300;
+async function saveApprovals(job: Job, rows: Job["rows"]) {
+  const { error } = await accountDb().from("relister_approvals").upsert(
+    rows.map((row) => ({
+      job_id: job.id,
+      item_id: row.listing.id,
+      account_id: job.account,
+      seller: job.seller,
+      snapshot_digest: job.previewDigest,
+      target_cents: row.targetCents,
+      expires_at: "9999-12-31T23:59:59.999Z",
+    })),
+    { onConflict: "job_id,item_id" },
+  );
+  if (error) throw Error("Auftragsfreigabe konnte nicht gespeichert werden.");
+}
+async function handle(req: NextRequest) {
+  const denied = guardApiRequest(req);
+  if (denied) return denied;
+  if (!enabled() || !accountsEnabled())
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Re-Lister benötigt freigeschaltete Konten und die geprüfte Datenbankmigration.",
+      },
+      { status: 503 },
+    );
+  const account = currentAccount()!;
+  if (!account.owner)
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Der Re-Lister ist nur für das Eigentümerkonto verfügbar.",
+      },
+      { status: 403 },
+    );
+  try {
+    if (req.method === "GET") {
+      const params = req.nextUrl.searchParams;
+      if (params.get("view") === "status") {
+        const db = accountDb();
+        const [jobState, syncState] = await Promise.all([
+          db.from("relister_jobs").select("id,revision,pending").eq("account_id", account.id)
+            .order("created_at", { ascending: false }).limit(20),
+          db.from("relister_sync").select("updated_at,pending").eq("account_id", account.id).maybeSingle(),
+        ]);
+        if (jobState.error || syncState.error) throw Error("Status nicht verfügbar.");
+        return NextResponse.json({
+          ok: true,
+          version: JSON.stringify([jobState.data, syncState.data]),
+        }, { headers: { "Cache-Control": "private, no-store" } });
+      }
+      if (params.get("view") === "details") {
+        const job = await getJob(account.id, params.get("job") ?? "");
+        const row = job.rows.find((item) => item.id === params.get("row"));
+        if (!row) throw Error("Artikel nicht gefunden.");
+        return NextResponse.json({
+          ok: true,
+          history: row.history,
+          backup: row.backup && {
+            version: row.backup.version,
+            imageCount: row.backup.images.length,
+            digest: row.backup.digest,
+          },
+        }, { headers: { "Cache-Control": "private, no-store" } });
+      }
+      return NextResponse.json(
+        {
+          ok: true,
+          catalog: await catalog(account.id),
+          jobs: (await jobs(account.id)).map((job) => ({
+            ...job,
+            rows: job.rows.map(({ backup: _backup, outgoing: _outgoing, ...row }) => ({
+              ...row,
+              history: row.history.map(({ phase, at }) => ({ phase, at })),
+            })),
+          })),
+          sync: (
+            await accountDb()
+              .from("relister_sync")
+              .select("document,pending")
+              .eq("account_id", account.id)
+              .maybeSingle()
+          ).data,
+          mode: "dry-run",
+          runner: backgroundReady() ? "background" : "browser",
+          viewsNotice:
+            "Aufrufe nicht verfügbar. Analytics-Berechtigung wurde nicht erweitert.",
+        },
+        { headers: { "Cache-Control": "private, no-store" } },
+      );
+    }
+    if (!sameOrigin(req))
+      return NextResponse.json({ ok: false }, { status: 403 });
+    const body = await req.json();
+    if (body.action === "advance") {
+      if (backgroundReady()) {
+        await wakeRelister();
+        return NextResponse.json({ ok: true });
+      }
+      await syncStep(account.id);
+      const next = (await jobs(account.id)).find(
+        (j) =>
+          j.confirmed &&
+          !j.paused &&
+          j.mode !== "live" &&
+          j.rows.some(
+            (r) =>
+              !["completed", "review", "skipped"].includes(r.phase) &&
+              !(j.mode === "dry-run" && r.phase === "ready"),
+          ),
+      );
+      if (next) await processJob(next.id);
+      return NextResponse.json({ ok: true });
+    }
+    if (body.action === "sync") {
+      const ebay = await reader();
+      const queued = await accountDb()
+        .from("relister_sync")
+        .upsert({
+          account_id: account.id,
+          seller: ebay.seller,
+          document: { stage: "pages", page: 1, items: [], cursor: 0 },
+          pending: true,
+        });
+      if (queued.error) throw Error("Sync-Auftrag nicht gespeichert.");
+      await wakeRelister();
+      return NextResponse.json({ ok: true });
+    }
+    if (body.action === "demo") {
+      await saveCatalog(
+        account.id,
+        "SIMULATION",
+        Array.from({ length: 205 }, (_, i) =>
+          sampleListing(String(100000000000 + i)),
+        ),
+      );
+      return NextResponse.json({ ok: true });
+    }
+    if (body.action === "preview" || body.action === "start") {
+      const direct = body.action === "start";
+      if (direct && process.env.RELISTER_LIVE_ENABLED !== "true")
+        return NextResponse.json(
+          { ok: false, error: "Das Neueinstellen von eBay-Angeboten ist derzeit deaktiviert." },
+          { status: 503 },
+        );
+      const c = await catalog(account.id);
+      if (!c) throw Error("Zuerst synchronisieren.");
+      if (!Array.isArray(body.ids) || body.ids.length > 100)
+        throw Error("Ungültige Auswahl.");
+      const selected = body.ids.map((id: string) =>
+        c.listings.find((l) => l.id === id),
+      );
+      if (selected.some((l: unknown) => !l))
+        throw Error("Auswahl nicht im Verkäuferbestand.");
+      const conflicts = direct ? [] : selected.flatMap((listing: any) =>
+        exclusions(
+          listing,
+          c.seller,
+          reducedPrice(listing.priceCents, body.percent),
+        ).map((reason) => `${listing.id}: ${reason}`),
+      );
+      if (conflicts.length)
+        return NextResponse.json(
+          { ok: false, error: conflicts.join("; ") },
+          { status: 400 },
+        );
+      const job = preview(account.id, c.seller, selected, body.percent, direct);
+      if (direct) {
+        if (c.seller === "SIMULATION") throw Error("Für Testdaten bitte den Probelauf verwenden.");
+        job.mode = "live";
+        // Persist approval before the job becomes eligible for processing.
+        await insert(job);
+        await saveApprovals(job, job.rows);
+        await command(account.id, job.id, "confirm");
+        after(async () => {
+          try {
+            await processJob(job.id);
+          } catch {
+            console.warn("relister-initial-processing-deferred");
+          }
+          await wakeRelister();
+        });
+        return NextResponse.json({ ok: true, job: { ...job, confirmed: true } });
+      }
+      if (c.seller !== "SIMULATION") {
+        job.mode = "dry-run";
+        job.confirmed = true;
+      }
+      await insert(job);
+      await wakeRelister();
+      return NextResponse.json({ ok: true, job });
+    }
+    if (body.action === "retry-review") {
+      if (typeof body.id !== "string" || !Array.isArray(body.itemIds))
+        throw Error("Auftrag oder Angebote fehlen.");
+      if (body.itemIds.length < 1 || body.itemIds.length > 100)
+        throw Error("1 bis 100 Angebote erneut prüfen.");
+      const job = await getJob(account.id, body.id);
+      const requested = new Set(body.itemIds);
+      if (
+        requested.size !== body.itemIds.length ||
+        !["dry-run", "live"].includes(job.mode) ||
+        !job.confirmed ||
+        job.paused ||
+        job.seller === "SIMULATION"
+      )
+        throw Error("Nur bestätigte Prüfungen eines echten Angebotsbatches können wiederholt werden.");
+      const rows = job.rows.filter((row) => requested.has(row.id));
+      if (rows.length !== requested.size)
+        throw Error("Ein Angebot gehört nicht zu diesem Auftrag.");
+      const unsafePhases = new Set(["end_requested", "ended", "create_requested", "created", "completed"]);
+      for (const row of rows) {
+        if (
+          row.phase !== "review" ||
+          row.newId ||
+          row.createAttempted ||
+          row.history.some((entry) => unsafePhases.has(entry.phase))
+        )
+          throw Error("Mindestens ein Angebot kann nicht gefahrlos erneut geprüft werden.");
+      }
+      if (job.mode === "live") {
+        const retry = preview(account.id, job.seller, rows.map(row => row.listing), rows[0].percent);
+        retry.mode = "dry-run";
+        retry.confirmed = true;
+        await insert(retry);
+        await wakeRelister();
+        return NextResponse.json({ ok: true, job: retry });
+      }
+      for (const row of rows) {
+        // Backups are immutable. Use a new storage namespace and fetch the
+        // source listing's current, highest-resolution images on every retry.
+        Object.assign(row, { backupNamespace: randomUUID() });
+        row.backup = undefined;
+        row.phase = "selected";
+        row.outgoing = undefined;
+        row.feeCents = undefined;
+        row.verifiedAt = undefined;
+        row.error = undefined;
+        row.nextAttemptAt = undefined;
+        row.attempts = 0;
+        row.history.push({
+          at: new Date().toISOString(),
+          phase: "selected",
+          note: "Frische Sicherung direkt vom aktiven eBay-Angebot angefordert; Bilder werden neu und in größter verfügbarer Auflösung geladen. Kein Angebot wird beendet oder eingestellt.",
+        });
+      }
+      await repository(account.id).save(job);
+      await wakeRelister();
+      return NextResponse.json({ ok: true, job });
+    }
+    if (["confirm", "pause", "resume"].includes(body.action)) {
+      if (typeof body.id !== "string") throw Error("Auftrag fehlt.");
+      const { data: record, error: readError } = await accountDb().from("relister_jobs")
+        .select("document,revision,pending").eq("account_id", account.id).eq("id", body.id).single();
+      if (readError || !record) throw Error("Auftrag nicht gefunden.");
+      const job = record.document as Awaited<ReturnType<typeof getJob>>;
+      if (body.action === "confirm") {
+        if (body.digest !== job.previewDigest)
+          throw Error("Vorschau stimmt nicht überein.");
+        if (job.mode === "dry-run") {
+          if (process.env.RELISTER_LIVE_ENABLED !== "true")
+            throw Error("Live-Erstellung ist derzeit nicht freigegeben.");
+          const ready = job.rows.filter(row => row.phase === "ready");
+          const requested = new Set(Array.isArray(body.itemIds) ? body.itemIds : job.rows.map(row => row.id));
+          if (
+            job.paused || !job.confirmed || record.pending ||
+            requested.size !== ready.length || ready.some(row => !requested.has(row.id)) ||
+            job.rows.some(row => !["ready", "review", "skipped"].includes(row.phase)) ||
+            ready.length < 1 ||
+            job.rows.length > 100 ||
+            ready.some(
+              (row) =>
+                !row.backup ||
+                !row.outgoing ||
+                row.feeCents !== 0,
+            )
+          )
+            throw Error(
+              "Nicht alle ausgewählten Angebote sind fertig geprüft.",
+            );
+          await saveApprovals(job, ready);
+          // Review and skipped rows stay terminal and receive no authorization.
+          const activated = await accountDb().from("relister_jobs")
+            .update({ document: { ...job, mode: "live" }, pending: true,
+              updated_at: new Date().toISOString(), revision: Number(record.revision) + 1 })
+            .eq("id", job.id).eq("account_id", account.id).eq("revision", record.revision)
+            .eq("pending", false).select("id").maybeSingle();
+          if (activated.error || !activated.data)
+            throw Error(
+              "Auftragsfreigabe fehlgeschlagen. Bitte Vorschau erneut laden.",
+            );
+          await wakeRelister();
+          return NextResponse.json({ ok: true });
+        }
+        if (job.mode !== "simulation")
+          throw Error("Auftrag bereits bestätigt.");
+        job.confirmed = true;
+      } else job.paused = body.action === "pause";
+      await command(account.id, job.id, body.action);
+      if (body.action !== "pause") await wakeRelister();
+      return NextResponse.json({ ok: true, job });
+    }
+    return NextResponse.json(
+      { ok: false, error: "Unbekannte Aktion." },
+      { status: 400 },
+    );
+  } catch {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Re-Lister-Anfrage fehlgeschlagen. Auswahl, Konto und Konfiguration prüfen.",
+      },
+      { status: 400 },
+    );
+  }
+}
+export const GET = withAccount(handle);
+export const POST = withAccount(handle);

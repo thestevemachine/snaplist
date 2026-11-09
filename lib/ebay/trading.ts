@@ -69,7 +69,7 @@ export interface TradingResponse {
 
 export async function tradingCall(
   token: string,
-  call: "GetItem" | "GetUser" | "VerifyAddFixedPriceItem" | "AddFixedPriceItem",
+  call: "GetItem" | "GetUser" | "GetMyeBaySelling" | "GetBestOffers" | "EndFixedPriceItem" | "VerifyAddFixedPriceItem" | "AddFixedPriceItem",
   content: string,
 ): Promise<TradingResponse> {
   requireGermanMarketplace();
@@ -103,9 +103,9 @@ export async function tradingCall(
     /<!DOCTYPE|<!ENTITY/i.test(text) ||
     XMLValidator.validate(text) !== true
   )
-    throw new Error(
+    throw Object.assign(new Error(
       "eBay hat keine gültige Trading-Antwort geliefert. Bei einer Übertragung zuerst im Seller Hub nachsehen.",
-    );
+    ), {httpStatus:response.status});
   const parsed = new XMLParser({
     ignoreAttributes: false,
     parseTagValue: false,

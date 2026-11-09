@@ -1,4 +1,5 @@
-import {pageAccount} from "@/lib/accounts/server";
+import AppNavigation from "./AppNavigation";
+import { pageAccount } from "@/lib/accounts/server";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#1d6b5f",
+  themeColor: "#f5f5f7",
 };
 
 export default async function RootLayout({
@@ -21,10 +22,16 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const account=await pageAccount();
+  const account = await pageAccount();
   return (
     <html lang="de">
-      <body data-account={account?.id} data-account-owner={account?.owner ? "true" : undefined}>{children}</body>
+      <body
+        data-account={account?.id}
+        data-account-owner={account?.owner ? "true" : undefined}
+      >
+        <AppNavigation />
+        {children}
+      </body>
     </html>
   );
 }

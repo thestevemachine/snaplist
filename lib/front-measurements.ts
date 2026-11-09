@@ -1,4 +1,4 @@
-import {cvRecordSchema,cvMeasurement} from "./cv-measurement";
+import {automaticFrameWidth, WIDTH_RANGE_NOTE, cvRecordSchema,cvMeasurement} from "./cv-measurement";
 import {MEASUREMENT_PHOTO_PROMPT} from "./measurement-photos";
 import {lensReference} from "./lens-reference";
 import { isSunglasses } from "./category-selection";
@@ -163,7 +163,6 @@ export function calculateFrontMeasurement(
     height < 10 ||
     height > 100 ||
     total < 60 ||
-    total > 250 ||
     total / reference < 2
   ) {
     result.reasons.push(
@@ -172,14 +171,15 @@ export function calculateFrontMeasurement(
     return result;
   }
   result.lensHeightMm = Math.round(height);
-  // Physical horizontal extent, with no fixed offset.
-  result.totalWidthMm = Math.round(total);
   const projectedBridge = (reference * (b.l.x - a.r.x)) / result.lensWidthPx;
   if(projectedBridge>=5 && projectedBridge<=40) result.bridgeWidthMm=Math.round(projectedBridge);
   const bridge = listing.eyewear?.fields.bridgeWidth;
   const bridgeMm = Number(
     bridge?.value.replace(/\s*mm$/i, "").replace(",", "."),
   );
+  const width = automaticFrameWidth(total, reference, bridge?.source === "manual" || (bridge?.source === "label" && bridge.quote && bridge.photos?.length) ? bridgeMm : undefined);
+  result.totalWidthMm = width.mm;
+  if (width.fallback) result.reasons.push(WIDTH_RANGE_NOTE);
   if (
     (bridge?.source === "manual" || (bridge?.source === "label" && bridge.quote && bridge.photos?.length)) &&
     bridgeMm >= 5 &&

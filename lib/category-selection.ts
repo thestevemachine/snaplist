@@ -1,3 +1,4 @@
+import { isEyewearCase } from "./listing-mode";
 import type { ListingResult } from "./types";
 import type { CategorySuggestion } from "./ebay/taxonomy";
 export function expectedDepartment(l: ListingResult): string {
@@ -31,6 +32,7 @@ export function categoryMatches(
 }
 
 export function isSunglasses(l: ListingResult): boolean {
+  if (isEyewearCase(l)) return false;
   if (l.eyewear_kind) return l.eyewear_kind === "sunglasses";
   if (
     /^(brille|korrektionsfassung|brillenfassung|eyeglasses|eyeglass frames|optical frames)$/i.test(
